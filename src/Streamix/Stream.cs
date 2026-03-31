@@ -438,10 +438,66 @@ public sealed class Stream<T> : IStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<IList<T>> Buffer(int count) => throw new NotImplementedException();
+    public IStream<IList<T>> Buffer(int count)
+    {
+        if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
+        return Stream.From(BufferInternal(count));
+    }
+
+    private async IAsyncEnumerable<IList<T>> BufferInternal(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var buffer = new List<T>(count);
+        await foreach (var item in this.WithCancellation(cancellationToken))
+        {
+            buffer.Add(item);
+            if (buffer.Count == count)
+            {
+                yield return buffer;
+                buffer = new List<T>(count);
+            }
+        }
+
+        if (buffer.Count > 0)
+        {
+            yield return buffer;
+        }
+    }
 
     /// <inheritdoc />
-    public IStream<IStream<T>> Window(int count) => throw new NotImplementedException();
+    public IStream<IStream<T>> Window(int count)
+    {
+        if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
+        return Stream.From(WindowInternal(count));
+    }
+
+    private async IAsyncEnumerable<IStream<T>> WindowInternal(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var items = new List<T>(count);
+        await foreach (var item in this.WithCancellation(cancellationToken))
+        {
+            items.Add(item);
+            if (items.Count == count)
+            {
+                yield return Stream.From(ToAsyncEnumerable(items));
+                items = new List<T>(count);
+            }
+        }
+
+        if (items.Count > 0)
+        {
+            yield return Stream.From(ToAsyncEnumerable(items));
+        }
+    }
+
+    private async IAsyncEnumerable<T> ToAsyncEnumerable(IEnumerable<T> items)
+    {
+        foreach (var item in items)
+        {
+            yield return item;
+        }
+        await Task.Yield();
+    }
+
 
     /// <inheritdoc />
     public IStream<T> Throttle(TimeSpan interval) => throw new NotImplementedException();
