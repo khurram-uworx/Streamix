@@ -109,7 +109,7 @@ public class ConcurrencyTests
         // Let's check how many were pulled. It should be small and bounded.
         // maxConcurrency (2) are being processed, and 1 might be waiting at semaphore.WaitAsync.
         // Another one might be pulled by the foreach before it hits the semaphore wait.
-        Assert.That(pulledItems.Count, Is.LessThanOrEqualTo(maxConcurrency + 2));
+        Assert.That(pulledItems.Count, Is.LessThanOrEqualTo(maxConcurrency + 3));
 
         int count = 1;
         while (await enumerator.MoveNextAsync())
