@@ -196,6 +196,7 @@ stream
 * [x] T11. Implement Error Recovery APIs
 * [x] T12. Implement Hot Stream Support
 * [x] T13. Implement Interop with `IAsyncEnumerable<T>` and AsyncRx.NET
+* [x] T14. Implement Scheduler / Execution Control
 * Structured concurrency support
 * ASP.NET Core integration for reactive endpoints
 * Additional time-based operators
