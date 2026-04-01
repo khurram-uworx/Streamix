@@ -710,7 +710,7 @@ public sealed class Stream<T> : IStream<T>
     }
 
     /// <inheritdoc />
-    public IConnectableStream<T> Publish() => throw new NotImplementedException();
+    public IConnectableStream<T> Publish() => new Streamix.Operators.ConnectableStream<T>(this);
 
     /// <inheritdoc />
     public IStream<T> RunOn(TaskScheduler scheduler) => throw new NotImplementedException();
