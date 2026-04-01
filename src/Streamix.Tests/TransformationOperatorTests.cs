@@ -158,9 +158,8 @@ internal static class StreamExtensions
     {
         var list = new List<T>();
         await foreach (var item in stream.WithCancellation(cancellationToken))
-        {
             list.Add(item);
-        }
+
         return list;
     }
 }

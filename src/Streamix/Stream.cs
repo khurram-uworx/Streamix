@@ -16,7 +16,7 @@ public sealed class Stream<T> : IStream<T>
     {
         if (streams == null || streams.Length == 0) yield break;
 
-        var channel = System.Threading.Channels.Channel.CreateUnbounded<T>();
+        var channel = Channel.CreateUnbounded<T>();
         var tasks = new List<Task>();
 
         foreach (var stream in streams)
@@ -26,9 +26,7 @@ public sealed class Stream<T> : IStream<T>
                 try
                 {
                     await foreach (var item in stream.WithCancellation(cancellationToken))
-                    {
                         await channel.Writer.WriteAsync(item, cancellationToken);
-                    }
                 }
                 catch (Exception ex)
                 {
@@ -41,22 +39,14 @@ public sealed class Stream<T> : IStream<T>
         _ = Task.WhenAll(tasks).ContinueWith(t =>
         {
             if (t.IsFaulted)
-            {
                 channel.Writer.TryComplete(t.Exception?.InnerException);
-            }
             else
-            {
                 channel.Writer.TryComplete();
-            }
         }, cancellationToken);
 
         while (await channel.Reader.WaitToReadAsync(cancellationToken))
-        {
             while (channel.Reader.TryRead(out var item))
-            {
                 yield return item;
-            }
-        }
 
         // Ensure any exception that completed the channel is rethrown
         await channel.Reader.Completion;
@@ -73,9 +63,7 @@ public sealed class Stream<T> : IStream<T>
             var t2 = e2.MoveNextAsync();
 
             if (!await t1 || !await t2)
-            {
                 yield break;
-            }
 
             yield return resultSelector(e1.Current, e2.Current);
         }
@@ -93,31 +81,21 @@ public sealed class Stream<T> : IStream<T>
     async IAsyncEnumerable<TResult> map<TResult>(Func<T, TResult> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             yield return selector(item);
-        }
     }
 
     async IAsyncEnumerable<T> filter(Func<T, bool> predicate, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             if (predicate(item))
-            {
                 yield return item;
-            }
-        }
     }
 
     async IAsyncEnumerable<TResult> flatMap<TResult>(Func<T, ISingle<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             await foreach (var innerItem in selector(item).WithCancellation(cancellationToken))
-            {
                 yield return innerItem;
-            }
-        }
     }
 
     async IAsyncEnumerable<TResult> flatMapConcurrent<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -125,9 +103,7 @@ public sealed class Stream<T> : IStream<T>
         if (maxConcurrency == 1)
         {
             await foreach (var item in this.WithCancellation(cancellationToken))
-            {
                 yield return await selector(item);
-            }
             yield break;
         }
 
@@ -217,9 +193,7 @@ public sealed class Stream<T> : IStream<T>
                 if (!hasMore) break;
 
                 while (channel.Reader.TryRead(out var result))
-                {
                     yield return result;
-                }
             }
 
             // Wait for producer to complete and check for exceptions
@@ -236,12 +210,8 @@ public sealed class Stream<T> : IStream<T>
     async IAsyncEnumerable<TResult> flatMapMany<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             await foreach (var innerItem in selector(item).WithCancellation(cancellationToken))
-            {
                 yield return innerItem;
-            }
-        }
     }
 
     async IAsyncEnumerable<TResult> flatMapManyConcurrent<TResult>(Func<T, IAsyncEnumerable<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -265,9 +235,7 @@ public sealed class Stream<T> : IStream<T>
                         try
                         {
                             await foreach (var result in selector(item).WithCancellation(cts.Token))
-                            {
                                 await channel.Writer.WriteAsync(result, cts.Token);
-                            }
                         }
                         catch (Exception ex)
                         {
@@ -318,9 +286,7 @@ public sealed class Stream<T> : IStream<T>
                 if (!hasMore) break;
 
                 while (channel.Reader.TryRead(out var result))
-                {
                     yield return result;
-                }
             }
 
             // Wait for producer to complete and check for exceptions
@@ -360,9 +326,7 @@ public sealed class Stream<T> : IStream<T>
         }
 
         if (buffer.Count > 0)
-        {
             yield return buffer;
-        }
     }
 
     async IAsyncEnumerable<IStream<T>> window(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -387,9 +351,8 @@ public sealed class Stream<T> : IStream<T>
     async IAsyncEnumerable<T> toAsyncEnumerable(IEnumerable<T> items)
     {
         foreach (var item in items)
-        {
             yield return item;
-        }
+
         await Task.Yield();
     }
 
@@ -431,18 +394,12 @@ public sealed class Stream<T> : IStream<T>
             await timeoutCts.CancelAsync();
 
             if (completedTask == timeoutTask)
-            {
                 throw new TimeoutException($"The operation has timed out after {interval}.");
-            }
 
             if (await moveNextTask)
-            {
                 yield return enumerator.Current;
-            }
             else
-            {
                 break;
-            }
         }
     }
 
@@ -477,30 +434,22 @@ public sealed class Stream<T> : IStream<T>
                     }
 
                     if (hasNext)
-                    {
                         yield return enumerator.Current;
-                    }
                     else
-                    {
                         break;
-                    }
                 }
             }
         }
         finally
         {
             if (enumerator != null)
-            {
                 await enumerator.DisposeAsync();
-            }
         }
 
         if (resumeSource != null)
         {
             await foreach (var item in resumeSource.WithCancellation(cancellationToken))
-            {
                 yield return item;
-            }
         }
     }
 
@@ -557,13 +506,9 @@ public sealed class Stream<T> : IStream<T>
                     }
 
                     if (hasNext)
-                    {
                         yield return current;
-                    }
                     else
-                    {
                         break;
-                    }
                 }
             }
 
@@ -580,18 +525,77 @@ public sealed class Stream<T> : IStream<T>
             {
                 var hasNext = await Task.Factory.StartNew(() => enumerator.MoveNextAsync().AsTask(), cancellationToken, TaskCreationOptions.None, scheduler).Unwrap();
                 if (hasNext)
-                {
                     yield return enumerator.Current;
-                }
                 else
-                {
                     break;
-                }
             }
         }
         finally
         {
             await Task.Factory.StartNew(() => enumerator.DisposeAsync().AsTask(), cancellationToken, TaskCreationOptions.None, scheduler).Unwrap();
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnNext(Action<T> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in this.WithCancellation(cancellationToken))
+        {
+            onNext(item);
+            yield return item;
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnError(Action<Exception> onError, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        IAsyncEnumerator<T>? enumerator = null;
+        try
+        {
+            try
+            {
+                enumerator = source.GetAsyncEnumerator(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                onError(ex);
+                throw;
+            }
+
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (Exception ex)
+                {
+                    onError(ex);
+                    throw;
+                }
+
+                if (hasNext)
+                    yield return enumerator.Current;
+                else
+                    break;
+            }
+        }
+        finally
+        {
+            if (enumerator != null)
+                await enumerator.DisposeAsync();
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnTerminate(Action onTerminate, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+                yield return item;
+        }
+        finally
+        {
+            onTerminate();
         }
     }
 
@@ -664,6 +668,8 @@ public sealed class Stream<T> : IStream<T>
     /// <summary>
     /// Merges multiple streams into one by combining their elements.
     /// </summary>
+    /// <param name="streams">The streams to merge.</param>
+    /// <returns>A merged stream.</returns>
     public static IStream<T> Merge(params IStream<T>[] streams)
     {
         return Stream.From(merge(streams));
@@ -672,6 +678,13 @@ public sealed class Stream<T> : IStream<T>
     /// <summary>
     /// Combines elements from multiple streams using a specified function.
     /// </summary>
+    /// <typeparam name="T1">The type of items in the first stream.</typeparam>
+    /// <typeparam name="T2">The type of items in the second stream.</typeparam>
+    /// <typeparam name="TResult">The type of items in the resulting stream.</typeparam>
+    /// <param name="first">The first stream.</param>
+    /// <param name="second">The second stream.</param>
+    /// <param name="resultSelector">The result selector function.</param>
+    /// <returns>A zipped stream.</returns>
     public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector)
     {
         return Stream.From(zip(first, second, resultSelector));
@@ -761,18 +774,32 @@ public sealed class Stream<T> : IStream<T>
     public async Task ForEachAsync(Action<T> action, CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             action(item);
-        }
     }
 
     /// <inheritdoc />
     public async Task ForEachAsync(Func<T, Task> action, CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
-        {
             await action(item);
-        }
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnNext(Action<T> onNext)
+    {
+        return Stream.From(doOnNext(onNext), clock);
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnError(Action<Exception> onError)
+    {
+        return Stream.From(doOnError(onError), clock);
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnTerminate(Action onTerminate)
+    {
+        return Stream.From(doOnTerminate(onTerminate), clock);
     }
 }
 
@@ -786,6 +813,9 @@ public static class Stream
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="source">The source asynchronous enumerable.</param>
+    /// <returns>A stream wrapping the source.</returns>
     public static IStream<T> From<T>(IAsyncEnumerable<T> source)
     {
         if (source is IStream<T> stream) return stream;
@@ -795,39 +825,60 @@ public static class Stream
     /// <summary>
     /// Creates a stream from a <see cref="ISingle{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="source">The source single-item stream.</param>
+    /// <returns>A stream wrapping the source.</returns>
     public static IStream<T> From<T>(ISingle<T> source) => new Stream<T>(source);
 
     /// <summary>
     /// Creates a stream from a single value.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="value">The value to emit.</param>
+    /// <returns>A stream that emits the specified value and then completes.</returns>
     public static IStream<T> From<T>(T value) => From(AsyncEnumerable.Just(value));
 
     /// <summary>
-    /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/> with a specific clock.
-    /// </summary>
-    /// <summary>
     /// Creates an empty stream.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <returns>An empty stream.</returns>
     public static IStream<T> Empty<T>() => From(AsyncEnumerable.Empty<T>());
 
     /// <summary>
     /// Creates a stream that fails with the specified exception.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="exception">The exception to fail with.</param>
+    /// <returns>A failing stream.</returns>
     public static IStream<T> Error<T>(Exception exception) => From(AsyncEnumerable.Error<T>(exception));
 
     /// <summary>
     /// Creates a stream that emits a range of sequential integers.
     /// </summary>
+    /// <param name="start">The value of the first integer in the sequence.</param>
+    /// <param name="count">The number of sequential integers to generate.</param>
+    /// <returns>A stream that contains a range of sequential integers.</returns>
     public static IStream<int> Range(int start, int count) => From(AsyncEnumerable.Range(start, count));
 
     /// <summary>
     /// Merges multiple streams into one by combining their elements.
     /// </summary>
+    /// <typeparam name="T">The type of items in the streams.</typeparam>
+    /// <param name="streams">The streams to merge.</param>
+    /// <returns>A merged stream.</returns>
     public static IStream<T> Merge<T>(params IStream<T>[] streams) => Stream<T>.Merge(streams);
 
     /// <summary>
     /// Combines elements from multiple streams using a specified function.
     /// </summary>
+    /// <typeparam name="T1">The type of items in the first stream.</typeparam>
+    /// <typeparam name="T2">The type of items in the second stream.</typeparam>
+    /// <typeparam name="TResult">The type of items in the resulting stream.</typeparam>
+    /// <param name="first">The first stream.</param>
+    /// <param name="second">The second stream.</param>
+    /// <param name="resultSelector">The result selector function.</param>
+    /// <returns>A zipped stream.</returns>
     public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector) => Stream<TResult>.Zip(first, second, resultSelector);
 }
 
@@ -845,6 +896,7 @@ internal static class AsyncEnumerable
 
     public static async IAsyncEnumerable<T> Error<T>(Exception exception, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await Task.Yield();
         throw exception;
         yield break;
     }
