@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using Streamix.Abstractions;
-using System.Reflection;
 
 namespace Streamix.Tests;
 

@@ -1,6 +1,6 @@
-using System.Runtime.CompilerServices;
 using Streamix.Abstractions;
 using Streamix.Concurrency;
+using System.Runtime.CompilerServices;
 
 namespace Streamix;
 

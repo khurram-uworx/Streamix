@@ -1,15 +1,44 @@
-using System.Reactive.Linq;
-using System.Reactive.Disposables;
-using System.Runtime.CompilerServices;
 using Streamix.Abstractions;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 
-namespace Streamix.Interop.AsyncRx;
+namespace Streamix.Extensions;
 
 /// <summary>
 /// Provides extension methods for interoperability between Streamix and AsyncRx.NET.
 /// </summary>
 public static class AsyncRxInteropExtensions
 {
+    static async IAsyncEnumerable<T> toAsyncEnumerable<T>(IAsyncObservable<T> source, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var channel = System.Threading.Channels.Channel.CreateUnbounded<T>();
+
+        var subscription = await source.SubscribeAsync(
+            async x => await channel.Writer.WriteAsync(x, cancellationToken),
+            async ex => channel.Writer.TryComplete(ex),
+            async () => channel.Writer.TryComplete()
+        );
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
+            }
+
+            // Ensure any exception that completed the channel is rethrown
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            await subscription.DisposeAsync();
+        }
+    }
+
     /// <summary>
     /// Converts an <see cref="IStream{T}"/> to an <see cref="IAsyncObservable{T}"/>.
     /// </summary>
@@ -117,34 +146,5 @@ public static class AsyncRxInteropExtensions
     public static ISingle<T> ToSingle<T>(this IAsyncObservable<T> source)
     {
         return Single.From(toAsyncEnumerable(source));
-    }
-
-    private static async IAsyncEnumerable<T> toAsyncEnumerable<T>(IAsyncObservable<T> source, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var channel = System.Threading.Channels.Channel.CreateUnbounded<T>();
-
-        var subscription = await source.SubscribeAsync(
-            async x => await channel.Writer.WriteAsync(x, cancellationToken),
-            async ex => channel.Writer.TryComplete(ex),
-            async () => channel.Writer.TryComplete()
-        );
-
-        try
-        {
-            while (await channel.Reader.WaitToReadAsync(cancellationToken))
-            {
-                while (channel.Reader.TryRead(out var item))
-                {
-                    yield return item;
-                }
-            }
-
-            // Ensure any exception that completed the channel is rethrown
-            await channel.Reader.Completion;
-        }
-        finally
-        {
-            await subscription.DisposeAsync();
-        }
     }
 }

@@ -8,14 +8,18 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Streamix Contributors</Authors>
     <Company>uWorx</Company>
-    <Description>A lightweight, fluent, async-first streaming library for .NET.</Description>
+    <Description>Streamix Extensions</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/khurram-uworx/streamix</RepositoryUrl>
     <PackageTags>stream;reactive;async;linq;backpressure</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Streamix.Tests" />
+    <PackageReference Include="System.Reactive.Async" Version="6.0.0-alpha.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Streamix\Streamix.csproj" />
   </ItemGroup>
 
   <ItemGroup>

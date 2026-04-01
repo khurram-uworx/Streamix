@@ -1,6 +1,5 @@
-using System.Collections.Concurrent;
 using NUnit.Framework;
-using Streamix.Abstractions;
+using System.Collections.Concurrent;
 
 namespace Streamix.Tests;
 

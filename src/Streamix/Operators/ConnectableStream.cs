@@ -1,7 +1,7 @@
+using Streamix.Abstractions;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using Streamix.Abstractions;
 
 namespace Streamix.Operators;
 

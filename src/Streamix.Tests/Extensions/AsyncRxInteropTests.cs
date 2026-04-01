@@ -1,9 +1,8 @@
 using NUnit.Framework;
-using Streamix.Interop.AsyncRx;
-using System.Reactive;
+using Streamix.Extensions;
 using System.Reactive.Linq;
 
-namespace Streamix.Tests.Interop.AsyncRx;
+namespace Streamix.Tests.Extensions;
 
 [TestFixture]
 public class AsyncRxInteropTests
@@ -92,7 +91,8 @@ public class AsyncRxInteropTests
         var observable = stream.ToAsyncObservable();
 
         var results = new List<int>();
-        var subscription = await observable.SubscribeAsync(async x => {
+        var subscription = await observable.SubscribeAsync(async x =>
+        {
             results.Add(x);
         });
 
