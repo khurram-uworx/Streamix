@@ -14,8 +14,15 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
     class ConnectionDisposable : IDisposable
     {
         readonly ConnectableStream<T> stream;
+        int disposed = 0;
         public ConnectionDisposable(ConnectableStream<T> stream) => this.stream = stream;
-        public void Dispose() => stream.disconnect();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) == 0)
+            {
+                stream.disconnect();
+            }
+        }
     }
 
     readonly IStream<T> source;
@@ -41,8 +48,10 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
     {
         try
         {
-            await foreach (var item in source.WithCancellation(cancellationToken))
+            await using var enumerator = source.GetAsyncEnumerator(cancellationToken);
+            while (await enumerator.MoveNextAsync())
             {
+                var item = enumerator.Current;
                 var subscribers = this.subscribers.Values.ToArray();
 
                 foreach (var subscriber in subscribers)
@@ -168,19 +177,21 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
     async IAsyncEnumerable<T> refCount([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         IAsyncEnumerator<T>? enumerator = null;
-
-        lock (_lock)
-        {
-            refCounter++;
-            if (refCounter == 1)
-            {
-                autoConnection = Connect();
-            }
-            enumerator = this.GetAsyncEnumerator(cancellationToken);
-        }
+        bool incremented = false;
 
         try
         {
+            lock (_lock)
+            {
+                refCounter++;
+                incremented = true;
+                if (refCounter == 1)
+                {
+                    autoConnection = Connect();
+                }
+                enumerator = this.GetAsyncEnumerator(cancellationToken);
+            }
+
             while (await enumerator.MoveNextAsync())
             {
                 yield return enumerator.Current;
@@ -188,14 +199,21 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
         }
         finally
         {
-            await enumerator.DisposeAsync();
-            lock (_lock)
+            if (enumerator != null)
             {
-                refCounter--;
-                if (refCounter == 0)
+                await enumerator.DisposeAsync();
+            }
+
+            if (incremented)
+            {
+                lock (_lock)
                 {
-                    autoConnection?.Dispose();
-                    autoConnection = null;
+                    refCounter--;
+                    if (refCounter == 0)
+                    {
+                        autoConnection?.Dispose();
+                        autoConnection = null;
+                    }
                 }
             }
         }
@@ -817,9 +835,12 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
 
         try
         {
-            await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken))
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
             {
-                yield return item;
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
             }
 
             // Check for error
