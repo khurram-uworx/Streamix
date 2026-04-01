@@ -117,7 +117,7 @@ public class TimeBasedOperatorTests
 
     private class ManualAsyncEnumerable<T> : IAsyncEnumerable<T>
     {
-        private readonly TaskCompletionSource<bool> _nextTcs = new();
+        private TaskCompletionSource<bool> _nextTcs = new();
         private readonly Queue<T> _queue = new();
         private bool _completed;
         private readonly IClock _clock;
@@ -162,6 +162,9 @@ public class TimeBasedOperatorTests
                 }
 
                 if (_completed && _queue.Count == 0) yield break;
+
+                // Reset the TCS for the next iteration
+                _nextTcs = new TaskCompletionSource<bool>();
 
                 // Note: This manual implementation is simplified.
                 await Task.Delay(1, cancellationToken); // yield to allow next push
