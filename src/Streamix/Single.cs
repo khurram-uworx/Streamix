@@ -1,4 +1,3 @@
-using Streamix.Abstractions;
 using Streamix.Concurrency;
 using System.Runtime.CompilerServices;
 
@@ -184,6 +183,71 @@ public sealed class Single<T> : ISingle<T>
             yield return enumerator.Current;
     }
 
+    async IAsyncEnumerable<T> doOnNext(Action<T> onNext, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in source.WithCancellation(ct))
+        {
+            onNext(item);
+            yield return item;
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnError(Action<Exception> onError, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        IAsyncEnumerator<T>? enumerator = null;
+        try
+        {
+            try
+            {
+                enumerator = source.GetAsyncEnumerator(ct);
+            }
+            catch (Exception ex)
+            {
+                onError(ex);
+                throw;
+            }
+
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (Exception ex)
+                {
+                    onError(ex);
+                    throw;
+                }
+
+                if (hasNext)
+                    yield return enumerator.Current;
+                else
+                    break;
+            }
+        }
+        finally
+        {
+            if (enumerator != null)
+                await enumerator.DisposeAsync();
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnTerminate(Action onTerminate, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        try
+        {
+            await foreach (var item in source.WithCancellation(ct))
+            {
+                yield return item;
+            }
+        }
+        finally
+        {
+            onTerminate();
+        }
+    }
+
     internal IClock Clock => clock;
 
     /// <inheritdoc />
@@ -276,6 +340,24 @@ public sealed class Single<T> : ISingle<T>
     {
         return Single.From(timeout(interval), clock);
     }
+
+    /// <inheritdoc />
+    public ISingle<T> DoOnNext(Action<T> onNext)
+    {
+        return new Single<T>(doOnNext(onNext), clock);
+    }
+
+    /// <inheritdoc />
+    public ISingle<T> DoOnError(Action<Exception> onError)
+    {
+        return new Single<T>(doOnError(onError), clock);
+    }
+
+    /// <inheritdoc />
+    public ISingle<T> DoOnTerminate(Action onTerminate)
+    {
+        return new Single<T>(doOnTerminate(onTerminate), clock);
+    }
 }
 
 /// <summary>
@@ -296,6 +378,9 @@ public static class Single
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from an <see cref="IAsyncEnumerable{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="source">The source asynchronous enumerable.</param>
+    /// <returns>A single-item stream wrapping the source.</returns>
     public static ISingle<T> From<T>(IAsyncEnumerable<T> source) => new Single<T>(source);
 
     /// <summary>
@@ -306,21 +391,32 @@ public static class Single
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a single value.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="value">The value to emit.</param>
+    /// <returns>A single-item stream that emits the specified value and then completes.</returns>
     public static ISingle<T> From<T>(T value) => From(toAsyncEnumerable(value));
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a <see cref="Task{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="task">The task to wrap.</param>
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
     public static ISingle<T> From<T>(Task<T> task) => From(toAsyncEnumerable(task));
 
     /// <summary>
     /// Creates an empty <see cref="ISingle{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <returns>An empty single-item stream.</returns>
     public static ISingle<T> Empty<T>() => From(AsyncEnumerableInternal.Empty<T>());
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> that fails with the specified exception.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="exception">The exception to fail with.</param>
+    /// <returns>A failing single-item stream.</returns>
     public static ISingle<T> Error<T>(Exception exception) => From(AsyncEnumerableInternal.Error<T>(exception));
 }
 
@@ -333,6 +429,7 @@ static class AsyncEnumerableInternal
 
     public static async IAsyncEnumerable<T> Error<T>(Exception exception, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await Task.Yield();
         throw exception;
         yield break;
     }

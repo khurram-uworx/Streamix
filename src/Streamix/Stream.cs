@@ -1,4 +1,3 @@
-using Streamix.Abstractions;
 using Streamix.Concurrency;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -595,6 +594,77 @@ public sealed class Stream<T> : IStream<T>
         }
     }
 
+    async IAsyncEnumerable<T> doOnNext(Action<T> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in this.WithCancellation(cancellationToken))
+        {
+            onNext(item);
+            yield return item;
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnError(Action<Exception> onError, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        IAsyncEnumerator<T>? enumerator = null;
+        try
+        {
+            try
+            {
+                enumerator = source.GetAsyncEnumerator(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                onError(ex);
+                throw;
+            }
+
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (Exception ex)
+                {
+                    onError(ex);
+                    throw;
+                }
+
+                if (hasNext)
+                {
+                    yield return enumerator.Current;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            if (enumerator != null)
+            {
+                await enumerator.DisposeAsync();
+            }
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnTerminate(Action onTerminate, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+            {
+                yield return item;
+            }
+        }
+        finally
+        {
+            onTerminate();
+        }
+    }
+
     internal IClock Clock => clock;
 
     /// <inheritdoc />
@@ -664,6 +734,8 @@ public sealed class Stream<T> : IStream<T>
     /// <summary>
     /// Merges multiple streams into one by combining their elements.
     /// </summary>
+    /// <param name="streams">The streams to merge.</param>
+    /// <returns>A merged stream.</returns>
     public static IStream<T> Merge(params IStream<T>[] streams)
     {
         return Stream.From(merge(streams));
@@ -672,6 +744,13 @@ public sealed class Stream<T> : IStream<T>
     /// <summary>
     /// Combines elements from multiple streams using a specified function.
     /// </summary>
+    /// <typeparam name="T1">The type of items in the first stream.</typeparam>
+    /// <typeparam name="T2">The type of items in the second stream.</typeparam>
+    /// <typeparam name="TResult">The type of items in the resulting stream.</typeparam>
+    /// <param name="first">The first stream.</param>
+    /// <param name="second">The second stream.</param>
+    /// <param name="resultSelector">The result selector function.</param>
+    /// <returns>A zipped stream.</returns>
     public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector)
     {
         return Stream.From(zip(first, second, resultSelector));
@@ -774,6 +853,24 @@ public sealed class Stream<T> : IStream<T>
             await action(item);
         }
     }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnNext(Action<T> onNext)
+    {
+        return Stream.From(doOnNext(onNext), clock);
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnError(Action<Exception> onError)
+    {
+        return Stream.From(doOnError(onError), clock);
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnTerminate(Action onTerminate)
+    {
+        return Stream.From(doOnTerminate(onTerminate), clock);
+    }
 }
 
 /// <summary>
@@ -786,6 +883,9 @@ public static class Stream
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="source">The source asynchronous enumerable.</param>
+    /// <returns>A stream wrapping the source.</returns>
     public static IStream<T> From<T>(IAsyncEnumerable<T> source)
     {
         if (source is IStream<T> stream) return stream;
@@ -795,39 +895,60 @@ public static class Stream
     /// <summary>
     /// Creates a stream from a <see cref="ISingle{T}"/>.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="source">The source single-item stream.</param>
+    /// <returns>A stream wrapping the source.</returns>
     public static IStream<T> From<T>(ISingle<T> source) => new Stream<T>(source);
 
     /// <summary>
     /// Creates a stream from a single value.
     /// </summary>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
+    /// <param name="value">The value to emit.</param>
+    /// <returns>A stream that emits the specified value and then completes.</returns>
     public static IStream<T> From<T>(T value) => From(AsyncEnumerable.Just(value));
 
     /// <summary>
-    /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/> with a specific clock.
-    /// </summary>
-    /// <summary>
     /// Creates an empty stream.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <returns>An empty stream.</returns>
     public static IStream<T> Empty<T>() => From(AsyncEnumerable.Empty<T>());
 
     /// <summary>
     /// Creates a stream that fails with the specified exception.
     /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="exception">The exception to fail with.</param>
+    /// <returns>A failing stream.</returns>
     public static IStream<T> Error<T>(Exception exception) => From(AsyncEnumerable.Error<T>(exception));
 
     /// <summary>
     /// Creates a stream that emits a range of sequential integers.
     /// </summary>
+    /// <param name="start">The value of the first integer in the sequence.</param>
+    /// <param name="count">The number of sequential integers to generate.</param>
+    /// <returns>A stream that contains a range of sequential integers.</returns>
     public static IStream<int> Range(int start, int count) => From(AsyncEnumerable.Range(start, count));
 
     /// <summary>
     /// Merges multiple streams into one by combining their elements.
     /// </summary>
+    /// <typeparam name="T">The type of items in the streams.</typeparam>
+    /// <param name="streams">The streams to merge.</param>
+    /// <returns>A merged stream.</returns>
     public static IStream<T> Merge<T>(params IStream<T>[] streams) => Stream<T>.Merge(streams);
 
     /// <summary>
     /// Combines elements from multiple streams using a specified function.
     /// </summary>
+    /// <typeparam name="T1">The type of items in the first stream.</typeparam>
+    /// <typeparam name="T2">The type of items in the second stream.</typeparam>
+    /// <typeparam name="TResult">The type of items in the resulting stream.</typeparam>
+    /// <param name="first">The first stream.</param>
+    /// <param name="second">The second stream.</param>
+    /// <param name="resultSelector">The result selector function.</param>
+    /// <returns>A zipped stream.</returns>
     public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector) => Stream<TResult>.Zip(first, second, resultSelector);
 }
 
@@ -845,6 +966,7 @@ internal static class AsyncEnumerable
 
     public static async IAsyncEnumerable<T> Error<T>(Exception exception, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await Task.Yield();
         throw exception;
         yield break;
     }

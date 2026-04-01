@@ -202,6 +202,7 @@ stream
 * [x] T13. Implement Interop with `IAsyncEnumerable<T>` and AsyncRx.NET
 * [x] T14. Implement Scheduler / Execution Control
 * [x] T15. Add Documentation Examples as Executable Tests
+* [x] T16. Package Quality, Diagnostics, and Developer Experience
 * Structured concurrency support
 * ASP.NET Core integration for reactive endpoints
 * Additional time-based operators

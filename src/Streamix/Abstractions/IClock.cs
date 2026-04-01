@@ -1,4 +1,4 @@
-namespace Streamix.Abstractions;
+namespace Streamix;
 
 /// <summary>
 /// Defines a clock abstraction for time-based operations.

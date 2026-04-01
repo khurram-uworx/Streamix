@@ -1,4 +1,3 @@
-using Streamix.Abstractions;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
@@ -7,6 +6,7 @@ namespace Streamix.Operators;
 
 /// <summary>
 /// Implementation of <see cref="IConnectableStream{T}"/> that allows multicasting a single source to multiple subscribers.
+/// This class is internal as it's intended to be created via the <see cref="Stream{T}.Publish"/> method.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
 internal sealed class ConnectableStream<T> : IConnectableStream<T>
@@ -696,6 +696,71 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
+    async IAsyncEnumerable<T> doOnNext(Action<T> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in this.WithCancellation(cancellationToken))
+        {
+            onNext(item);
+            yield return item;
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnError(Action<Exception> onError, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        IAsyncEnumerator<T>? enumerator = null;
+        try
+        {
+            try
+            {
+                enumerator = this.GetAsyncEnumerator(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                onError(ex);
+                throw;
+            }
+
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (Exception ex)
+                {
+                    onError(ex);
+                    throw;
+                }
+
+                if (hasNext)
+                    yield return enumerator.Current;
+                else
+                    break;
+            }
+        }
+        finally
+        {
+            if (enumerator != null)
+                await enumerator.DisposeAsync();
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnTerminate(Action onTerminate, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+            {
+                yield return item;
+            }
+        }
+        finally
+        {
+            onTerminate();
+        }
+    }
+
     async Task forEachAsync(Action<T> action, CancellationToken cancellationToken)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
@@ -720,6 +785,7 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
+    /// <inheritdoc />
     public IDisposable Connect()
     {
         lock (_lock)
@@ -736,11 +802,13 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
+    /// <inheritdoc />
     public IStream<T> RefCount()
     {
         return Stream.From(refCount());
     }
 
+    /// <inheritdoc />
     public async IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
     {
         var id = Guid.NewGuid();
@@ -763,20 +831,25 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
+    /// <inheritdoc />
     public IStream<TResult> Map<TResult>(Func<T, TResult> selector)
     {
         return Stream.From(map(selector));
     }
 
+    /// <inheritdoc />
     public IStream<TResult> Select<TResult>(Func<T, TResult> selector) => Map(selector);
 
+    /// <inheritdoc />
     public IStream<T> Filter(Func<T, bool> predicate)
     {
         return Stream.From(filter(predicate));
     }
 
+    /// <inheritdoc />
     public IStream<T> Where(Func<T, bool> predicate) => Filter(predicate);
 
+    /// <inheritdoc />
     public IStream<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
@@ -785,14 +858,17 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
             : Stream.From(flatMapManyConcurrent(selector, maxConcurrency));
     }
 
+    /// <inheritdoc />
     public IStream<TResult> FlatMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = 1)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return Stream.From(flatMapConcurrent(selector, maxConcurrency));
     }
 
+    /// <inheritdoc />
     public IStream<TResult> SelectMany<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1) => FlatMap(selector, maxConcurrency);
 
+    /// <inheritdoc />
     public IStream<TResult> FlatMapMany<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency = 1)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
@@ -801,85 +877,132 @@ internal sealed class ConnectableStream<T> : IConnectableStream<T>
             : Stream.From(flatMapManyConcurrentMany(selector, maxConcurrency));
     }
 
+    /// <inheritdoc />
     public IStream<T> Take(int count)
     {
         return Stream.From(take(count));
     }
 
+    /// <inheritdoc />
     public IStream<T> Skip(int count)
     {
         return Stream.From(skip(count));
     }
 
+    /// <inheritdoc />
     public IStream<T> MergeWith(params IStream<T>[] others)
     {
         return Stream.From(mergeWith(others));
     }
 
+    /// <inheritdoc />
     public IStream<TResult> ZipWith<TOther, TResult>(IStream<TOther> other, Func<T, TOther, TResult> resultSelector)
     {
         return Stream.From(zipWith(other, resultSelector));
     }
 
+    /// <inheritdoc />
     public IStream<IList<T>> Buffer(int count)
     {
         return Stream.From(buffer(count));
     }
 
+    /// <inheritdoc />
     public IStream<IStream<T>> Window(int count)
     {
         return Stream.From(window(count));
     }
 
+    /// <inheritdoc />
     public IStream<T> Throttle(TimeSpan interval)
     {
         return Stream.From(throttle(interval));
     }
 
+    /// <inheritdoc />
     public IStream<T> Delay(TimeSpan interval)
     {
         return Stream.From(delay(interval));
     }
 
+    /// <inheritdoc />
     public IStream<T> Retry(int retryCount = 1)
     {
         return Stream.From(retry(retryCount));
     }
 
+    /// <inheritdoc />
     public IStream<T> Timeout(TimeSpan interval)
     {
         return Stream.From(timeout(interval));
     }
 
+    /// <inheritdoc />
     public IStream<T> OnErrorResume(Func<Exception, IStream<T>> errorHandler)
     {
         return Stream.From(onErrorResume(errorHandler));
     }
 
+    /// <inheritdoc />
     public IStream<T> OnErrorReturn(T value)
     {
         return Stream.From(onErrorReturn(value));
     }
 
+    /// <inheritdoc />
     public IStream<T> OnErrorMap(Func<Exception, Exception> mapper)
     {
         return Stream.From(onErrorMap(mapper));
     }
 
+    /// <inheritdoc />
     public IConnectableStream<T> Publish() => this;
 
+    /// <inheritdoc />
     public IStream<T> RunOn(TaskScheduler scheduler)
     {
         return Stream.From(runOn(scheduler));
     }
 
+    /// <inheritdoc />
     public Task ForEachAsync(Action<T> action, CancellationToken cancellationToken = default)
     {
         return forEachAsync(action, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task ForEachAsync(Func<T, Task> action, CancellationToken cancellationToken = default)
     {
         return forEachAsync(action, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnNext(Action<T> onNext)
+    {
+        return Stream.From(doOnNext(onNext));
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnError(Action<Exception> onError)
+    {
+        return Stream.From(doOnError(onError));
+    }
+
+    /// <inheritdoc />
+    public IStream<T> DoOnTerminate(Action onTerminate)
+    {
+        return Stream.From(doOnTerminate(onTerminate));
+    }
+}
+
+internal static class EnumerableExtensions
+{
+    public static async IAsyncEnumerable<T> ToAsyncEnumerable<T>(this IEnumerable<T> source)
+    {
+        foreach (var item in source)
+        {
+            yield return item;
+        }
+        await Task.Yield();
     }
 }
