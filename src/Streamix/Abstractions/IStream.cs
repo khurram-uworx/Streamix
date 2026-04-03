@@ -190,6 +190,13 @@ public interface IStream<T> : IAsyncEnumerable<T>
     IStream<T> Delay(TimeSpan interval);
 
     /// <summary>
+    /// Cancels the stream when the specified token is cancelled.
+    /// </summary>
+    /// <param name="token">The cancellation token to monitor.</param>
+    /// <returns>A <see cref="IStream{T}"/> that monitors the specified token.</returns>
+    IStream<T> CancelOn(CancellationToken token);
+
+    /// <summary>
     /// Retries a stream if it fails, up to a specified number of times.
     /// </summary>
     /// <param name="retryCount">The number of times to retry.</param>
