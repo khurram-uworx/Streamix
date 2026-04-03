@@ -240,6 +240,8 @@ public class StreamTests
         Assert.That(channel.Reader.Completion.IsCompleted, Is.False);
 
         channel.Writer.Complete();
+        await foreach (var i in channel.Reader.ReadAllAsync()) //.GetAsyncEnumerator().DisposeAsync(); // Ensure reader is completed
+        { }
         await channel.Reader.Completion;
     }
 }

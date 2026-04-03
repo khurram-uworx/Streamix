@@ -1136,14 +1136,16 @@ public sealed class Stream<T> : IStream<T>
         return Stream.From(doOnTerminate(onTerminate), clock);
     }
 
-    /// <inheritdoc />
+     /// <inheritdoc />
     public async Task ToChannel(ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default)
     {
+        IAsyncEnumerator<T>? enumerator = null;
         try
         {
-            await foreach (var item in this.WithCancellation(cancellationToken))
+            enumerator = this.GetAsyncEnumerator(cancellationToken);
+            while (await enumerator.MoveNextAsync())
             {
-                await writer.WriteAsync(item, cancellationToken);
+                await writer.WriteAsync(enumerator.Current, cancellationToken);
             }
 
             if (completeWriter)
@@ -1158,6 +1160,13 @@ public sealed class Stream<T> : IStream<T>
                 writer.TryComplete(ex);
             }
             throw;
+        }
+        finally
+        {
+            if (enumerator != null)
+            {
+                await enumerator.DisposeAsync();
+            }
         }
     }
 }
