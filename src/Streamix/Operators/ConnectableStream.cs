@@ -27,14 +27,20 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     readonly IStream<T> source;
     readonly ConcurrentDictionary<Guid, Channel<T>> subscribers = new();
     readonly object _lock = new();
+    readonly int bufferSize;
+    readonly Queue<T> replayBuffer = new();
+    bool isCompleted;
+    Exception? error;
     int refCounter = 0;
     CancellationTokenSource? cts;
     Task? connectionTask;
     IDisposable? autoConnection;
 
-    public ConnectableStream(IStream<T> source)
+    public ConnectableStream(IStream<T> source, int bufferSize = 0)
     {
+        if (bufferSize < 0) throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size cannot be negative.");
         this.source = source;
+        this.bufferSize = bufferSize;
     }
 
     async Task runConnectionInternal(CancellationToken token)
@@ -51,9 +57,20 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
             while (await enumerator.MoveNextAsync())
             {
                 var item = enumerator.Current;
-                var subscribers = this.subscribers.Values.ToArray();
 
-                foreach (var subscriber in subscribers)
+                Channel<T>[] currentSubscribers;
+                lock (_lock)
+                {
+                    if (bufferSize > 0)
+                    {
+                        replayBuffer.Enqueue(item);
+                        while (replayBuffer.Count > bufferSize)
+                            replayBuffer.Dequeue();
+                    }
+                    currentSubscribers = this.subscribers.Values.ToArray();
+                }
+
+                foreach (var subscriber in currentSubscribers)
                 {
                     try
                     {
@@ -61,6 +78,11 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
                     }
                     catch { }
                 }
+            }
+
+            lock (_lock)
+            {
+                isCompleted = true;
             }
 
             var finalSubscribers = subscribers.Values.ToArray();
@@ -75,6 +97,12 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
         }
         catch (Exception ex)
         {
+            lock (_lock)
+            {
+                isCompleted = true;
+                error = ex;
+            }
+
             var finalSubscribers = subscribers.Values.ToArray();
             foreach (var subscriber in finalSubscribers)
                 subscriber.Writer.TryComplete(ex);
@@ -997,6 +1025,10 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
             if (connectionTask != null && !connectionTask.IsCompleted)
                 return new ConnectionDisposable(this);
 
+            replayBuffer.Clear();
+            isCompleted = false;
+            error = null;
+
             cts = new CancellationTokenSource();
             var token = cts.Token;
             connectionTask = runConnectionInternal(token);
@@ -1042,7 +1074,24 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     {
         var id = Guid.NewGuid();
         var channel = Channel.CreateUnbounded<T>();
-        subscribers.TryAdd(id, channel);
+
+        lock (_lock)
+        {
+            foreach (var item in replayBuffer)
+                channel.Writer.TryWrite(item);
+
+            if (isCompleted)
+            {
+                if (error != null)
+                    channel.Writer.TryComplete(error);
+                else
+                    channel.Writer.TryComplete();
+            }
+            else
+            {
+                subscribers.TryAdd(id, channel);
+            }
+        }
 
         try
         {
@@ -1192,6 +1241,9 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
 
     /// <inheritdoc />
     public IConnectableStream<T> Publish() => this;
+
+    /// <inheritdoc />
+    public IConnectableStream<T> Replay(int bufferSize) => new ConnectableStream<T>(this, bufferSize);
 
     /// <inheritdoc />
     public IStream<T> RunOn(TaskScheduler scheduler)

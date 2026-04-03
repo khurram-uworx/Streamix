@@ -212,4 +212,81 @@ public class HotStreamTests
             Assert.That(results2, Is.EquivalentTo(new[] { 1, 2, 3 }));
         }
     }
+
+    [Test]
+    public async Task Replay_LateSubscriber_ReceivesBufferedItems()
+    {
+        var tcs = new TaskCompletionSource();
+        var source = Stream.From(GenerateItems());
+        var hot = source.Replay(2);
+
+        async IAsyncEnumerable<int> GenerateItems()
+        {
+            yield return 1;
+            yield return 2;
+            yield return 3;
+            await tcs.Task;
+            yield return 4;
+        }
+
+        using (hot.Connect())
+        {
+            // Wait for 1, 2, 3 to be produced
+            await Task.Delay(100);
+
+            var results = new List<int>();
+            var t = hot.ForEachAsync(results.Add);
+
+            tcs.SetResult();
+            await t;
+
+            // Should receive replayed 2, 3 AND new 4
+            Assert.That(results, Is.EqualTo(new[] { 2, 3, 4 }));
+        }
+    }
+
+    [Test]
+    public async Task Replay_LateSubscriber_AfterCompletion_ReceivesBufferedItemsAndCompletes()
+    {
+        var source = Stream.From(new[] { 1, 2, 3 }.ToAsyncEnumerable());
+        var hot = source.Replay(2);
+
+        using (hot.Connect())
+        {
+            // Wait for completion
+            await Task.Delay(100);
+
+            var results = new List<int>();
+            await hot.ForEachAsync(results.Add);
+
+            Assert.That(results, Is.EqualTo(new[] { 2, 3 }));
+        }
+    }
+
+    [Test]
+    public async Task Replay_LateSubscriber_AfterError_ReceivesBufferedItemsAndFails()
+    {
+        var source = Stream.From(GenerateItems());
+        var hot = source.Replay(2);
+
+        async IAsyncEnumerable<int> GenerateItems()
+        {
+            yield return 1;
+            yield return 2;
+            yield return 3;
+            throw new InvalidOperationException("Source failed");
+        }
+
+        using (hot.Connect())
+        {
+            // Wait for error
+            await Task.Delay(100);
+
+            var results = new List<int>();
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await hot.ForEachAsync(results.Add));
+            Assert.That(ex.Message, Is.EqualTo("Source failed"));
+            Assert.That(results, Is.EqualTo(new[] { 2, 3 }));
+        }
+    }
+
 }
