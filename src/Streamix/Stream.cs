@@ -1135,6 +1135,31 @@ public sealed class Stream<T> : IStream<T>
     {
         return Stream.From(doOnTerminate(onTerminate), clock);
     }
+
+    /// <inheritdoc />
+    public async Task ToChannel(ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+            {
+                await writer.WriteAsync(item, cancellationToken);
+            }
+
+            if (completeWriter)
+            {
+                writer.TryComplete();
+            }
+        }
+        catch (Exception ex)
+        {
+            if (completeWriter)
+            {
+                writer.TryComplete(ex);
+            }
+            throw;
+        }
+    }
 }
 
 /// <summary>
@@ -1194,6 +1219,22 @@ public static class Stream
     /// <param name="count">The number of sequential integers to generate.</param>
     /// <returns>A stream that contains a range of sequential integers.</returns>
     public static IStream<int> Range(int start, int count) => From(AsyncEnumerable.Range(start, count));
+
+    /// <summary>
+    /// Creates a stream that reads all items from the specified <see cref="ChannelReader{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="reader">The channel reader to read from.</param>
+    /// <returns>A stream that emits all items from the channel reader.</returns>
+    public static IStream<T> FromChannel<T>(ChannelReader<T> reader) => From(reader.ReadAllAsync());
+
+    /// <summary>
+    /// Creates a stream that reads all items from the specified <see cref="Channel{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="channel">The channel to read from.</param>
+    /// <returns>A stream that emits all items from the channel.</returns>
+    public static IStream<T> FromChannel<T>(Channel<T> channel) => FromChannel(channel.Reader);
 
     /// <summary>
     /// Merges multiple streams into one by combining their elements.

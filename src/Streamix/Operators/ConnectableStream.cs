@@ -1220,6 +1220,31 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     {
         return Stream.From(doOnTerminate(onTerminate));
     }
+
+    /// <inheritdoc />
+    public async Task ToChannel(ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+            {
+                await writer.WriteAsync(item, cancellationToken);
+            }
+
+            if (completeWriter)
+            {
+                writer.TryComplete();
+            }
+        }
+        catch (Exception ex)
+        {
+            if (completeWriter)
+            {
+                writer.TryComplete(ex);
+            }
+            throw;
+        }
+    }
 }
 
 internal static class EnumerableExtensions

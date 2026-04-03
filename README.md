@@ -157,6 +157,18 @@ IAsyncObservable<int> obs = stream.ToAsyncObservable();
 Stream<int> stream = Stream.From(asyncEnumerable);
 ```
 
+### Channel Interop
+
+```csharp
+// Create a stream from a Channel
+var channel = Channel.CreateUnbounded<int>();
+IStream<int> stream = Stream.FromChannel(channel);
+
+// Write a stream to a Channel
+// This supports backpressure naturally.
+await stream.ToChannel(channel.Writer, completeWriter: true);
+```
+
 ---
 
 ## 🧵 Execution

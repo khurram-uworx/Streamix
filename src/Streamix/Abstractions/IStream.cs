@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+
 namespace Streamix.Abstractions;
 
 /// <summary>
@@ -274,4 +276,14 @@ public interface IStream<T> : IAsyncEnumerable<T>
     /// <param name="onTerminate">The action to execute.</param>
     /// <returns>The same stream.</returns>
     IStream<T> DoOnTerminate(Action onTerminate);
+
+    /// <summary>
+    /// Terminal operation that writes all items of the stream to the specified <see cref="ChannelWriter{T}"/>.
+    /// Supports backpressure: if the channel is bounded and full, this method will asynchronously wait for space to become available.
+    /// </summary>
+    /// <param name="writer">The channel writer to write items to.</param>
+    /// <param name="completeWriter">Whether to complete the writer when the stream completes (either successfully or with an error).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes when all items have been written to the channel.</returns>
+    Task ToChannel(ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default);
 }
