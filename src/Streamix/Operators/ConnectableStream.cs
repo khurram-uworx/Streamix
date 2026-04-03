@@ -1208,6 +1208,9 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     public IConnectableStream<T> Publish() => this;
 
     /// <inheritdoc />
+    public IStream<T> Share() => RefCount();
+
+    /// <inheritdoc />
     public IStream<T> RunOn(TaskScheduler scheduler)
     {
         return Stream.From(runOn(scheduler));
