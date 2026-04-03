@@ -230,7 +230,7 @@ public class StreamTests
     }
 
     [Test]
-    [Ignore("Gets stuck")]
+    [Ignore("Again getting stuck")]
     public async Task ToChannel_Does_Not_Complete_Writer_If_Requested()
     {
         var channel = Channel.CreateUnbounded<int>();
