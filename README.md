@@ -12,7 +12,9 @@ Modern .NET has `IAsyncEnumerable<T>` and Channels, but we lack a **unified, com
 - Supports **0..N item streams** (`Stream<T>`) and **0..1 item streams** (`Single<T>`)  
 - Handles **backpressure naturally**  
 - Provides **declarative, chainable operators** like Reactor  
-- Integrates with **AsyncRx.NET** or raw `IAsyncEnumerable<T>`  
+- LINQ/query syntax support
+- Hot-stream primitives (`Publish`, `RefCount`, `Replay`)
+- Integrates with **AsyncRx.NET**, **Channel** or raw `IAsyncEnumerable<T>`  
 
 **Streamix bridges that gap** — without Rx-style complexity.
 
@@ -20,27 +22,37 @@ Modern .NET has `IAsyncEnumerable<T>` and Channels, but we lack a **unified, com
 
 ## 🧩 Core Types
 
+The default mental model is:
+
+- cold, pull-based streams built on `IAsyncEnumerable<T>`
+- channels only when coordination or fan-out is needed
+- explicit async composition, cancellation, ordering, and error propagation
+
 ### `Stream<T>`
-- 0..N items
-- Built on `IAsyncEnumerable<T>` internally
-- Async push/pull via `Channel<T>` when needed
+* Represents a stream of 0..N values.
 
 ```csharp
-Stream<int> numbers = Stream.Range(1, 10);
+using Streamix.Abstractions;
+
+IStream<int> numbers = Stream.Range(1, 10);
 ````
 
 ### `Single<T>`
-
-* 0..1 item
-* Wraps `Task<T>` or a single async result
+* Represents a stream of 0..1 values.
 
 ```csharp
-Single<User> user = GetUser(id);
+using Streamix.Abstractions;
+
+ISingle<User> user = Single.From(GetUser(id));
 ```
+
+`Single.From(...)` supports values, `Task<T>`, and `IAsyncEnumerable<T>` sources.
 
 ---
 
-## 🚀 Example: Basic Pipeline
+## 🚀 Examples
+
+### Basic Pipeline
 
 ```csharp
 await Stream.Range(1, 10)
@@ -49,9 +61,7 @@ await Stream.Range(1, 10)
     .ForEachAsync(Console.WriteLine);
 ```
 
----
-
-## 🔄 Async Composition
+### Async Composition
 
 ```csharp
 var orders =
@@ -60,8 +70,13 @@ var orders =
     .Map(o => o.Product);                 // Stream<string>
 ```
 
-* `FlatMap` → like `SelectMany`
-* `FlatMapMany` → flatten multiple sequences
+Available patterns include:
+
+* `Map` / `MapAwait`
+* `Filter` / `FilterAwait`
+* `FlatMap` for 1:1 async project → like `SelectMany`
+* `FlatMapMany` for 1:N expansion → flatten multiple sequences
+* `FlatMapAwait` / `FlatMapManyAwait` for async selector functions
 
 ---
 
@@ -69,37 +84,73 @@ var orders =
 
 ```csharp
 await stream
-    .FlatMap(async x => await Process(x), maxConcurrency: 5)
+    .ParallelMap(async x => await ProcessAsync(x), maxConcurrency: 5)
     .ForEachAsync(Console.WriteLine);
 ```
 
-* `maxConcurrency` controls simultaneous processing
-* Backpressure is automatic via bounded Channels. When the consumer is slow, the producer is paused once the `maxConcurrency` buffer is full.
+Use:
+
+- `ParallelMap(...)` when completion order can vary
+- `ParallelMapOrdered(...)` when upstream order must be preserved
+- `FlatMap(..., maxConcurrency: n)` and `FlatMapMany(..., maxConcurrency: n)` for concurrent flattening
+
+When Streamix uses bounded channels internally, producers pause when buffers are full instead of unboundedly accumulating work.
 
 ---
 
 ## 🧩 Hot vs Cold Streams
 
+Streams are cold by default: each subscriber re-enumerates the source. Publish() turns a cold stream into a connectable shared stream.
+
 ```csharp
 var cold = Stream.Range(1,3);  // cold by default
-var hot  = cold.Publish().RefCount(); // shared hot stream
+var hot = source.Publish();
+
+using var connection = hot.Connect();
+await hot.ForEachAsync(Console.WriteLine);
+```
+
+Use RefCount() to Auto-connects on the first subscriber and disconnects when the last subscriber leaves.
+
+```csharp
+var shared = Stream.Range(1, 3).Publish().RefCount()
+```
+
+Use Replay(.) to share the source and replay the most recent items to late subscribers.
+
+```csharp
+var replayed = Stream.Range(1, 3).Replay(2);
 ```
 
 ---
 
-## 📦 Core Operators
+## 📦 Operators
 
-* `Map` / `Select` / `MapAwait`
-* `Filter` / `Where` / `FilterAwait`
-* `FlatMap` / `SelectMany` / `FlatMapAwait`
+* `Map` / `MapAwait`
+* `Filter` / `FilterAwait`
+* `FlatMap` / `FlatMapAwait`
 * `FlatMapMany` / `FlatMapManyAwait`
+* `ParallelMap`, `ParallelMapOrdered`
+* `Take` / `Skip`
 * `Merge` / `Zip`
 * `Buffer` / `Window`
 * `Throttle` / `Delay`
-* `Retry` / `Timeout`
-* `Take` / `Skip`
-* `FirstAsync` / `LastAsync` / `SingleAsync` (and `OrDefault` variants)
+* `Retry` / `Retry(..., backoffStrategy)` / `Timeout`
+* `OnErrorResume` / `OnErrorReturn` / `OnErrorMap`
+* `Publish` / `Replay` / `RefCount`
+* `RunOn`
+* `DoOnNext`, `Do`, `Tap`, `DoOnError`, `DoOnComplete`, `DoOnTerminate`
+
+`IStream<T>` includes `ForEachAsync(...)` and channel output. Additional terminal operators are available through extension methods:
+
+* `ToListAsync`, `ToArrayAsync`, `ToHashSetAsync`, `ToDictionaryAsync`
+* `FirstAsync` / `LastAsync` (and `OrDefault` variants)
+* `SingleAsync` (and `OrDefault` variant)
 * `AggregateAsync` / `CountAsync` / `AnyAsync` / `AllAsync`
+* `MinAsync` / `MaxAsync`
+* `SumAsync` / `AverageAsync`
+
+`ISingle<T>` also supports `ToTask()`.
 
 ---
 
@@ -135,46 +186,46 @@ var result = await Stream.Range(1, 10)
 
 ## 🔌 Interop
 
-### From AsyncRx.NET
+### `IAsyncEnumerable<T>`
+
+```csharp
+using Streamix.Abstractions;
+
+IStream<int> stream = Stream.From(asyncEnumerable);
+ISingle<int> single = Single.From(task);
+```
+
+### Channels
+
+```csharp
+using System.Threading.Channels;
+using Streamix.Abstractions;
+
+var channel = Channel.CreateUnbounded<int>();
+IStream<int> fromChannel = Stream.FromChannel(channel);
+
+await Stream.Range(1, 3).ToChannel(channel.Writer, completeWriter: true);
+```
+
+### AsyncRx.NET
+
+AsyncRx interop lives in the separate `Streamix.Extensions` project so the core package does not take a dependency on `System.Reactive.Async`.
 
 ```csharp
 using Streamix.Extensions;
 
 IStream<int> stream = asyncObservable.ToStream();
+IAsyncObservable<int> observable = stream.ToAsyncObservable();
 ```
 
-### To AsyncRx.NET
-
-```csharp
-using Streamix.Extensions;
-
-IAsyncObservable<int> obs = stream.ToAsyncObservable();
-```
-
-### From `IAsyncEnumerable<T>`
-
-```csharp
-Stream<int> stream = Stream.From(asyncEnumerable);
-```
-
-### Channel Interop
-
-```csharp
-// Create a stream from a Channel
-var channel = Channel.CreateUnbounded<int>();
-IStream<int> stream = Stream.FromChannel(channel);
-
-// Write a stream to a Channel
-// This supports backpressure naturally.
-await stream.ToChannel(channel.Writer, completeWriter: true);
-```
+The extensions project also supports `ISingle<T>` interop.
 
 ---
 
 ## 🧵 Execution
 
 * Runs on caller context by default
-* Optional scheduler control:
+* `RunOn(TaskScheduler)` moves upstream execution onto a chosen scheduler.
 
 ```csharp
 stream.RunOn(TaskScheduler.Default);
@@ -185,21 +236,25 @@ stream.RunOn(TaskScheduler.Default);
 ## ⚠️ Error Handling
 
 ```csharp
-stream
+var recovered = stream
     .Map(...)
     .OnErrorResume(ex => Stream.Empty<int>());
+
+var retried = stream
+    .Retry(retryCount: 3,
+    backoffStrategy: (attempt, ex) => TimeSpan.FromMilliseconds(attempt * 100));
 ```
 
 ---
 
 ## 📌 Design Principles
 
-1. Async-first (`IAsyncEnumerable<T>` + Channels)
-2. Pull by default, push when needed
-3. Declarative & fluent API
-4. Interoperable with AsyncRx.NET
-5. Minimal, .NET-idiomatic operators
-6. Backpressure-aware automatically
+* Async-first (`IAsyncEnumerable<T>` + Channels)
+* Small, .NET-idiomatic API surface
+* Minimal, .NET-idiomatic operators
+* Pull by default, channel-backed coordination when needed
+* Explicit behavior around concurrency, cancellation, and error propagation
+* Optional interop with AsyncRx.NET through a separate package
 
 ---
 
