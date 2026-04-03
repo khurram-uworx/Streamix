@@ -71,7 +71,7 @@
 
 ## Documentation expectations
 - If a change alters the intended public contract, update `README.md`.
-- If a change affects task sequencing or reveals a constraint that materially impacts downstream work, update `TASKS.md`.
+- If a change affects task sequencing or reveals a constraint that materially impacts downstream work, document it in `WORK.md` (Create it if required).
 - Do not treat aspirational roadmap items as already implemented.
 - Keep examples truthful; avoid documenting APIs that do not exist yet.
 

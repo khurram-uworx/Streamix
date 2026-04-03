@@ -47,8 +47,6 @@ public class ResilienceOperatorTests
         }
     }
 
-    TestClock clock = new TestClock();
-
     [Test]
     public async Task Single_Retry_ShouldReenumerateOnFailure()
     {
@@ -74,6 +72,7 @@ public class ResilienceOperatorTests
     [Test]
     public void Single_Timeout_ShouldThrowWhenSlow()
     {
+        var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(2));
         var timeoutSingle = ((Single<int>)Single.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
 
@@ -136,6 +135,7 @@ public class ResilienceOperatorTests
     [Test]
     public void Timeout_ShouldThrowWhenEmissionIsSlow()
     {
+        var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(2));
         var timeoutStream = ((Stream<int>)Stream.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
 
@@ -148,6 +148,7 @@ public class ResilienceOperatorTests
     [Test]
     public async Task Timeout_ShouldSucceedWhenEmissionIsFast()
     {
+        var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(0.5));
         var timeoutStream = ((Stream<int>)Stream.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
         var results = new List<int>();
@@ -176,6 +177,7 @@ public class ResilienceOperatorTests
     [Test]
     public async Task Retry_WithBackoff_ShouldWaitBetweenAttempts()
     {
+        var clock = new TestClock();
         var callCount = 0;
         async IAsyncEnumerable<int> Source()
         {
@@ -229,6 +231,7 @@ public class ResilienceOperatorTests
     [Test]
     public async Task Single_Retry_WithBackoff_ShouldWaitBetweenAttempts()
     {
+        var clock = new TestClock();
         var callCount = 0;
         async IAsyncEnumerable<int> Source()
         {
@@ -241,7 +244,11 @@ public class ResilienceOperatorTests
         }
 
         var source = Single.From(Source(), clock);
-        var retried = source.Retry(2, (attempt, ex) => TimeSpan.FromSeconds(attempt));
+        var retried = source.Retry(2, (attempt, ex) =>
+        {
+            var ts = TimeSpan.FromSeconds(attempt);
+            return ts;
+        });
 
         var task = retried.ToTask();
 
@@ -287,6 +294,7 @@ public class ResilienceOperatorTests
     [Test]
     public void Retry_WithBackoff_ShouldBeCancellableDuringDelay()
     {
+        var clock = new TestClock();
         async IAsyncEnumerable<int> Source()
         {
             throw new InvalidOperationException("Failed");
