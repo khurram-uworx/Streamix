@@ -245,10 +245,16 @@ var stream = Stream.Interval(TimeSpan.FromSeconds(1));
 
 ### `Stream.From` / `Single.From` / `Just`
 Shorthands for values, Tasks, and Async Enumerables.
+
+*   **Eager vs. Lazy**:
+    *   `From(Task<T>)` wraps existing, already-started work (**eager**).
+    *   `From(Func<Task<T>>)` and `From(Func<CancellationToken, Task<T>>)` defer the creation and start of the task until the stream is subscribed to (**lazy**).
+    *   `Stream.Defer(...)` and `Single.Defer(...)` are always **lazy** and call the factory once per subscriber.
+
 ```csharp
 Stream.Just(42);
-Stream.From(Task.FromResult("hello"));
-Single.From(async ct => await FetchData(ct));
+Stream.From(Task.FromResult("hello")); // eager
+Single.From(async ct => await FetchData(ct)); // lazy
 ```
 
 ---

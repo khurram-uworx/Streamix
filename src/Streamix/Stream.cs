@@ -277,6 +277,15 @@ public static class Stream
     public static IStream<T> Create<T>(Func<IStreamEmitter<T>, Task> producer) => Stream<T>.Create(producer);
 
     /// <summary>
+    /// Creates a stream by providing an emitter that can be used to push items, complete, or signal errors.
+    /// The producer function receives a <see cref="CancellationToken"/> that is cancelled when the consumer cancels the subscription.
+    /// </summary>
+    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <param name="producer">A function that uses the emitter to produce items.</param>
+    /// <returns>A stream created from the emitter.</returns>
+    public static IStream<T> Create<T>(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer) => Stream<T>.Create(producer);
+
+    /// <summary>
     /// Creates a stream by statefully generating elements.
     /// </summary>
     /// <typeparam name="TState">The type of the state.</typeparam>

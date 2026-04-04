@@ -24,6 +24,9 @@ public interface IStreamEmitter<T>
 {
     /// <summary>
     /// Gets the cancellation token for the current subscriber.
+    /// This token is cancelled when the consumer cancels the subscription,
+    /// or when the stream reaches a terminal state via <see cref="Complete"/> or <see cref="Fail"/>.
+    /// Producers should monitor this token to stop any ongoing work.
     /// </summary>
     CancellationToken CancellationToken { get; }
 
