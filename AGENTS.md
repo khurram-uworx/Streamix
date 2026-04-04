@@ -5,6 +5,7 @@
 - The product definition currently lives in `README.md`; treat it as the primary specification unless the user says otherwise.
 - The repo is in an early stage. Expect incomplete implementation, missing operators, and evolving API decisions.
 - `TASKS.md` already turns the README into an execution backlog for coding agents. Use it to stay within scope and sequence work sensibly.
+- Use `docs/TASKS-TEMPLATE.md` when you need to create a new assignable task breakdown for a feature area or review follow-up.
 
 ## Repository map
 - `src/Streamix`: main production library targeting `net10.0`.
