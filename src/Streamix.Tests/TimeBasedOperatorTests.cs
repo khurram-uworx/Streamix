@@ -63,11 +63,10 @@ public class TimeBasedOperatorTests
         }
     }
 
-    TestClock clock = new TestClock();
-
     [Test]
     public async Task Delay_ShouldRespectCancellation()
     {
+        var clock = new TestClock();
         var source = Stream.Range(1, 10);
         var delayed = Stream.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
         using var cts = new CancellationTokenSource();
@@ -87,6 +86,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Delay_ShouldPostponeEmission()
     {
+        var clock = new TestClock();
         var source = Stream.Range(1, 3);
         var delayed = Stream.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
         var results = new List<int>();
@@ -125,6 +125,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Throttle_ShouldEmitOnlyFirstItemInInterval()
     {
+        var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
         var throttled = ((Stream<int>)Stream.From<int>(source, clock)).Throttle(TimeSpan.FromSeconds(1));
         var results = new List<int>();
@@ -164,6 +165,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Interval_ShouldEmitSequentialLongs()
     {
+        var clock = new TestClock();
         var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
         var results = new List<long>();
 
@@ -193,6 +195,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Interval_WithDueTime_ShouldRespectInitialDelay()
     {
+        var clock = new TestClock();
         var interval = Stream.Interval(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), clock);
         var results = new List<long>();
 
@@ -215,6 +218,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Interval_ShouldNotAccumulateTicks()
     {
+        var clock = new TestClock();
         var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
         var results = new List<long>();
         var semaphore = new SemaphoreSlim(0);
@@ -260,6 +264,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Interval_ShouldRespectCancellation()
     {
+        var clock = new TestClock();
         var interval = Stream.Interval(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), clock);
         using var cts = new CancellationTokenSource();
 
