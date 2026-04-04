@@ -942,12 +942,60 @@ public sealed class Stream<T> : IStream<T>
                 await producer(emitter);
                 emitter.Complete();
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
             {
                 emitter.Complete();
             }
             catch (Exception ex)
             {
+                if (emitter.CancellationToken.IsCancellationRequested)
+                    return;
+
+                emitter.Fail(ex);
+            }
+        }, cancellationToken);
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
+            }
+
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            emitter.Cancel();
+            try { await producerTask; } catch { }
+            emitter.Dispose();
+        }
+    }
+
+    static async IAsyncEnumerable<T> create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var channel = Channel.CreateBounded<T>(1);
+        var emitter = new Emitter(channel.Writer, cancellationToken);
+
+        var producerTask = Task.Run(async () =>
+        {
+            try
+            {
+                await producer(emitter, emitter.CancellationToken);
+                emitter.Complete();
+            }
+            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
+            {
+                emitter.Complete();
+            }
+            catch (Exception ex)
+            {
+                if (emitter.CancellationToken.IsCancellationRequested)
+                    return;
+
                 emitter.Fail(ex);
             }
         }, cancellationToken);
@@ -997,11 +1045,14 @@ public sealed class Stream<T> : IStream<T>
             }
             catch (ChannelClosedException)
             {
-                // Ignore if channel is closed
+                throw new OperationCanceledException(cts.Token);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
-                // Ignore if cancelled
+                if (cts.IsCancellationRequested)
+                    throw;
+
+                throw new OperationCanceledException(ex.Message, ex, cts.Token);
             }
         }
 
@@ -1181,6 +1232,16 @@ public sealed class Stream<T> : IStream<T>
     /// <param name="producer">A function that uses the emitter to produce items.</param>
     /// <returns>A stream created from the emitter.</returns>
     public static IStream<T> Create(Func<IStreamEmitter<T>, Task> producer)
+    {
+        return Stream.From(create(producer));
+    }
+
+    /// <summary>
+    /// Creates a stream by providing an emitter that can be used to push items, complete, or signal errors.
+    /// </summary>
+    /// <param name="producer">A function that uses the emitter to produce items.</param>
+    /// <returns>A stream created from the emitter.</returns>
+    public static IStream<T> Create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer)
     {
         return Stream.From(create(producer));
     }
