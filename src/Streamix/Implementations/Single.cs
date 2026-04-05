@@ -370,15 +370,15 @@ public sealed class Single<T> : ISingle<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapMany<TResult>(Func<T, IStream<TResult>> selector)
+    public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector)
     {
-        return new Stream<TResult>(flatMapMany(selector));
+        return Streamix.Stream.From(flatMapMany(selector));
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector)
+    public IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector)
     {
-        return new Stream<TResult>(flatMapManyAwait(selector));
+        return Streamix.Stream.From(flatMapManyAwait(selector));
     }
 
     /// <inheritdoc />

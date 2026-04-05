@@ -54,7 +54,7 @@ public interface ISingle<T> : IAsyncEnumerable<T>
     /// <typeparam name="TResult">The type of elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
     /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the one-to-many transform function on the element of source.</returns>
-    IStream<TResult> FlatMapMany<TResult>(Func<T, IStream<TResult>> selector);
+    IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector);
 
     /// <summary>
     /// Projects the element of a single-item stream to an <see cref="IStream{TResult}"/> using an asynchronous selector and flattens it.
@@ -62,7 +62,7 @@ public interface ISingle<T> : IAsyncEnumerable<T>
     /// <typeparam name="TResult">The type of elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to the element.</param>
     /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async one-to-many transform function on the element of source.</returns>
-    IStream<TResult> FlatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector);
+    IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector);
 
     /// <summary>
     /// Resumes a single-item stream with another single-item stream if an error occurs.

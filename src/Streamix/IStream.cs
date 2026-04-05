@@ -92,12 +92,13 @@ public interface IStream<T> : IAsyncEnumerable<T>
     /// <summary>
     /// Projects each element of a stream to another stream and merges the inner streams concurrently.
     /// Results are emitted as soon as inner streams produce them, so outer ordering is not preserved.
-    /// This is the highest-throughput 1-to-N flattening variant and uses unbounded concurrency.
+    /// This is the highest-throughput 1-to-N flattening variant.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
+    /// <param name="maxConcurrency">The maximum number of concurrent inner streams. Defaults to unbounded concurrency.</param>
     /// <returns>An <see cref="IStream{TResult}"/> that emits items from inner streams in completion order.</returns>
-    IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector);
+    IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency = int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream to another stream and concatenates the inner streams sequentially.

@@ -101,7 +101,7 @@ public class ExampleTests
         int id = 1;
         // Adjusted example from README.md to match actual API
         var orders = GetUser(id)                       // Single<User>
-            .FlatMapMany(user => GetOrders(user))     // Stream<Order>
+            .FlatMap(user => GetOrders(user))         // Stream<Order>
             .Map(o => o.Product);                     // Stream<string>
 
         var result = new List<string>();
