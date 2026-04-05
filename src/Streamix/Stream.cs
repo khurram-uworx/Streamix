@@ -142,6 +142,20 @@ public static class Stream
             yield break;
         }
 
+        public static async IAsyncEnumerable<T> Using<TResource, T>(
+            Func<TResource> resourceFactory,
+            Func<TResource, IStream<T>> streamFactory,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            where TResource : IDisposable
+        {
+            using var resource = resourceFactory();
+            var source = streamFactory(resource);
+            await foreach (var item in source.WithCancellation(cancellationToken))
+            {
+                yield return item;
+            }
+        }
+
         public static async IAsyncEnumerable<long> Timer(TimeSpan dueTime, IClock clock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             if (dueTime < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(dueTime));
@@ -173,20 +187,6 @@ public static class Stream
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return await poll(cancellationToken);
                 await clock.Delay(period, cancellationToken);
-            }
-        }
-
-        public static async IAsyncEnumerable<T> Using<TResource, T>(
-            Func<TResource> resourceFactory,
-            Func<TResource, IStream<T>> streamFactory,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
-            where TResource : IDisposable
-        {
-            using var resource = resourceFactory();
-            var source = streamFactory(resource);
-            await foreach (var item in source.WithCancellation(cancellationToken))
-            {
-                yield return item;
             }
         }
 
