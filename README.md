@@ -18,10 +18,6 @@ Modern .NET has `IAsyncEnumerable<T>` and Channels, but we lack a **unified, com
 
 **Streamix bridges that gap** — without Rx-style complexity.
 
----
-
-## 🧩 Core Types
-
 The default mental model is:
 
 - cold, pull-based streams built on `IAsyncEnumerable<T>`
@@ -150,7 +146,7 @@ var replayed = Stream.Range(1, 3).Replay(2);
 * `MinAsync` / `MaxAsync`
 * `MinByAsync` / `MaxByAsync` (with comparer overloads)
 * `SumAsync` / `AverageAsync`
-* `DrainAsync` / d`ToSinkAsync`
+* `DrainAsync` / `ToSinkAsync`
 
 `ISingle<T>` also supports `ToTask()`.
 
@@ -191,63 +187,6 @@ var result = await Stream.Range(1, 10)
 ```
 
 **Available:** `Where`, `Select`, `SelectMany` (sync) and `WhereAsync`, `SelectAsync`, `SelectManyAsync` (async)
-
----
-
-## 🔌 Interop
-
-### `IAsyncEnumerable<T>`
-
-```csharp
-IStream<int> stream = Stream.From(asyncEnumerable);
-ISingle<int> single = Single.From(task);
-```
-
-### Channels
-
-```csharp
-using System.Threading.Channels;
-
-var channel = Channel.CreateUnbounded<int>();
-IStream<int> fromChannel = Stream.FromChannel(channel);
-
-await Stream.Range(1, 3).ToChannel(channel.Writer, completeWriter: true);
-```
-
-### Sinks
-
-Streamix also exposes a small reusable sink abstraction for boundary writes:
-
-```csharp
-var output = new List<int>();
-
-await Stream.Range(1, 3).ToSinkAsync(
-    (item, ct) =>
-    {
-        output.Add(item);
-        return ValueTask.CompletedTask;
-    });
-```
-
-The core contract is:
-
-```csharp
-public interface IAsyncSink<in T>
-{
-    ValueTask WriteAsync(T item, CancellationToken cancellationToken = default);
-    ValueTask CompleteAsync(Exception? error = null, CancellationToken cancellationToken = default);
-}
-```
-
-Use `SinkCompletionMode.CompleteSink` to let the terminal own sink completion, or `SinkCompletionMode.LeaveSinkOpen` when the caller owns the destination lifetime.
-
-Sink completion semantics are explicit:
-
-* on successful completion, `CompleteAsync(null)` is called when completion is owned by the terminal
-* on upstream or sink write failure, `CompleteAsync(error)` is called and the original exception is still propagated to the caller
-* on cancellation, Streamix stops writing and does not complete the sink
-
-`ToChannel(...)` is implemented as an adapter over the same sink path, so channel writes and custom sinks follow the same completion and error rules.
 
 ---
 
@@ -361,6 +300,61 @@ Single.From(async ct => await FetchData(ct)); // lazy Task factory
 ```
 
 ---
+
+## 🔌 Interop
+
+### `IAsyncEnumerable<T>`
+
+```csharp
+IStream<int> stream = Stream.From(asyncEnumerable);
+ISingle<int> single = Single.From(task);
+```
+
+### Channels
+
+```csharp
+using System.Threading.Channels;
+
+var channel = Channel.CreateUnbounded<int>();
+IStream<int> fromChannel = Stream.FromChannel(channel);
+
+await Stream.Range(1, 3).ToChannel(channel.Writer, completeWriter: true);
+```
+
+### Sinks
+
+Streamix also exposes a small reusable sink abstraction for boundary writes:
+
+```csharp
+var output = new List<int>();
+
+await Stream.Range(1, 3).ToSinkAsync(
+    (item, ct) =>
+    {
+        output.Add(item);
+        return ValueTask.CompletedTask;
+    });
+```
+
+The core contract is:
+
+```csharp
+public interface IAsyncSink<in T>
+{
+    ValueTask WriteAsync(T item, CancellationToken cancellationToken = default);
+    ValueTask CompleteAsync(Exception? error = null, CancellationToken cancellationToken = default);
+}
+```
+
+Use `SinkCompletionMode.CompleteSink` to let the terminal own sink completion, or `SinkCompletionMode.LeaveSinkOpen` when the caller owns the destination lifetime.
+
+Sink completion semantics are explicit:
+
+* on successful completion, `CompleteAsync(null)` is called when completion is owned by the terminal
+* on upstream or sink write failure, `CompleteAsync(error)` is called and the original exception is still propagated to the caller
+* on cancellation, Streamix stops writing and does not complete the sink
+
+`ToChannel(...)` is implemented as an adapter over the same sink path, so channel writes and custom sinks follow the same completion and error rules.
 
 ### AsyncRx.NET
 
