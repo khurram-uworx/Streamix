@@ -45,7 +45,7 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public async Task FlatMapMany_RespectsMaxConcurrency()
+    public async Task FlatMapOrdered_RespectsMaxConcurrency()
     {
         const int maxConcurrency = 2;
         int activeStreams = 0;
@@ -53,7 +53,7 @@ public class ConcurrencyTests
         var lockObj = new object();
 
         var result = await Stream.Range(1, 4)
-            .FlatMapMany(x => Stream.From(GenerateWithTracking(x)), maxConcurrency: maxConcurrency)
+            .FlatMapOrdered(x => Stream.From(GenerateWithTracking(x)), maxConcurrency: maxConcurrency)
             .ToListAsync();
 
         async IAsyncEnumerable<int> GenerateWithTracking(int x)
@@ -165,7 +165,7 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public async Task ParallelMap_RespectsMaxConcurrency()
+    public async Task Map_RespectsMaxConcurrency()
     {
         const int maxConcurrency = 3;
         int activeTasks = 0;
@@ -173,7 +173,7 @@ public class ConcurrencyTests
         var lockObj = new object();
 
         var result = await Stream.Range(1, 10)
-            .ParallelMap(async x =>
+            .Map(async x =>
             {
                 int currentActive = Interlocked.Increment(ref activeTasks);
                 lock (lockObj)
@@ -193,7 +193,7 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public async Task ParallelMapOrdered_RespectsMaxConcurrency()
+    public async Task MapOrdered_RespectsMaxConcurrency()
     {
         const int maxConcurrency = 3;
         int activeTasks = 0;
@@ -201,7 +201,7 @@ public class ConcurrencyTests
         var lockObj = new object();
 
         var result = await Stream.Range(1, 10)
-            .ParallelMapOrdered(async x =>
+            .MapOrdered(async x =>
             {
                 int currentActive = Interlocked.Increment(ref activeTasks);
                 lock (lockObj)
@@ -221,10 +221,10 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public async Task ParallelMapOrdered_PreservesOrder()
+    public async Task MapOrdered_PreservesOrder()
     {
         var result = await Stream.Range(1, 5)
-            .ParallelMapOrdered(async x =>
+            .MapOrdered(async x =>
             {
                 // Task for 1 takes 100ms, others take 1ms
                 await Task.Delay(x == 1 ? 100 : 1);
@@ -238,10 +238,10 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public void ParallelMap_PropagatesErrorsCorrectly()
+    public void Map_PropagatesErrorsCorrectly()
     {
         var stream = Stream.Range(1, 10)
-            .ParallelMap(async x =>
+            .Map(async x =>
             {
                 if (x == 5) throw new InvalidOperationException("Boom");
                 await Task.Yield();
@@ -252,10 +252,10 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public void ParallelMapOrdered_PropagatesErrorsCorrectly()
+    public void MapOrdered_PropagatesErrorsCorrectly()
     {
         var stream = Stream.Range(1, 10)
-            .ParallelMapOrdered(async x =>
+            .MapOrdered(async x =>
             {
                 if (x == 5) throw new InvalidOperationException("Boom");
                 await Task.Yield();

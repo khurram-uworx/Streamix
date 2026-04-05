@@ -65,9 +65,9 @@ public class CoreOperatorBenchmarks
     }
 
     [Benchmark]
-    public async Task ParallelMapOrdered()
+    public async Task MapOrdered()
     {
-        await source.ParallelMapOrdered(async x =>
+        await source.MapOrdered(async x =>
         {
             await Task.Yield();
             return x;

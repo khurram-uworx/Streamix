@@ -40,10 +40,10 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task Stream_FlatMapMany_Sequential()
+    public async Task Stream_ConcatMap_Sequential()
     {
         var result = await Stream.Range(1, 3)
-            .FlatMapMany(x => Stream.Range(x * 10, 2))
+            .ConcatMap(x => Stream.Range(x * 10, 2))
             .ToListAsync();
 
         // 1 -> 10, 11
@@ -115,7 +115,7 @@ public class FlatteningOperatorTests
 
         var orders = await GetUser(1)
             .FlatMapMany(user => GetOrders(user))
-            .FlatMapMany(o => Stream.From(new[] { o }.ToAsyncEnumerable())) // Using an internal helper or similar
+            .ConcatMap(o => Stream.From(new[] { o }.ToAsyncEnumerable())) // Using an internal helper or similar
             .ToListAsync();
 
         Assert.That(orders, Is.EqualTo(new[] { 1, 2 }));
@@ -125,7 +125,7 @@ public class FlatteningOperatorTests
     public async Task FlatMap_Handles_Empty_Inner()
     {
         var result = await Stream.Range(1, 3)
-            .FlatMapMany(x => x == 2 ? Stream.Empty<int>() : Stream.Range(x, 1))
+            .ConcatMap(x => x == 2 ? Stream.Empty<int>() : Stream.Range(x, 1))
             .ToListAsync();
 
         // 1 -> [1]
@@ -138,7 +138,7 @@ public class FlatteningOperatorTests
     public void FlatMap_Propagates_Inner_Failure()
     {
         var stream = Stream.Range(1, 3)
-            .FlatMapMany(x => x == 2 ? Stream.From(throwError()) : Stream.Range(x, 1));
+            .ConcatMap(x => x == 2 ? Stream.From(throwError()) : Stream.Range(x, 1));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -147,7 +147,7 @@ public class FlatteningOperatorTests
     public void FlatMap_Propagates_Outer_Failure()
     {
         var source = Stream.From(throwErrorAfter(1));
-        var stream = source.FlatMapMany(x => Stream.Range(x, 1));
+        var stream = source.ConcatMap(x => Stream.Range(x, 1));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -156,7 +156,7 @@ public class FlatteningOperatorTests
     public void FlatMap_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).FlatMapMany(x => Stream.Range(x, 10));
+        var stream = Stream.Range(1, 100).ConcatMap(x => Stream.Range(x, 10));
 
         cts.Cancel();
 
@@ -181,10 +181,10 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task FlatMapManyAwait_Sequential()
+    public async Task SelectManyAsync_Sequential()
     {
         var result = await Stream.Range(1, 2)
-            .FlatMapManyAwait(async x =>
+            .SelectManyAsync(async x =>
             {
                 await Task.Yield();
                 return Stream.Range(x * 10, 2);
@@ -212,10 +212,10 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task FlatMapManyAwait_Concurrent()
+    public async Task SelectManyAsync_Concurrent()
     {
         var result = await Stream.Range(1, 2)
-            .FlatMapManyAwait(async x =>
+            .SelectManyAsync(async x =>
             {
                 await Task.Delay(50);
                 return Stream.Range(x * 10, 2);

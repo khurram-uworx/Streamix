@@ -67,8 +67,9 @@ Available patterns include:
 * `Map` / `MapAwait`
 * `Filter` / `FilterAwait`
 * `FlatMap` for 1:1 async project → like `SelectMany`
-* `FlatMapMany` for 1:N expansion → flatten multiple sequences
-* `FlatMapAwait` / `FlatMapManyAwait` for async selector functions
+* `FlatMap` for 1:N expansion when order does not matter
+* `ConcatMap` for 1:N expansion when strict source order matters
+* `FlatMapAwait` for async 1:1 selector functions
 
 ---
 
@@ -76,15 +77,17 @@ Available patterns include:
 
 ```csharp
 await stream
-    .ParallelMap(async x => await ProcessAsync(x), maxConcurrency: 5)
+    .Map(async x => await ProcessAsync(x), maxConcurrency: 5)
     .ForEachAsync(Console.WriteLine);
 ```
 
 Use:
 
-- `ParallelMap(...)` when completion order can vary
-- `ParallelMapOrdered(...)` when upstream order must be preserved
-- `FlatMap(..., maxConcurrency: n)` and `FlatMapMany(..., maxConcurrency: n)` for concurrent flattening
+- `Map(...)` when completion order can vary
+- `MapOrdered(...)` when upstream order must be preserved
+- `FlatMap(...)` for unordered concurrent flattening
+- `ConcatMap(...)` for sequential flattening
+- `FlatMapOrdered(..., maxConcurrency: n)` for ordered concurrent flattening
 
 When Streamix uses bounded channels internally, producers pause when buffers are full instead of unboundedly accumulating work.
 
@@ -122,8 +125,8 @@ var replayed = Stream.Range(1, 3).Replay(2);
 * `Filter` / `FilterAwait`
 * `FlatMap` / `FlatMapAwait`
 * `Generate`
-* `FlatMapMany` / `FlatMapManyAwait`
-* `ParallelMap`, `ParallelMapOrdered`
+* `ConcatMap` / `FlatMapOrdered`
+* `MapOrdered`
 * `Take` / `Skip`
 * `Merge` / `Zip`
 * `Buffer` / `Window`
@@ -420,7 +423,7 @@ var retried = stream
 
 Streamix is designed for high-performance asynchronous streaming with the following characteristics:
 
-- **Backpressure by Design**: Concurrent operators like `FlatMap`, `Merge`, and `ParallelMap` utilize bounded `System.Threading.Channels`. This ensures that if a consumer is slower than the producer, the producer is naturally paused once the internal buffers are full, preventing unboundemented memory growth.
+- **Backpressure by Design**: Concurrent operators like `FlatMap`, `FlatMapOrdered`, `Merge`, and concurrent `Map` utilize bounded `System.Threading.Channels`. This ensures that if a consumer is slower than the producer, the producer is naturally paused once the internal buffers are full, preventing unboundemented memory growth.
 - **Zero-Allocation Sequential Operators**: Basic operators like `Map`, `Filter`, `Take`, and `Skip` are implemented as thin wrappers over `IAsyncEnumerable<T>` using async iterators. They introduce minimal overhead and do not involve intermediate buffering.
 - **Bounded Concurrency**: All flattening and parallel operators accept a `maxConcurrency` parameter, allowing you to strictly control the number of simultaneous asynchronous operations.
 - **Materialization Awareness**: Operators that require state across multiple items, such as `Buffer(count)`, `Window(count)`, or `Replay(bufferSize)`, involve allocations proportional to their requested size. These should be used with appropriate bounds to manage memory usage.

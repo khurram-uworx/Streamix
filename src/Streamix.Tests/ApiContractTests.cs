@@ -23,12 +23,16 @@ public class ApiContractTests
         Assert.That(typeof(Stream).GetMethods().Any(m => m.Name == "Zip"), Is.True);
 
         // Instance methods on IStream
-        Assert.That(type.GetMethod("Map"), Is.Not.Null);
-        Assert.That(type.GetMethod("Select"), Is.Not.Null);
+        Assert.That(type.GetMethods().Any(m => m.Name == "Map"), Is.True);
         Assert.That(type.GetMethod("Filter"), Is.Not.Null);
-        Assert.That(type.GetMethod("Where"), Is.Not.Null);
+        Assert.That(type.GetMethod("MapOrdered"), Is.Not.Null);
         Assert.That(type.GetMethods().Any(m => m.Name == "FlatMap"), Is.True);
-        Assert.That(type.GetMethod("FlatMapMany"), Is.Not.Null);
+        Assert.That(type.GetMethod("ConcatMap"), Is.Not.Null);
+        Assert.That(type.GetMethod("FlatMapOrdered"), Is.Not.Null);
+        Assert.That(type.GetMethod("ParallelMap"), Is.Null);
+        Assert.That(type.GetMethod("ParallelMapOrdered"), Is.Null);
+        Assert.That(type.GetMethod("FlatMapMany"), Is.Null);
+        Assert.That(type.GetMethod("FlatMapManyAwait"), Is.Null);
         Assert.That(type.GetMethod("Take"), Is.Not.Null);
         Assert.That(type.GetMethod("Skip"), Is.Not.Null);
         Assert.That(type.GetMethod("Buffer"), Is.Not.Null);

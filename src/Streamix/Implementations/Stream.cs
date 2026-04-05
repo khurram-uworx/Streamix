@@ -595,6 +595,47 @@ public sealed class Stream<T> : IStream<T>
         }
     }
 
+    async IAsyncEnumerable<TResult> flatMapManyOrdered<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var semaphore = new SemaphoreSlim(maxConcurrency);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var tasks = new List<Task<List<TResult>>>();
+
+        try
+        {
+            await foreach (var item in this.WithCancellation(cancellationToken))
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                var task = processItemManyAsync(item, selector, semaphore, cts.Token);
+                tasks.Add(task);
+            }
+
+            var results = await Task.WhenAll(tasks);
+            foreach (var list in results)
+                foreach (var result in list)
+                    yield return result;
+        }
+        finally
+        {
+            semaphore.Dispose();
+        }
+    }
+
+    async Task<List<TResult>> processItemManyAsync<TResult>(T item, Func<T, IStream<TResult>> selector, SemaphoreSlim semaphore, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var results = new List<TResult>();
+            await foreach (var result in selector(item).WithCancellation(cancellationToken))
+                results.Add(result);
+            return results;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
     async IAsyncEnumerable<T> take(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (count <= 0) yield break;
@@ -1137,14 +1178,14 @@ public sealed class Stream<T> : IStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ParallelMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
+    public IStream<TResult> Map<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return FlatMap(selector, maxConcurrency);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ParallelMapOrdered<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
+    public IStream<TResult> MapOrdered<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return Stream.From(parallelMapOrdered(selector, maxConcurrency));
@@ -1173,19 +1214,22 @@ public sealed class Stream<T> : IStream<T>
     public IStream<TResult> SelectMany<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1) => FlatMap(selector, maxConcurrency);
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapMany<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency = 1)
+    public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector)
     {
-        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return maxConcurrency == 1
-            ? Stream.From(flatMapMany(selector))
-            : Stream.From(flatMapManyConcurrent(selector, maxConcurrency));
+        return Stream.From(flatMapManyConcurrent(selector, int.MaxValue));
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency = 1)
+    public IStream<TResult> ConcatMap<TResult>(Func<T, IStream<TResult>> selector)
+    {
+        return Stream.From(flatMapMany(selector));
+    }
+
+    /// <inheritdoc />
+    public IStream<TResult> FlatMapOrdered<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(flatMapManyAwaitConcurrent(selector, maxConcurrency));
+        return Stream.From(flatMapManyOrdered(selector, maxConcurrency));
     }
 
     /// <inheritdoc />

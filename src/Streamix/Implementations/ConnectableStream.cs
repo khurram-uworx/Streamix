@@ -1104,14 +1104,14 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ParallelMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
+    public IStream<TResult> Map<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return FlatMap(selector, maxConcurrency);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ParallelMapOrdered<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
+    public IStream<TResult> MapOrdered<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return Stream.From(parallelMapOrdered(selector, maxConcurrency), clock);
@@ -1199,19 +1199,22 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     public IStream<TResult> SelectMany<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1) => FlatMap(selector, maxConcurrency);
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapMany<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency = 1)
+    public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector)
     {
-        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return maxConcurrency == 1
-            ? Stream.From(flatMapMany(selector), clock)
-            : Stream.From(flatMapManyConcurrentMany(selector, maxConcurrency), clock);
+        return Stream.From(flatMapManyAwaitConcurrent(item => new ValueTask<IStream<TResult>>(selector(item)), int.MaxValue), clock);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency = 1)
+    public IStream<TResult> ConcatMap<TResult>(Func<T, IStream<TResult>> selector)
+    {
+        return Stream.From(flatMapMany(selector), clock);
+    }
+
+    /// <inheritdoc />
+    public IStream<TResult> FlatMapOrdered<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(flatMapManyAwaitConcurrent(selector, maxConcurrency), clock);
+        return Stream.From(flatMapManyConcurrentMany(selector, maxConcurrency), clock);
     }
 
     /// <inheritdoc />
