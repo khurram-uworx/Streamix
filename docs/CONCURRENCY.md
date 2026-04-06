@@ -49,7 +49,23 @@ The broader 0.6 positioning around concurrency is:
 | `MapOrdered(...)` | Configurable N | Ordered |
 | `FlatMap(...)` | Configurable N, default unbounded | Unordered |
 | `ConcatMap(...)` | 1 | Ordered |
-| `FlatMapOrdered(...)` | Configurable N | Ordered |
+| `FlatMapOrdered(..., maxBufferedItemsPerInner = 16)` | Configurable N | Ordered |
+
+## Ordered Buffering Control
+
+For 0.6, `FlatMapOrdered` exposes buffering explicitly:
+
+```csharp
+stream.FlatMapOrdered(
+    selector,
+    maxConcurrency: int.MaxValue,
+    maxBufferedItemsPerInner: 16)
+```
+
+- `maxConcurrency` is the maximum number of active inner streams
+- `maxBufferedItemsPerInner` is the maximum number of items each later inner stream may buffer while waiting for earlier inners to drain
+- both parameters are optional on the public signature
+- both parameters must be greater than `0`
 
 ## Settled LINQ / Query-Syntax Scope
 

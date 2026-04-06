@@ -98,7 +98,7 @@ await stream
 | `Map(Func<T, Task<TResult>>, ...)` | Configurable N, default unbounded | Unordered | Highest-throughput async 1:1 transform | ⭐⭐⭐ |
 | `MapOrdered()` | Configurable N | Ordered | Async transform while preserving source order | ⭐⭐ |
 | `FlatMap()` | Unbounded | Unordered | Fire-and-forget, fastest 1:N expansion | ⭐⭐⭐ |
-| `FlatMapOrdered()` | Configurable N | Ordered | Expand while preserving source order | ⭐⭐ |
+| `FlatMapOrdered()` | Configurable N | Ordered | Expand while preserving source order with explicit per-inner buffering | ⭐⭐ |
 | `ConcatMap()` | 1 (Sequential) | Ordered | Strict sequential processing | ⭐ |
 
 When Streamix uses bounded channels internally, producers pause when buffers are full instead of unboundedly accumulating work.

@@ -76,6 +76,71 @@ public class ConcurrencyTests
     }
 
     [Test]
+    public void FlatMapOrdered_RejectsNonPositiveLimits()
+    {
+        Assert.That(
+            () => Stream.Range(1, 3).FlatMapOrdered(x => Stream.From(x), maxConcurrency: 0),
+            Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("maxConcurrency"));
+
+        Assert.That(
+            () => Stream.Range(1, 3).FlatMapOrdered(x => Stream.From(x), maxConcurrency: 2, maxBufferedItemsPerInner: 0),
+            Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("maxBufferedItemsPerInner"));
+    }
+
+    [Test]
+    public async Task FlatMapOrdered_BoundsBufferedItemsPerInner()
+    {
+        var firstInnerCanContinue = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondInnerReachedBlockedWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondInnerCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var stream = Stream.Range(1, 2)
+            .FlatMapOrdered(CreateInner, maxConcurrency: 2, maxBufferedItemsPerInner: 1);
+
+        await using var enumerator = stream.GetAsyncEnumerator();
+
+        Assert.That(await enumerator.MoveNextAsync(), Is.True);
+        Assert.That(enumerator.Current, Is.EqualTo(10));
+
+        await secondInnerReachedBlockedWrite.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.That(secondInnerCompleted.Task.IsCompleted, Is.False);
+
+        firstInnerCanContinue.SetResult();
+
+        Assert.That(await enumerator.MoveNextAsync(), Is.True);
+        Assert.That(enumerator.Current, Is.EqualTo(11));
+        Assert.That(await enumerator.MoveNextAsync(), Is.True);
+        Assert.That(enumerator.Current, Is.EqualTo(20));
+        Assert.That(await enumerator.MoveNextAsync(), Is.True);
+        Assert.That(enumerator.Current, Is.EqualTo(21));
+        Assert.That(await enumerator.MoveNextAsync(), Is.False);
+
+        await secondInnerCompleted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        return;
+
+        IStream<int> CreateInner(int value)
+        {
+            return Stream.Create<int>(async emitter =>
+            {
+                if (value == 1)
+                {
+                    await emitter.EmitAsync(10);
+                    await firstInnerCanContinue.Task.WaitAsync(emitter.CancellationToken);
+                    await emitter.EmitAsync(11);
+                    emitter.Complete();
+                    return;
+                }
+
+                await emitter.EmitAsync(20);
+                secondInnerReachedBlockedWrite.TrySetResult();
+                await emitter.EmitAsync(21);
+                secondInnerCompleted.TrySetResult();
+                emitter.Complete();
+            });
+        }
+    }
+
+    [Test]
     public async Task FlatMap_BackpressureBlocksProducer()
     {
         const int maxConcurrency = 2;

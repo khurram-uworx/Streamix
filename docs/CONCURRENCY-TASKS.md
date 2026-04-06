@@ -215,7 +215,7 @@ Make the LINQ/query-syntax story consistent with the 0.6 concurrency contract by
 - `README.md`
 - `docs/CONCURRENCY.md`
 
-## Task 5: Expose `FlatMapOrdered` Buffering Control
+## ✅ Task 5: Expose `FlatMapOrdered` Buffering Control
 
 ### Priority
 
