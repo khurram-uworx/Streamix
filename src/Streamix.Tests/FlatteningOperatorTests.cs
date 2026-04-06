@@ -30,13 +30,13 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task Stream_FlatMap_WithSingle_Sequential()
+    public async Task Stream_FlatMap_WithSingle_Unordered()
     {
         var result = await Stream.Range(1, 3)
             .FlatMap(x => Single.From(x * 10))
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 10, 20, 30 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 10, 20, 30 }));
     }
 
     [Test]
@@ -167,7 +167,7 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task FlatMapAwait_WithSingle_Sequential()
+    public async Task FlatMapAwait_WithSingle_Unordered()
     {
         var result = await Stream.Range(1, 3)
             .FlatMapAwait(async x =>
@@ -177,7 +177,7 @@ public class FlatteningOperatorTests
             })
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 10, 20, 30 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 10, 20, 30 }));
     }
 
     [Test]

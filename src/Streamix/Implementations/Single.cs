@@ -47,14 +47,14 @@ public sealed class Single<T> : ISingle<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> flatMapMany<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken ct = default)
+    async IAsyncEnumerable<TResult> concatMapInternal<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
             await foreach (var innerItem in selector(item).WithCancellation(ct))
                 yield return innerItem;
     }
 
-    async IAsyncEnumerable<TResult> flatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken ct = default)
+    async IAsyncEnumerable<TResult> concatMapAwaitInternal<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
         {
@@ -372,13 +372,13 @@ public sealed class Single<T> : ISingle<T>
     /// <inheritdoc />
     public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector)
     {
-        return Streamix.Stream.From(flatMapMany(selector));
+        return Streamix.Stream.From(concatMapInternal(selector));
     }
 
     /// <inheritdoc />
     public IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector)
     {
-        return Streamix.Stream.From(flatMapManyAwait(selector));
+        return Streamix.Stream.From(concatMapAwaitInternal(selector));
     }
 
     /// <inheritdoc />
