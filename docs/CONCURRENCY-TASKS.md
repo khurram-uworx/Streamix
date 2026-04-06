@@ -125,7 +125,7 @@ The current README describes `Map()` generically as unordered and fastest, which
 - `src/Streamix/IStream.cs`
 - `docs/CONCURRENCY.md`
 
-## Task 3: Record Chosen LINQ / Query-Syntax Concurrency Scope for 0.6
+## ✅ Task 3: Record Chosen LINQ / Query-Syntax Concurrency Scope for 0.6
 
 ### Priority
 

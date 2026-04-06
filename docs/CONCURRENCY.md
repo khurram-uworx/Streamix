@@ -51,7 +51,37 @@ The broader 0.6 positioning around concurrency is:
 | `ConcatMap(...)` | 1 | Ordered |
 | `FlatMapOrdered(...)` | Configurable N | Ordered |
 
+## Settled LINQ / Query-Syntax Scope
+
+For 0.6, LINQ and query syntax are a convenience layer, not the full concurrency-control surface.
+
+The settled contract is:
+
+- `SelectMany` and `SelectManyAsync` remain unordered flattening helpers
+- LINQ/query syntax does not expose ordered or sequential flattening controls for 0.6
+- users who need explicit concurrency and ordering control should use fluent Streamix operators such as `FlatMap`, `ConcatMap`, and `FlatMapOrdered`
+
+### Confirmed LINQ Surface Alignment
+
+The current `LinqExtensions` implementation matches that contract:
+
+- `Select(...)` delegates to `Map(Func<T, TResult>)`, so it is sequential and ordered
+- `SelectAsync(...)` delegates to `MapAwait(Func<T, ValueTask<TResult>>)`, so it is sequential and ordered
+- `SelectMany(...)` overloads delegate to `FlatMap(...)`, so they are unordered flattening helpers
+- `SelectManyAsync(...)` composes through task-returning `Map(..., maxConcurrency)` plus `FlatMap(...)`, so it also remains unordered
+
+This means query syntax should be understood as:
+
+- ordered for `where` / `select`-style projection and filtering
+- fastest-path unordered for flattening via `SelectMany`
+
 ## Guidance for Follow-on Docs Work
+
+Task 4 should align LINQ and query-syntax docs to this settled scope without changing the extension surface. In particular, the following wording must be corrected where it appears:
+
+- any wording that implies LINQ/query syntax exposes the same ordered/sequential flattening choices as the fluent API
+- any examples that suggest `SelectMany` or `SelectManyAsync` preserve outer ordering
+- any examples that present LINQ as the preferred path for ordered or sequential flattening
 
 Task 2 should align public-facing docs to this settled contract without changing the API surface. In particular, the following wording must be corrected where it appears:
 
