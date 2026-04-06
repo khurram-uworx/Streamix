@@ -161,13 +161,13 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
                 yield return innerItem;
     }
 
-    async IAsyncEnumerable<TResult> parallelMapSingle<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<TResult> parallelMapEnumerable<TResult>(Func<T, IAsyncEnumerable<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (maxConcurrency == 1)
         {
             await foreach (var item in this.WithCancellation(cancellationToken))
-                await foreach (var inner in selector(item).WithCancellation(cancellationToken))
-                    yield return inner;
+                await foreach (var innerItem in selector(item).WithCancellation(cancellationToken))
+                    yield return innerItem;
             yield break;
         }
 
@@ -215,116 +215,6 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
                         }, cts.Token);
 
                         tasks.Add(task);
-                        tasks.RemoveAll(t => t.IsCompleted);
-                    }
-                }
-                finally
-                {
-                    await enumerator.DisposeAsync();
-                }
-
-                await Task.WhenAll(tasks);
-                channel.Writer.Complete();
-            }
-            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
-            {
-                channel.Writer.TryComplete();
-            }
-            catch (Exception ex)
-            {
-                channel.Writer.TryComplete(ex);
-            }
-            finally
-            {
-                try { await Task.WhenAll(tasks); } catch { }
-                semaphore.Dispose();
-            }
-        }, cts.Token);
-
-        try
-        {
-            while (true)
-            {
-                bool hasMore;
-                try
-                {
-                    hasMore = await channel.Reader.WaitToReadAsync(cancellationToken);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (!hasMore) break;
-
-                while (channel.Reader.TryRead(out var result))
-                    yield return result;
-            }
-
-            await producerTask;
-            await channel.Reader.Completion;
-        }
-        finally
-        {
-            await cts.CancelAsync();
-            try { await producerTask; } catch { }
-        }
-    }
-
-    async IAsyncEnumerable<TResult> parallelMapStream<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        if (maxConcurrency == 1)
-        {
-            await foreach (var item in flatMapMany(selector, cancellationToken))
-                yield return item;
-            yield break;
-        }
-
-        var channel = Channel.CreateBounded<TResult>(maxConcurrency);
-
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var producerTask = Task.Run(async () =>
-        {
-            var semaphore = new SemaphoreSlim(maxConcurrency);
-            var tasks = new List<Task>();
-            try
-            {
-                var enumerator = this.WithCancellation(cts.Token).GetAsyncEnumerator();
-                try
-                {
-                    while (true)
-                    {
-                        await semaphore.WaitAsync(cts.Token);
-
-                        if (!await enumerator.MoveNextAsync())
-                        {
-                            semaphore.Release();
-                            break;
-                        }
-
-                        var item = enumerator.Current;
-
-                        var task = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                await foreach (var result in selector(item).WithCancellation(cts.Token))
-                                    await channel.Writer.WriteAsync(result, cts.Token);
-                            }
-                            catch (Exception ex)
-                            {
-                                channel.Writer.TryComplete(ex);
-                                throw;
-                            }
-                            finally
-                            {
-                                semaphore.Release();
-                            }
-                        }, cts.Token);
-
-                        tasks.Add(task);
-                        tasks.RemoveAll(t => t.IsCompleted);
                     }
                 }
                 finally
@@ -548,7 +438,7 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> flatMapMany<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<TResult> concatMapInternal<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
         {
@@ -557,7 +447,7 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> flatMapManyAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<TResult> concatMapAwaitInternal<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
         {
@@ -571,18 +461,19 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     {
         if (maxConcurrency == 1)
         {
-            await foreach (var item in flatMapMany(selector, cancellationToken))
+            await foreach (var item in concatMapInternal(selector, cancellationToken))
                 yield return item;
             yield break;
         }
 
-        var channel = Channel.CreateBounded<IStream<TResult>>(maxConcurrency);
+        var channel = Channel.CreateBounded<ChannelReader<TResult>>(maxConcurrency);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
         var producerTask = Task.Run(async () =>
         {
             var semaphore = new SemaphoreSlim(maxConcurrency);
+            var tasks = new List<Task>();
             try
             {
                 var enumerator = this.WithCancellation(cts.Token).GetAsyncEnumerator();
@@ -599,18 +490,32 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
                         }
 
                         var item = enumerator.Current;
+                        var innerChannel = Channel.CreateBounded<TResult>(16);
 
-                        // Create a hot replayed stream to preserve inner items while keeping it concurrent
-                        var innerStream = selector(item).Replay(int.MaxValue);
-                        var connection = innerStream.Connect();
-
-                        _ = innerStream.DrainAsync(cts.Token).ContinueWith(_ =>
+                        var task = Task.Run(async () =>
                         {
-                            connection.Dispose();
-                            semaphore.Release();
-                        });
+                            try
+                            {
+                                var innerStream = selector(item);
+                                await foreach (var innerItem in innerStream.WithCancellation(cts.Token))
+                                {
+                                    await innerChannel.Writer.WriteAsync(innerItem, cts.Token);
+                                }
+                                innerChannel.Writer.Complete();
+                            }
+                            catch (Exception ex)
+                            {
+                                innerChannel.Writer.TryComplete(ex);
+                                throw;
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }, cts.Token);
 
-                        await channel.Writer.WriteAsync(innerStream, cts.Token);
+                        tasks.Add(task);
+                        await channel.Writer.WriteAsync(innerChannel.Reader, cts.Token);
                     }
                 }
                 finally
@@ -618,6 +523,7 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
                     await enumerator.DisposeAsync();
                 }
 
+                await Task.WhenAll(tasks);
                 channel.Writer.Complete();
             }
             catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
@@ -630,29 +536,18 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
             }
             finally
             {
+                try { await Task.WhenAll(tasks); } catch { }
                 semaphore.Dispose();
             }
         }, cts.Token);
 
         try
         {
-            while (true)
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
             {
-                bool hasMore;
-                try
+                while (channel.Reader.TryRead(out var innerReader))
                 {
-                    hasMore = await channel.Reader.WaitToReadAsync(cancellationToken);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (!hasMore) break;
-
-                while (channel.Reader.TryRead(out var innerStream))
-                {
-                    await foreach (var result in innerStream.WithCancellation(cancellationToken))
+                    await foreach (var result in innerReader.ReadAllAsync(cancellationToken))
                         yield return result;
                 }
             }
@@ -886,11 +781,11 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> flatMapManyAwaitConcurrent<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<TResult> flatMapAwaitConcurrent<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (maxConcurrency == 1)
         {
-            await foreach (var item in flatMapManyAwait(selector, cancellationToken))
+            await foreach (var item in concatMapAwaitInternal(selector, cancellationToken))
                 yield return item;
             yield break;
         }
@@ -1495,7 +1390,7 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = 1)
+    public IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return Stream.From(flatMapAwaitConcurrent(selector, maxConcurrency), clock);
@@ -1578,16 +1473,16 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     public IStream<T> Where(Func<T, bool> predicate) => Filter(predicate);
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1)
+    public IStream<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
             ? Stream.From(flatMap(selector), clock)
-            : Stream.From(parallelMapSingle(selector, maxConcurrency), clock);
+            : Stream.From(parallelMapEnumerable(selector, maxConcurrency), clock);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = 1)
+    public IStream<TResult> FlatMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
@@ -1596,21 +1491,21 @@ sealed class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> SelectMany<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1) => FlatMap(selector, maxConcurrency);
+    public IStream<TResult> SelectMany<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue) => FlatMap(selector, maxConcurrency);
 
     /// <inheritdoc />
     public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
-            ? Stream.From(flatMapMany(selector), clock)
-            : Stream.From(parallelMapStream(selector, maxConcurrency), clock);
+            ? Stream.From(concatMapInternal(selector), clock)
+            : Stream.From(parallelMapEnumerable(selector, maxConcurrency), clock);
     }
 
     /// <inheritdoc />
     public IStream<TResult> ConcatMap<TResult>(Func<T, IStream<TResult>> selector)
     {
-        return Stream.From(flatMapMany(selector), clock);
+        return Stream.From(concatMapInternal(selector), clock);
     }
 
     /// <inheritdoc />

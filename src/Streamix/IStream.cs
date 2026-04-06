@@ -27,7 +27,7 @@ public interface IStream<T> : IAsyncEnumerable<T>
     /// <summary>
     /// Projects each element of a stream into a new form by applying an asynchronous selector concurrently.
     /// Results are emitted as soon as they complete, so upstream ordering is not preserved.
-    /// This is the highest-throughput map variant and defaults to unbounded concurrency.
+    /// This is a high-throughput variant for async transforms and defaults to unbounded concurrency.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
@@ -37,7 +37,7 @@ public interface IStream<T> : IAsyncEnumerable<T>
 
     /// <summary>
     /// Projects each element of a stream into a new form by applying an asynchronous selector concurrently while preserving upstream ordering.
-    /// This may buffer completed results until earlier items are ready.
+    /// Results are buffered as necessary to ensure they are emitted in source order.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
@@ -61,38 +61,41 @@ public interface IStream<T> : IAsyncEnumerable<T>
 
     /// <summary>
     /// Projects each element of a stream to an <see cref="ISingle{TResult}"/> and flattens the resulting streams into one stream.
-    /// Supports concurrency control.
+    /// Results are emitted as soon as they complete, so upstream ordering is not preserved.
+    /// This is the highest-throughput variant for 1-to-1 async transforms and defaults to unbounded concurrency.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
-    /// <param name="maxConcurrency">The maximum number of concurrent operations.</param>
+    /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
     /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the one-to-many transform function on each element of the input stream.</returns>
-    IStream<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = 1);
+    IStream<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream to an <see cref="ISingle{TResult}"/> and flattens the resulting streams into one stream.
-    /// Supports asynchronous projection and concurrency control.
+    /// Results are emitted as soon as they complete, so upstream ordering is not preserved.
+    /// This is a high-throughput variant for async transforms and defaults to unbounded concurrency.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
-    /// <param name="maxConcurrency">The maximum number of concurrent operations.</param>
+    /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
     /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the one-to-many transform function on each element of the input stream.</returns>
-    IStream<TResult> FlatMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = 1);
+    IStream<TResult> FlatMap<TResult>(Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream to an <see cref="ISingle{TResult}"/> using an asynchronous selector and flattens the resulting streams into one stream.
-    /// Supports concurrency control.
+    /// Results are emitted as soon as they complete, so upstream ordering is not preserved.
+    /// This is a high-throughput variant for async transforms and defaults to unbounded concurrency.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
-    /// <param name="maxConcurrency">The maximum number of concurrent operations.</param>
+    /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
     /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async one-to-one transform function on each element of the input stream.</returns>
-    IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = 1);
+    IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream to another stream and merges the inner streams concurrently.
     /// Results are emitted as soon as inner streams produce them, so outer ordering is not preserved.
-    /// This is the highest-throughput 1-to-N flattening variant.
+    /// This is the highest-throughput 1-to-N flattening variant and defaults to unbounded concurrency.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
@@ -103,6 +106,7 @@ public interface IStream<T> : IAsyncEnumerable<T>
     /// <summary>
     /// Projects each element of a stream to another stream and concatenates the inner streams sequentially.
     /// Only one inner stream is active at a time, so results are emitted strictly in source order.
+    /// This is equivalent to <see cref="FlatMap{TResult}(Func{T, IStream{TResult}}, int)"/> with maxConcurrency of 1.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
@@ -111,7 +115,7 @@ public interface IStream<T> : IAsyncEnumerable<T>
 
     /// <summary>
     /// Projects each element of a stream to another stream and merges the inner streams concurrently while preserving outer source ordering.
-    /// This may buffer completed inner results until all earlier source items have emitted their corresponding sequences.
+    /// Results from inner streams are buffered as necessary to ensure they are emitted in the same order as the source elements that produced them.
     /// </summary>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>

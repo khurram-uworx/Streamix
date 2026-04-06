@@ -66,14 +66,15 @@ Available patterns include:
 
 * `Map` / `MapAwait` / `MapOrdered`
 * `Filter` / `FilterAwait`
-* `FlatMap` for 1:1 async project → like `SelectMany`
-* `FlatMap` for 1:N expansion when order does not matter
-* `ConcatMap` for 1:N expansion when strict source order matters
-* `FlatMapAwait` for async 1:1 selector functions
+* `FlatMap` / `FlatMapAwait` — 1:1 or 1:N transforms, unordered concurrent by default
+* `ConcatMap` — 1:N transform, sequential and ordered
+* `FlatMapOrdered` — 1:N transform, concurrent and ordered
 
 ---
 
 ## ⚙️ Concurrency & Backpressure
+
+Streamix provides explicit control over concurrency and ordering. Operators without the `Ordered` suffix are generally unordered and concurrent by default, providing the highest throughput.
 
 ```csharp
 await stream
@@ -81,13 +82,15 @@ await stream
     .ForEachAsync(Console.WriteLine);
 ```
 
-Use:
+### Concurrency Semantics
 
-- `Map(...)` when completion order can vary
-- `MapOrdered(...)` when upstream order must be preserved
-- `FlatMap(...)` for unordered concurrent flattening
-- `ConcatMap(...)` for sequential flattening
-- `FlatMapOrdered(..., maxConcurrency: n)` for ordered concurrent flattening
+| Operator | Concurrency | Ordering | Use Case | Performance |
+|----------|-------------|----------|----------|-------------|
+| `Map()` | Unbounded | Unordered | Fire-and-forget, fastest 1:1 transform | ⭐⭐⭐ |
+| `MapOrdered()` | Configurable N | Ordered | Transform while preserving source order | ⭐⭐ |
+| `FlatMap()` | Unbounded | Unordered | Fire-and-forget, fastest 1:N expansion | ⭐⭐⭐ |
+| `FlatMapOrdered()` | Configurable N | Ordered | Expand while preserving source order | ⭐⭐ |
+| `ConcatMap()` | 1 (Sequential) | Ordered | Strict sequential processing | ⭐ |
 
 When Streamix uses bounded channels internally, producers pause when buffers are full instead of unboundedly accumulating work.
 
@@ -124,8 +127,8 @@ var replayed = Stream.Range(1, 3).Replay(2);
 * `Map` / `MapAwait` / `MapOrdered`
 * `Filter` / `FilterAwait`
 * `FlatMap` / `FlatMapAwait`
-* `Generate`
 * `ConcatMap` / `FlatMapOrdered`
+* `Generate`
 * `Take` / `Skip`
 * `Merge` / `Zip`
 * `Buffer` / `Window`
