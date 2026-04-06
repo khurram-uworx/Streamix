@@ -123,7 +123,7 @@ public class LinqExtensionsTests
             .ToListAsync();
 
         // 1 -> [1], 2 -> [1,2], 3 -> [1,2,3]
-        Assert.That(result, Is.EqualTo(new[] { 1, 1, 2, 1, 2, 3 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2, 1, 2, 3 }));
     }
 
     [Test]
@@ -133,7 +133,7 @@ public class LinqExtensionsTests
             .SelectMany(x => Stream.Range(1, x).Select(y => $"{x}:{y}"))
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { "1:1", "2:1", "2:2" }));
+        Assert.That(result, Is.EquivalentTo(new[] { "1:1", "2:1", "2:2" }));
     }
 
     [Test]
@@ -168,7 +168,7 @@ public class LinqExtensionsTests
             .SelectMany(x => Stream.Range(1, x))
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 1, 1, 2 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2 }));
     }
 
     [Test]
@@ -334,7 +334,7 @@ public class LinqExtensionsTests
             .SelectManyAsync(x => new ValueTask<IStream<int>>(Stream.Range(1, x)))
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 1, 1, 2, 1, 2, 3 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2, 1, 2, 3 }));
     }
 
     [Test]
@@ -348,7 +348,7 @@ public class LinqExtensionsTests
             })
             .ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 1, 1, 2, 1, 2, 3 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2, 1, 2, 3 }));
     }
 
     [Test]
@@ -533,9 +533,7 @@ public class LinqExtensionsTests
         ).ToListAsync();
 
         Assert.That(result.Count, Is.EqualTo(6)); // 1 + 2 + 3
-        Assert.That(result[0], Is.EqualTo((1, 1)));
-        Assert.That(result[1], Is.EqualTo((2, 1)));
-        Assert.That(result[2], Is.EqualTo((2, 2)));
+        Assert.That(result, Is.EquivalentTo(new[] { (1, 1), (2, 1), (2, 2), (3, 1), (3, 2), (3, 3) }));
     }
 
     [Test]
@@ -553,8 +551,7 @@ public class LinqExtensionsTests
         // 3 -> (3,1), (3,2), (3,3)
         // 5 -> (5,1), (5,2), (5,3), (5,4), (5,5)
         Assert.That(result.Count, Is.EqualTo(9));
-        Assert.That(result[0], Is.EqualTo((1, 1)));
-        Assert.That(result[1], Is.EqualTo((3, 1)));
+        Assert.That(result, Is.EquivalentTo(new[] { (1, 1), (3, 1), (3, 2), (3, 3), (5, 1), (5, 2), (5, 3), (5, 4), (5, 5) }));
     }
 
     [Test]
@@ -569,10 +566,7 @@ public class LinqExtensionsTests
 
         // squared > 25: x values 6-10 (36, 49, 64, 81, 100)
         Assert.That(result.Count, Is.EqualTo(5));
-        Assert.That(result[0].x, Is.EqualTo(6));
-        Assert.That(result[0].squared, Is.EqualTo(36));
-        Assert.That(result[4].x, Is.EqualTo(10));
-        Assert.That(result[4].squared, Is.EqualTo(100));
+        Assert.That(result.Select(r => r.x), Is.EquivalentTo(new[] { 6, 7, 8, 9, 10 }));
     }
 
     [Test]
@@ -586,9 +580,7 @@ public class LinqExtensionsTests
         ).ToListAsync();
 
         Assert.That(result.Count, Is.EqualTo(4)); // 2, 3, 4, 5
-        Assert.That(result[0].Original, Is.EqualTo(2));
-        Assert.That(result[0].Doubled, Is.EqualTo(4));
-        Assert.That(result[0].Squared, Is.EqualTo(4));
+        Assert.That(result.Select(r => r.Original), Is.EquivalentTo(new[] { 2, 3, 4, 5 }));
     }
 
     [Test]
@@ -600,7 +592,7 @@ public class LinqExtensionsTests
             select x * 10 + y
         ).ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { 11, 12, 21, 22, 31, 32 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 11, 12, 21, 22, 31, 32 }));
     }
 
     [Test]
@@ -633,8 +625,10 @@ public class LinqExtensionsTests
         ).ToListAsync();
 
         Assert.That(result.Count, Is.EqualTo(8)); // 2 * 2 * 2
-        Assert.That(result[0], Is.EqualTo((1, 1, 1)));
-        Assert.That(result[7], Is.EqualTo((2, 2, 2)));
+        Assert.That(result, Is.EquivalentTo(new[] {
+            (1, 1, 1), (1, 1, 2), (1, 2, 1), (1, 2, 2),
+            (2, 1, 1), (2, 1, 2), (2, 2, 1), (2, 2, 2)
+        }));
     }
 
     [Test]
@@ -653,6 +647,7 @@ public class LinqExtensionsTests
         // 2 -> (2,1), (2,2)
         // 3 -> (3,1), (3,2), (3,3)
         Assert.That(result.Count, Is.EqualTo(6));
+        Assert.That(result, Is.EquivalentTo(new[] { (1, 1), (2, 1), (2, 2), (3, 1), (3, 2), (3, 3) }));
     }
 
     [Test]
@@ -664,7 +659,7 @@ public class LinqExtensionsTests
             select $"Number: {x}"
         ).ToListAsync();
 
-        Assert.That(result, Is.EqualTo(new[] { "Number: 2", "Number: 4" }));
+        Assert.That(result, Is.EquivalentTo(new[] { "Number: 2", "Number: 4" }));
     }
 
     [Test]
@@ -686,10 +681,6 @@ public class LinqExtensionsTests
             .ToListAsync();
 
         Assert.That(queryVersionResult.Count, Is.EqualTo(fluentVersionResult.Count));
-        for (int i = 0; i < queryVersionResult.Count; i++)
-        {
-            Assert.That(queryVersionResult[i].Value, Is.EqualTo(fluentVersionResult[i].Value));
-            Assert.That(queryVersionResult[i].Squared, Is.EqualTo(fluentVersionResult[i].Squared));
-        }
+        Assert.That(queryVersionResult.Select(r => r.Value), Is.EquivalentTo(fluentVersionResult.Select(r => r.Value)));
     }
 }

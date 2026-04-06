@@ -58,13 +58,13 @@ await Stream.Range(1, 10)
 ```csharp
 var orders =
     GetUser(id)                           // Single<User>
-    .FlatMapMany(user => GetOrders(user)) // Stream<Order>
+    .FlatMap(user => GetOrders(user))     // Stream<Order>
     .Map(o => o.Product);                 // Stream<string>
 ```
 
 Available patterns include:
 
-* `Map` / `MapAwait`
+* `Map` / `MapAwait` / `MapOrdered`
 * `Filter` / `FilterAwait`
 * `FlatMap` for 1:1 async project → like `SelectMany`
 * `FlatMap` for 1:N expansion when order does not matter
@@ -121,12 +121,11 @@ var replayed = Stream.Range(1, 3).Replay(2);
 
 ## 📦 Operators
 
-* `Map` / `MapAwait`
+* `Map` / `MapAwait` / `MapOrdered`
 * `Filter` / `FilterAwait`
 * `FlatMap` / `FlatMapAwait`
 * `Generate`
 * `ConcatMap` / `FlatMapOrdered`
-* `MapOrdered`
 * `Take` / `Skip`
 * `Merge` / `Zip`
 * `Buffer` / `Window`

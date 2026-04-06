@@ -97,10 +97,10 @@ public class FlatteningOperatorTests
     }
 
     [Test]
-    public async Task Single_FlatMapMany_ReturnsStream()
+    public async Task Single_FlatMap_ToStream_ReturnsStream()
     {
         var result = await Single.From(1)
-            .FlatMapMany(x => Stream.Range(x * 10, 3))
+            .FlatMap(x => Stream.Range(x * 10, 3))
             .ToListAsync();
 
         Assert.That(result, Is.EqualTo(new[] { 10, 11, 12 }));
@@ -114,7 +114,7 @@ public class FlatteningOperatorTests
         Func<string, IStream<int>> GetOrders = user => Stream.Range(1, 2); // Orders 1, 2
 
         var orders = await GetUser(1)
-            .FlatMapMany(user => GetOrders(user))
+            .FlatMap(user => GetOrders(user))
             .ConcatMap(o => Stream.From(new[] { o }.ToAsyncEnumerable())) // Using an internal helper or similar
             .ToListAsync();
 
@@ -193,7 +193,7 @@ public class FlatteningOperatorTests
 
         // 1 -> 10, 11
         // 2 -> 20, 21
-        Assert.That(result, Is.EqualTo(new[] { 10, 11, 20, 21 }));
+        Assert.That(result, Is.EquivalentTo(new[] { 10, 11, 20, 21 }));
     }
 
     [Test]

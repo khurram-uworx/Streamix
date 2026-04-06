@@ -70,10 +70,9 @@ public class ApiContractTests
         Assert.That(typeof(Single).GetMethods().Any(m => m.Name == "From"), Is.True);
 
         // Instance methods on ISingle
-        Assert.That(type.GetMethod("Map"), Is.Not.Null);
-        Assert.That(type.GetMethod("Select"), Is.Not.Null);
-        Assert.That(type.GetMethod("FlatMap"), Is.Not.Null);
-        Assert.That(type.GetMethod("FlatMapMany"), Is.Not.Null);
+        Assert.That(type.GetMethods().Any(m => m.Name == "Map"), Is.True);
+        Assert.That(type.GetMethods().Any(m => m.Name == "Select"), Is.True);
+        Assert.That(type.GetMethods().Any(m => m.Name == "FlatMap"), Is.True);
         Assert.That(type.GetMethod("OnErrorResume"), Is.Not.Null);
         Assert.That(type.GetMethod("OnErrorReturn"), Is.Not.Null);
         Assert.That(type.GetMethod("OnErrorMap"), Is.Not.Null);

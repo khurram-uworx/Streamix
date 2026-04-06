@@ -86,10 +86,10 @@ public class SingleTests
     }
 
     [Test]
-    public async Task FlatMapMany_Flattens_To_Stream()
+    public async Task FlatMap_ToStream_Flattens_To_Stream()
     {
         ISingle<int> single = Single.From(3);
-        IStream<int> stream = single.FlatMapMany(x => Stream.Range(1, x));
+        IStream<int> stream = single.FlatMap(x => Stream.Range(1, x));
         var result = new List<int>();
         await foreach (var item in stream)
         {
@@ -162,10 +162,10 @@ public class SingleTests
     }
 
     [Test]
-    public async Task FlatMapManyAwait_Flattens_To_Stream_Asynchronously()
+    public async Task FlatMapAwait_ToStream_Flattens_To_Stream_Asynchronously()
     {
         ISingle<int> single = Single.From(3);
-        IStream<int> stream = single.FlatMapManyAwait(async x =>
+        IStream<int> stream = single.FlatMapAwait(async x =>
         {
             await Task.Yield();
             return Stream.Range(1, x);
