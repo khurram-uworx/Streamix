@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 
-namespace Streamix.Tests;
+namespace Streamix.Tests.Implementations;
 
 class NUnitLogger<T> : ILogger<T>, IDisposable
 {

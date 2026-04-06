@@ -1,6 +1,7 @@
+using Streamix;
 using System.Diagnostics;
 
-namespace Streamix.Tests;
+namespace Streamix.Tests.Implementations;
 
 public sealed class TestClock : IClock
 {

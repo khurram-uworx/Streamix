@@ -7,7 +7,7 @@ namespace Streamix.Implementations;
 /// This class is sealed to provide a stable API surface and ensure consistent behavior across operator chains.
 /// </summary>
 /// <typeparam name="T">The type of item in the stream.</typeparam>
-public sealed class Single<T> : ISingle<T>
+class Single<T> : ISingle<T>
 {
     readonly IAsyncEnumerable<T> source;
     readonly IClock clock;

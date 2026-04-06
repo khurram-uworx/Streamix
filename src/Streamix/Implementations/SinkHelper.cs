@@ -8,7 +8,7 @@ namespace Streamix.Implementations;
 /// allowing both core stream classes and extensions to depend on this shared implementation
 /// rather than creating circular dependencies.
 /// </summary>
-internal static class SinkHelper
+static class SinkHelper
 {
     /// <summary>
     /// Writes all items from a stream to a sink with proper error and cancellation handling.

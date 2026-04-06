@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace Streamix;
 
-internal sealed class ChannelWriterSink<T> : IAsyncSink<T>
+class ChannelWriterSink<T> : IAsyncSink<T>
 {
     readonly ChannelWriter<T> writer;
 

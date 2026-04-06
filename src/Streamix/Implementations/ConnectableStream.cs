@@ -9,7 +9,7 @@ namespace Streamix.Implementations;
 /// This class is internal as it's intended to be created via the <see cref="Stream{T}.Publish"/> method.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
-sealed class ConnectableStream<T> : IConnectableStream<T>
+class ConnectableStream<T> : IConnectableStream<T>
 {
     class ConnectionDisposable : IDisposable
     {

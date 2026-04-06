@@ -8,7 +8,7 @@ namespace Streamix.Implementations;
 /// This class is sealed to provide a stable API surface and ensure consistent behavior across operator chains.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
-public sealed class Stream<T> : IStream<T>
+class Stream<T> : IStream<T>
 {
     static async IAsyncEnumerable<T> merge(IStream<T>[] streams, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -1551,4 +1551,3 @@ public sealed class Stream<T> : IStream<T>
             cancellationToken);
     }
 }
-

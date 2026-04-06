@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using Streamix.Implementations;
+using Streamix.Tests.Implementations;
 
 namespace Streamix.Tests;
 
@@ -122,7 +122,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var throttled = ((Stream<int>)Stream.From<int>(source, clock)).Throttle(TimeSpan.FromSeconds(1));
+        var throttled = Stream.From<int>(source, clock).Throttle(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(throttled, default));

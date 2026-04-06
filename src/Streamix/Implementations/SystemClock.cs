@@ -3,7 +3,7 @@ namespace Streamix.Implementations;
 /// <summary>
 /// A default implementation of <see cref="IClock"/> using system time.
 /// </summary>
-public sealed class SystemClock : IClock
+class SystemClock : IClock
 {
     static readonly Lazy<SystemClock> instance = new(() => new SystemClock());
 

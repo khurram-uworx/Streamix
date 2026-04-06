@@ -1,6 +1,6 @@
 namespace Streamix;
 
-internal sealed class DelegateAsyncSink<T> : IAsyncSink<T>
+class DelegateAsyncSink<T> : IAsyncSink<T>
 {
     readonly Func<T, CancellationToken, ValueTask> writeAsync;
     readonly Func<Exception?, CancellationToken, ValueTask>? completeAsync;

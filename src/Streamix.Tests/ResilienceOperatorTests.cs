@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Streamix.Implementations;
+using Streamix.Tests.Implementations;
 
 namespace Streamix.Tests;
 
@@ -62,7 +63,7 @@ public class ResilienceOperatorTests
         }
         var source = Single.From<int>(Source());
 
-        var retried = ((Single<int>)source).Retry(1);
+        var retried = source.Retry(1);
         var result = await retried.ToTask();
 
         Assert.That(result, Is.EqualTo(1));
@@ -74,7 +75,7 @@ public class ResilienceOperatorTests
     {
         var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(2));
-        var timeoutSingle = ((Single<int>)Single.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
+        var timeoutSingle = Single.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
 
         var task = timeoutSingle.ToTask();
 
@@ -98,7 +99,7 @@ public class ResilienceOperatorTests
         }
         var source = Stream.From(Source());
 
-        var retried = ((Stream<int>)source).Retry(1);
+        var retried = source.Retry(1);
         var results = new List<int>();
 
         await foreach (var item in retried)
@@ -122,7 +123,7 @@ public class ResilienceOperatorTests
         }
         var source = Stream.From(Source());
 
-        var retried = ((Stream<int>)source).Retry(2);
+        var retried = source.Retry(2);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -137,7 +138,7 @@ public class ResilienceOperatorTests
     {
         var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(2));
-        var timeoutStream = ((Stream<int>)Stream.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
+        var timeoutStream = Stream.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
 
         var task = timeoutStream.ForEachAsync(_ => { });
 
@@ -150,16 +151,14 @@ public class ResilienceOperatorTests
     {
         var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(0.5));
-        var timeoutStream = ((Stream<int>)Stream.From<int>(source, clock)).Timeout(TimeSpan.FromSeconds(1));
+        var timeoutStream = Stream.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
         var results = new List<int>();
 
         var task = Task.Run(async () =>
         {
             await using var e = timeoutStream.Take(2).GetAsyncEnumerator();
             while (await e.MoveNextAsync())
-            {
                 results.Add(e.Current);
-            }
         });
 
         await clock.WaitForDelay(2, TimeSpan.FromSeconds(2)); // MoveNext + Timeout Delay
@@ -287,7 +286,7 @@ public class ResilienceOperatorTests
             await foreach (var item in retried) { }
         });
 
-        Assert.That(ex.Message, Is.EqualTo("Persistent failure 3"));
+        Assert.That(ex?.Message, Is.EqualTo("Persistent failure 3"));
         Assert.That(callCount, Is.EqualTo(3));
     }
 

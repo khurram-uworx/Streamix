@@ -204,7 +204,10 @@ public static class Stream
         }
     }
 
-    internal static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Stream<T>(source, clock);
+    /// <summary>
+    /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/> and <see cref="IClock"/>
+    /// </summary>
+    public static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Stream<T>(source, clock);
 
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/>.
@@ -359,7 +362,9 @@ public static class Stream
     /// <returns>A stream that emits sequential long integers.</returns>
     public static IStream<long> Interval(TimeSpan dueTime, TimeSpan period) => From(AsyncEnumerable.Interval(dueTime, period, SystemClock.Instance));
 
-    internal static IStream<long> Interval(TimeSpan dueTime, TimeSpan period, IClock clock) => From(AsyncEnumerable.Interval(dueTime, period, clock), clock);
+    /// <summary>
+    /// </summary>
+    public static IStream<long> Interval(TimeSpan dueTime, TimeSpan period, IClock clock) => From(AsyncEnumerable.Interval(dueTime, period, clock), clock);
 
     /// <summary>
     /// Returns a stream that emits a single 0L after an initial delay and then completes.
@@ -368,7 +373,9 @@ public static class Stream
     /// <returns>A stream that emits 0L after the delay.</returns>
     public static IStream<long> Timer(TimeSpan dueTime) => From(AsyncEnumerable.Timer(dueTime, SystemClock.Instance));
 
-    internal static IStream<long> Timer(TimeSpan dueTime, IClock clock) => From(AsyncEnumerable.Timer(dueTime, clock), clock);
+    /// <summary>
+    /// </summary>
+    public static IStream<long> Timer(TimeSpan dueTime, IClock clock) => From(AsyncEnumerable.Timer(dueTime, clock), clock);
 
     /// <summary>
     /// Returns a stream that emits the result of a polling function every specified time interval.
@@ -389,7 +396,9 @@ public static class Stream
     /// <returns>A stream that emits the results of the polling function.</returns>
     public static IStream<T> Poll<T>(TimeSpan dueTime, TimeSpan period, Func<CancellationToken, ValueTask<T>> poll) => From(AsyncEnumerable.Poll(dueTime, period, poll, SystemClock.Instance));
 
-    internal static IStream<T> Poll<T>(TimeSpan dueTime, TimeSpan period, Func<CancellationToken, ValueTask<T>> poll, IClock clock) => From(AsyncEnumerable.Poll(dueTime, period, poll, clock), clock);
+    /// <summary>
+    /// </summary>
+    public static IStream<T> Poll<T>(TimeSpan dueTime, TimeSpan period, Func<CancellationToken, ValueTask<T>> poll, IClock clock) => From(AsyncEnumerable.Poll(dueTime, period, poll, clock), clock);
 
     /// <summary>
     /// Creates a stream that never emits any items and never completes.

@@ -91,7 +91,7 @@ public static class Single
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from an <see cref="IAsyncEnumerable{T}"/> with a specific clock.
     /// </summary>
-    internal static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Single<T>(source, clock);
+    public static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Single<T>(source, clock);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a single value.

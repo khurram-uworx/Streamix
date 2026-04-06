@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace Streamix.Tests;
+namespace Streamix.Tests.Implementations;
 
 public class TestSubscriber<T>
 {
