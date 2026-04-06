@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
+
 namespace Streamix;
 
 /// <summary>
@@ -7,6 +10,114 @@ namespace Streamix;
 /// </summary>
 public static class LinqExtensions
 {
+    static async IAsyncEnumerable<TResult> selectManyAwaitConcurrent<T, TResult>(
+        IStream<T> source,
+        Func<T, ValueTask<IStream<TResult>>> selector,
+        int maxConcurrency,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
+
+        if (maxConcurrency == 1)
+        {
+            await foreach (var item in source.WithCancellation(cancellationToken))
+            {
+                var innerStream = await selector(item);
+                await foreach (var innerItem in innerStream.WithCancellation(cancellationToken))
+                    yield return innerItem;
+            }
+
+            yield break;
+        }
+
+        var channel = Channel.CreateBounded<TResult>(maxConcurrency);
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        var producerTask = Task.Run(async () =>
+        {
+            var semaphore = new SemaphoreSlim(maxConcurrency);
+            var tasks = new List<Task>();
+
+            try
+            {
+                var enumerator = source.WithCancellation(cts.Token).GetAsyncEnumerator();
+
+                try
+                {
+                    while (true)
+                    {
+                        await semaphore.WaitAsync(cts.Token);
+
+                        if (!await enumerator.MoveNextAsync())
+                        {
+                            semaphore.Release();
+                            break;
+                        }
+
+                        var item = enumerator.Current;
+
+                        var task = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var innerStream = await selector(item);
+                                await foreach (var result in innerStream.WithCancellation(cts.Token))
+                                    await channel.Writer.WriteAsync(result, cts.Token);
+                            }
+                            catch (Exception ex)
+                            {
+                                channel.Writer.TryComplete(ex);
+                                throw;
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }, cts.Token);
+
+                        tasks.Add(task);
+                        tasks.RemoveAll(t => t.IsCompleted);
+                    }
+                }
+                finally
+                {
+                    await enumerator.DisposeAsync();
+                }
+
+                await Task.WhenAll(tasks);
+                channel.Writer.Complete();
+            }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            {
+                channel.Writer.TryComplete();
+            }
+            catch (Exception ex)
+            {
+                channel.Writer.TryComplete(ex);
+            }
+            finally
+            {
+                try { await Task.WhenAll(tasks); } catch { }
+                semaphore.Dispose();
+            }
+        }, cts.Token);
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+                while (channel.Reader.TryRead(out var result))
+                    yield return result;
+
+            await producerTask;
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            await cts.CancelAsync();
+            try { await producerTask; } catch { }
+        }
+    }
 
     /// <summary>
     /// Filters a stream of values based on a predicate.
@@ -77,7 +188,7 @@ public static class LinqExtensions
     /// </summary>
     public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector)
     {
-        return source.Map(item => selector(item).AsTask()).FlatMap(task => Streamix.Stream.From(task).FlatMap(s => s));
+        return Streamix.Stream.From(selectManyAwaitConcurrent(source, selector, int.MaxValue));
     }
 
     /// <summary>
@@ -86,7 +197,8 @@ public static class LinqExtensions
     /// </summary>
     public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency)
     {
-        return source.Map(item => selector(item).AsTask(), maxConcurrency).FlatMap(task => Streamix.Stream.From(task).FlatMap(s => s));
+        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
+        return Streamix.Stream.From(selectManyAwaitConcurrent(source, selector, maxConcurrency));
     }
 
     /// <summary>

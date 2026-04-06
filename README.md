@@ -76,7 +76,7 @@ Available patterns include:
 
 ## ⚙️ Concurrency & Backpressure
 
-Streamix provides explicit control over concurrency and ordering, but the `Map` family is overload-specific for 0.6.
+Streamix provides explicit control over concurrency and ordering.
 
 - `Map(Func<T, TResult>)` and `MapAwait(Func<T, ValueTask<TResult>>)` are sequential and ordered.
 - `Map(Func<T, Task<TResult>>, int maxConcurrency = int.MaxValue)` is concurrent and unordered.
@@ -102,6 +102,13 @@ await stream
 | `ConcatMap()` | 1 (Sequential) | Ordered | Strict sequential processing | ⭐ |
 
 When Streamix uses bounded channels internally, producers pause when buffers are full instead of unboundedly accumulating work.
+
+Ordered operators have explicit runtime semantics:
+
+- `MapOrdered` and `FlatMapOrdered` preserve source order even when later work finishes first.
+- Later ordered results or failures are not observed until earlier ordered work has been drained.
+- `FlatMapOrdered` may buffer later inner items up to `maxBufferedItemsPerInner` while waiting for earlier inners.
+- Cancelling enumeration stops waiting and propagates cancellation into the ordered operator's in-flight work.
 
 ---
 

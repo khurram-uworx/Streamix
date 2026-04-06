@@ -575,25 +575,25 @@ public sealed class Stream<T> : IStream<T>
 
                         var item = enumerator.Current;
 
-                    var task = Task.Run(async () =>
-                    {
-                        try
+                        var task = Task.Run(async () =>
                         {
-                            await foreach (var result in selector(item).WithCancellation(cts.Token))
-                                await channel.Writer.WriteAsync(result, cts.Token);
-                        }
-                        catch (Exception ex)
-                        {
-                            channel.Writer.TryComplete(ex);
-                            throw;
-                        }
-                        finally
-                        {
-                            semaphore.Release();
-                        }
-                    }, cts.Token);
+                            try
+                            {
+                                await foreach (var result in selector(item).WithCancellation(cts.Token))
+                                    await channel.Writer.WriteAsync(result, cts.Token);
+                            }
+                            catch (Exception ex)
+                            {
+                                channel.Writer.TryComplete(ex);
+                                throw;
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                            }
+                        }, cts.Token);
 
-                    tasks.Add(task);
+                        tasks.Add(task);
                         tasks.RemoveAll(t => t.IsCompleted);
                     }
                 }
