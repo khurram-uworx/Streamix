@@ -11,6 +11,9 @@
     <Description>A lightweight, fluent, async-first streaming library for .NET.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/khurram-uworx/streamix</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageProjectUrl>https://github.com/khurram-uworx/streamix</PackageProjectUrl>
     <PackageTags>stream;reactive;async;linq;backpressure</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

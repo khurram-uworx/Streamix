@@ -98,4 +98,5 @@ var shared = Stream.Range(1, 3)
 
 ## Status
 
-Streamix is still in an early stage. The root repository README is the authoritative product contract and may describe work that is still being completed.
+Streamix is still early-stage, but this package README is intended to describe the shipped core surface only.
+Use the root repository README for the fuller product contract, roadmap, and release checklist.

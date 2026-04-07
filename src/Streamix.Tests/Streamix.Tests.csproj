@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
     <PackageReference Include="System.Interactive" Version="7.0.0" />
     <PackageReference Include="System.Interactive.Async" Version="7.0.0" />
+    <PackageReference Include="System.Reactive" Version="6.1.0" />
     <PackageReference Include="System.Reactive.Async" Version="6.0.0-alpha.18" />
   </ItemGroup>
 

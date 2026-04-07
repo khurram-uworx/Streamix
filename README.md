@@ -128,8 +128,6 @@ await state.OnBackpressureLatest().ForEachAsync(UpdateUIAsync);
 await stream.OnBackpressureError().ForEachAsync(CriticalProcessAsync);
 ```
 
-See [docs/BACKPRESSURE.md](docs/BACKPRESSURE.md) for more details.
-
 Ordered operators have explicit runtime semantics:
 
 - `MapOrdered` and `FlatMapOrdered` preserve source order even when later work finishes first.
@@ -151,13 +149,13 @@ using var connection = hot.Connect();
 await hot.ForEachAsync(Console.WriteLine);
 ```
 
-Use RefCount() to Auto-connects on the first subscriber and disconnects when the last subscriber leaves.
+Use `RefCount()` to auto-connect on the first subscriber and disconnect when the last subscriber leaves.
 
 ```csharp
-var shared = Stream.Range(1, 3).Publish().RefCount()
+var shared = Stream.Range(1, 3).Publish().RefCount();
 ```
 
-Use Replay(.) to share the source and replay the most recent items to late subscribers.
+Use `Replay(...)` to share the source and replay the most recent items to late subscribers.
 
 ```csharp
 var replayed = Stream.Range(1, 3).Replay(2);
