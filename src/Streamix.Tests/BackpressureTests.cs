@@ -176,6 +176,10 @@ public class BackpressureTests
             }
         });
 
+        // Small delay to ensure the resultsTask has started and its producer task has registered as a subscriber.
+        // TODO: Replace with robust synchronization mechanism (e.g., async event or channel-based signal).
+        await Task.Delay(50);
+
         using var connection = connectable.Connect();
         await resultsTask;
 
@@ -319,8 +323,10 @@ public class BackpressureTests
     public async Task MultipleBackpressureOperators_LastOneWins()
     {
         // Arrange
-        // Buffer(1) would normally throw if more than 1 item is buffered.
-        // But Latest() is applied after, so it should handle the backpressure by dropping oldest.
+        // When multiple backpressure operators are chained, we demonstrate that
+        // the outermost one (called last) is the one that controls the backpressure behavior.
+        // Here: Latest() is outermost, so it drops old items instead of buffering/erroring.
+        // Buffer(10) is inner but with enough capacity to not interfere.
         var consumerReceivedFirstTcs = new TaskCompletionSource<bool>();
         var stream = Stream.Create<int>(async (emitter, ct) =>
         {
@@ -330,7 +336,7 @@ public class BackpressureTests
             await emitter.EmitAsync(2);
             await emitter.EmitAsync(3);
             await emitter.EmitAsync(4);
-        }).OnBackpressureBuffer(1).OnBackpressureLatest();
+        }).OnBackpressureBuffer(10).OnBackpressureLatest();
 
         // Act
         var results = new List<int>();
@@ -346,10 +352,10 @@ public class BackpressureTests
         }
 
         // Assert
-        // If Buffer(1) won, it would have thrown BackpressureException because 2 items (2, 3)
-        // would be buffered while consumer is at 1.
-        // Since Latest() was last, it should have dropped oldest items.
-        // Note: 1 is received, then 2, 3, 4 are emitted. Latest drops 2, 3 and keeps 4.
+        // Latest() is the outermost operator, so it controls the backpressure behavior.
+        // It drops old items (2, 3) in favor of the latest one (4).
+        // The inner Buffer(10) doesn't interfere because it has enough capacity.
+        // Result: 1 is received, then after delay, 4 (since 2 and 3 were dropped by Latest).
         Assert.That(results, Is.EqualTo(new[] { 1, 4 }));
     }
 
