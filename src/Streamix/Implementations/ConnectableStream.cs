@@ -1303,6 +1303,55 @@ class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
+    async IAsyncEnumerable<T> onBackpressureError([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        // Use a small buffer to avoid race conditions in the happy path where producer and consumer start nearly simultaneously.
+        var channel = Channel.CreateBounded<T>(16);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        var producerTask = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var item in this.WithCancellation(cts.Token))
+                {
+                    if (!channel.Writer.TryWrite(item))
+                    {
+                        throw new BackpressureException("Downstream cannot keep pace (OnBackpressureError strategy).");
+                    }
+                }
+                channel.Writer.Complete();
+            }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            {
+                channel.Writer.TryComplete();
+            }
+            catch (Exception ex)
+            {
+                channel.Writer.TryComplete(ex);
+            }
+        }, cts.Token);
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
+            }
+
+            await producerTask;
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            await cts.CancelAsync();
+            try { await producerTask; } catch { }
+        }
+    }
+
     async IAsyncEnumerable<T> doOnNext(Action<T> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in this.WithCancellation(cancellationToken))
@@ -1416,7 +1465,7 @@ class ConnectableStream<T> : IConnectableStream<T>
     /// <inheritdoc />
     public IStream<T> OnBackpressureError()
     {
-        throw new NotImplementedException();
+        return Streamix.Stream.From(onBackpressureError(), clock);
     }
 
     /// <inheritdoc />

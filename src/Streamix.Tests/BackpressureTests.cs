@@ -97,4 +97,65 @@ public class BackpressureTests
         // Assert
         Assert.That(results, Is.EqualTo(Enumerable.Range(1, 10)));
     }
+
+    [Test]
+    public async Task OnBackpressureError_HappyPath_WhenDownstreamIsFastEnough()
+    {
+        // Arrange
+        var stream = Stream.Range(1, 10).OnBackpressureError();
+
+        // Act
+        var results = new List<int>();
+        await foreach (var item in stream)
+        {
+            results.Add(item);
+        }
+
+        // Assert
+        Assert.That(results, Is.EqualTo(Enumerable.Range(1, 10)));
+    }
+
+    [Test]
+    public async Task OnBackpressureError_Throws_BackpressureException_WhenDownstreamIsSlow()
+    {
+        // Arrange
+        var stream = Stream.Create<int>(async emitter =>
+        {
+            for (int i = 0; i < 20; i++)
+            {
+                await emitter.EmitAsync(i);
+            }
+        }).OnBackpressureError();
+
+        // Act & Assert
+        var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
+        {
+            await foreach (var item in stream)
+            {
+                // Slow down consumption to trigger backpressure
+                await Task.Delay(50);
+            }
+        });
+
+        Assert.That(ex.Message, Does.Contain("Downstream cannot keep pace"));
+    }
+
+    [Test]
+    public async Task OnBackpressureError_Chaining_Works()
+    {
+        // Arrange
+        var stream = Stream.Range(1, 10)
+            .OnBackpressureError()
+            .Map(x => x * 2);
+
+        // Act
+        var results = new List<int>();
+        await foreach (var item in stream)
+        {
+            results.Add(item);
+        }
+
+        // Assert
+        Assert.That(results, Is.EqualTo(Enumerable.Range(1, 10).Select(x => x * 2)));
+    }
 }
