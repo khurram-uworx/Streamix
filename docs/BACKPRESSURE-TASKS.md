@@ -132,7 +132,7 @@ Establishes the contract that all implementations must follow. Developers must s
 
 ---
 
-## Task 3: Implement OnBackpressureBuffer Operator
+## ✅ Task 3: Implement OnBackpressureBuffer Operator
 
 ### Priority
 
