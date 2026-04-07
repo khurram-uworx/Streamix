@@ -7,6 +7,25 @@ namespace Streamix.Tests;
 [TestFixture]
 public class BackpressureTests
 {
+    static async Task<IReadOnlyList<T>> ReadAllAsync<T>(IAsyncEnumerable<T> source, Func<int, Task>? onItem = null, CancellationToken cancellationToken = default)
+    {
+        var results = new List<T>();
+        int index = 0;
+
+        await foreach (var item in source.WithCancellation(cancellationToken))
+        {
+            results.Add(item);
+            if (onItem != null)
+            {
+                await onItem(index);
+            }
+
+            index++;
+        }
+
+        return results;
+    }
+
     [Test]
     public async Task OnBackpressureBuffer_HappyPath_BuffersItems()
     {
@@ -157,31 +176,24 @@ public class BackpressureTests
             await emitter.EmitAsync(3);
             await emitter.EmitAsync(4);
             await emitter.EmitAsync(5);
-        }).Publish();
+        }).Replay(1);
 
         var stream = connectable.OnBackpressureLatest();
 
         // Act
-        var results = new List<int>();
-        var resultsTask = Task.Run(async () =>
-        {
-            await foreach (var item in stream)
+        var resultsTask = ReadAllAsync(
+            stream,
+            async index =>
             {
-                results.Add(item);
-                if (results.Count == 1)
+                if (index == 0)
                 {
                     consumerReceivedFirstTcs.SetResult(true);
                     await Task.Delay(100);
                 }
-            }
-        });
-
-        // Small delay to ensure the resultsTask has started and its producer task has registered as a subscriber.
-        // TODO: Replace with robust synchronization mechanism (e.g., async event or channel-based signal).
-        await Task.Delay(50);
+            });
 
         using var connection = connectable.Connect();
-        await resultsTask;
+        var results = await resultsTask;
 
         // Assert
         Assert.That(results, Is.EqualTo(new[] { 1, 5 }));
@@ -234,27 +246,14 @@ public class BackpressureTests
     public async Task OnBackpressureDrop_ConnectableStream_DropsNewItems()
     {
         // Arrange
-        // Use Replay to ensure we don't miss items due to the race between subscription and connection
         var connectable = Stream.Range(1, 100).Replay(100);
         var stream = connectable.OnBackpressureDrop();
 
         // Act
-        var results = new List<int>();
-        var resultsTask = Task.Run(async () =>
-        {
-            await foreach (var item in stream)
-            {
-                results.Add(item);
-                // Slow down consumer to force drops in the OnBackpressureDrop operator
-                await Task.Delay(50);
-            }
-        });
-
-        // Small delay to ensure the resultsTask has started and its producer task has registered as a subscriber
-        await Task.Delay(100);
+        var resultsTask = ReadAllAsync(stream, _ => Task.Delay(50));
 
         using var connection = connectable.Connect();
-        await resultsTask;
+        var results = await resultsTask;
 
         // Assert
         Assert.That(results.Count, Is.LessThan(100));
@@ -320,43 +319,22 @@ public class BackpressureTests
     }
 
     [Test]
-    public async Task MultipleBackpressureOperators_LastOneWins()
+    public async Task MultipleBackpressureOperators_ComposeRatherThanOverride()
     {
         // Arrange
-        // When multiple backpressure operators are chained, we demonstrate that
-        // the outermost one (called last) is the one that controls the backpressure behavior.
-        // Here: Latest() is outermost, so it drops old items instead of buffering/erroring.
-        // Buffer(10) is inner but with enough capacity to not interfere.
-        var consumerReceivedFirstTcs = new TaskCompletionSource<bool>();
-        var stream = Stream.Create<int>(async (emitter, ct) =>
-        {
-            await emitter.EmitAsync(1);
-            await consumerReceivedFirstTcs.Task;
-            // Emit multiple items while consumer is blocked
-            await emitter.EmitAsync(2);
-            await emitter.EmitAsync(3);
-            await emitter.EmitAsync(4);
-        }).OnBackpressureBuffer(10).OnBackpressureLatest();
+        // The inner Drop() can discard items before the outer Buffer() sees them.
+        // This demonstrates that chained strategies compose as nested operators.
+        var stream = Stream.Range(1, 100)
+            .OnBackpressureDrop()
+            .OnBackpressureBuffer(100);
 
         // Act
-        var results = new List<int>();
-        await foreach (var item in stream)
-        {
-            results.Add(item);
-            if (results.Count == 1)
-            {
-                consumerReceivedFirstTcs.SetResult(true);
-                // Slow down consumer to force backpressure in OnBackpressureLatest
-                await Task.Delay(200);
-            }
-        }
+        var results = await ReadAllAsync(stream, _ => Task.Delay(10));
 
         // Assert
-        // Latest() is the outermost operator, so it controls the backpressure behavior.
-        // It drops old items (2, 3) in favor of the latest one (4).
-        // The inner Buffer(10) doesn't interfere because it has enough capacity.
-        // Result: 1 is received, then after delay, 4 (since 2 and 3 were dropped by Latest).
-        Assert.That(results, Is.EqualTo(new[] { 1, 4 }));
+        Assert.That(results.Count, Is.LessThan(100));
+        Assert.That(results.First(), Is.EqualTo(1));
+        Assert.That(results, Does.Not.Contain(100));
     }
 
     [Test]

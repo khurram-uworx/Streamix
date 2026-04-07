@@ -219,7 +219,7 @@ public interface IStream<T> : IAsyncEnumerable<T>
 
     /// <summary>
     /// Drops items when downstream cannot keep pace.
-    /// The most recent item is always emitted when the consumer catches up.
+    /// Items already buffered are preserved while new arrivals are discarded.
     /// </summary>
     /// <returns>A stream with backpressure drop strategy applied.</returns>
     IStream<T> OnBackpressureDrop();

@@ -112,6 +112,8 @@ While Streamix provides implicit backpressure, you can explicitly control how to
 *   **`OnBackpressureLatest()`**: Keeps only the most recent item, discarding intermediate ones.
 *   **`OnBackpressureError()`**: Immediately fails with `BackpressureException` if the consumer cannot keep up.
 
+If you chain multiple backpressure operators, they compose as nested stream boundaries. Earlier strategies may already have dropped items or failed before a later strategy sees them.
+
 ```csharp
 // Buffer up to 100 items before failing
 await stream.OnBackpressureBuffer(100).ForEachAsync(ProcessAsync);
