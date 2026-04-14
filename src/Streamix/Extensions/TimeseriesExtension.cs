@@ -82,7 +82,93 @@ public static class TimeseriesExtension
             else
             {
                 // Sliding window logic (Task 3)
-                throw new NotImplementedException("Sliding windows are not yet implemented.");
+                var activeWindows = new SortedDictionary<long, Channel<Timestamped<T>>>();
+                long? firstStartTicks = null;
+
+                try
+                {
+                    await foreach (var item in source.WithCancellation(ct))
+                    {
+                        // Clean up expired windows
+                        // Since source is assumed to be monotonic, we can efficiently remove from the front
+                        while (activeWindows.Count > 0)
+                        {
+                            var first = activeWindows.First();
+                            if (first.Key + duration.Ticks <= item.Timestamp.UtcTicks)
+                            {
+                                first.Value.Writer.TryComplete();
+                                activeWindows.Remove(first.Key);
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+
+                        // Identify and create windows for the current item
+                        // A window starting at S contains T if S <= T < S + duration
+                        // This means S > T - duration and S <= T
+                        // And S must be a multiple of slide
+                        var latestStartTicks = (item.Timestamp.UtcTicks / slide.Value.Ticks) * slide.Value.Ticks;
+                        if (firstStartTicks == null) firstStartTicks = latestStartTicks;
+
+                        var earliestStartTicks = item.Timestamp.UtcTicks - duration.Ticks + 1;
+                        var effectiveMinStart = Math.Max(earliestStartTicks, firstStartTicks.Value);
+
+                        // Identify windows to create (in chronological order)
+                        var startsToCreate = new List<long>();
+                        for (var startTicks = latestStartTicks;
+                             startTicks >= effectiveMinStart;
+                             startTicks -= slide.Value.Ticks)
+                        {
+                            if (!activeWindows.ContainsKey(startTicks))
+                            {
+                                startsToCreate.Add(startTicks);
+                            }
+                        }
+
+                        for (int i = startsToCreate.Count - 1; i >= 0; i--)
+                        {
+                            var s = startsToCreate[i];
+                            var channel = ChannelExecution.CreateChannel<Timestamped<T>>(capacity, mode, singleWriter: true);
+                            activeWindows[s] = channel;
+
+                            // Emit the window stream eagerly.
+                            await emitter.EmitAsync(Stream.From(channel.Reader.ReadAllAsync(CancellationToken.None)));
+                        }
+
+                        // Write the item to all windows it belongs to
+                        for (var startTicks = latestStartTicks;
+                             startTicks >= effectiveMinStart;
+                             startTicks -= slide.Value.Ticks)
+                        {
+                            if (activeWindows.TryGetValue(startTicks, out var channel))
+                            {
+                                await ChannelExecution.WriteAsync(channel.Writer, item, mode, CancellationToken.None);
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // Outer stream was cancelled, stop processing.
+                }
+                catch (Exception ex)
+                {
+                    foreach (var window in activeWindows.Values)
+                    {
+                        window.Writer.TryComplete(ex);
+                    }
+                    throw;
+                }
+                finally
+                {
+                    foreach (var window in activeWindows.Values)
+                    {
+                        window.Writer.TryComplete();
+                    }
+                    activeWindows.Clear();
+                }
             }
         });
     }
