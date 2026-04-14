@@ -11,6 +11,75 @@ namespace Streamix.Implementations;
 /// <typeparam name="T">The type of items in the stream.</typeparam>
 class Stream<T> : IStream<T>
 {
+    class Emitter : IStreamEmitter<T>, IDisposable
+    {
+        readonly ChannelWriter<T> writer;
+        readonly CancellationTokenSource cts;
+        int terminalState = 0; // 0: active, 1: terminal
+
+        public Emitter(ChannelWriter<T> writer, CancellationToken externalToken)
+        {
+            this.writer = writer;
+            this.cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
+        }
+
+        public CancellationToken CancellationToken => cts.Token;
+
+        public async ValueTask EmitAsync(T item)
+        {
+            if (Volatile.Read(ref terminalState) != 0 || cts.IsCancellationRequested)
+                throw new OperationCanceledException(cts.Token);
+
+            try
+            {
+                await writer.WriteAsync(item, cts.Token);
+            }
+            catch (ChannelClosedException)
+            {
+                throw new OperationCanceledException(cts.Token);
+            }
+            catch (OperationCanceledException ex)
+            {
+                if (cts.IsCancellationRequested)
+                    throw;
+
+                throw new OperationCanceledException(ex.Message, ex, cts.Token);
+            }
+        }
+
+        public void Complete()
+        {
+            if (Interlocked.CompareExchange(ref terminalState, 1, 0) == 0)
+            {
+                writer.TryComplete();
+                cts.Cancel();
+            }
+        }
+
+        public void Fail(Exception error)
+        {
+            if (Interlocked.CompareExchange(ref terminalState, 1, 0) == 0)
+            {
+                writer.TryComplete(error);
+                cts.Cancel();
+            }
+        }
+
+        internal void Cancel()
+        {
+            if (Interlocked.Exchange(ref terminalState, 1) == 0)
+            {
+                writer.TryComplete();
+                cts.Cancel();
+            }
+        }
+
+        public void Dispose()
+        {
+            cts.Dispose();
+        }
+    }
+
     static async IAsyncEnumerable<T> merge(IStream<T>[] streams, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (streams == null || streams.Length == 0) yield break;
@@ -71,6 +140,96 @@ class Stream<T> : IStream<T>
         }
     }
 
+    static async IAsyncEnumerable<T> create(Func<IStreamEmitter<T>, Task> producer, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var channel = Channel.CreateBounded<T>(1);
+        var emitter = new Emitter(channel.Writer, cancellationToken);
+
+        var producerTask = Task.Run(async () =>
+        {
+            try
+            {
+                await producer(emitter);
+                emitter.Complete();
+            }
+            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
+            {
+                emitter.Complete();
+            }
+            catch (Exception ex)
+            {
+                if (emitter.CancellationToken.IsCancellationRequested)
+                    return;
+
+                emitter.Fail(ex);
+            }
+        }, cancellationToken);
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
+            }
+
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            emitter.Cancel();
+            try { await producerTask; } catch { }
+            emitter.Dispose();
+        }
+    }
+
+    static async IAsyncEnumerable<T> create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var channel = Channel.CreateBounded<T>(1);
+        var emitter = new Emitter(channel.Writer, cancellationToken);
+
+        var producerTask = Task.Run(async () =>
+        {
+            try
+            {
+                await producer(emitter, emitter.CancellationToken);
+                emitter.Complete();
+            }
+            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
+            {
+                emitter.Complete();
+            }
+            catch (Exception ex)
+            {
+                if (emitter.CancellationToken.IsCancellationRequested)
+                    return;
+
+                emitter.Fail(ex);
+            }
+        }, cancellationToken);
+
+        try
+        {
+            while (await channel.Reader.WaitToReadAsync(cancellationToken))
+            {
+                while (channel.Reader.TryRead(out var item))
+                {
+                    yield return item;
+                }
+            }
+
+            await channel.Reader.Completion;
+        }
+        finally
+        {
+            emitter.Cancel();
+            try { await producerTask; } catch { }
+            emitter.Dispose();
+        }
+    }
+
     readonly IAsyncEnumerable<T> source;
     readonly IClock clock;
     readonly string? name;
@@ -81,6 +240,11 @@ class Stream<T> : IStream<T>
         this.clock = clock ?? SystemClock.Instance;
         this.name = name;
     }
+
+    internal IClock Clock => clock;
+
+    /// <inheritdoc />
+    public string? Name => name;
 
     async IAsyncEnumerable<TResult> map<TResult>(Func<T, TResult> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -433,16 +597,6 @@ class Stream<T> : IStream<T>
                 yield return innerItem;
     }
 
-    async IAsyncEnumerable<TResult> concatMapAwaitInternal<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        await foreach (var item in this.WithCancellation(cancellationToken))
-        {
-            var innerStream = await selector(item);
-            await foreach (var innerItem in innerStream.WithCancellation(cancellationToken))
-                yield return innerItem;
-        }
-    }
-
     async IAsyncEnumerable<TResult> flatMapAwaitConcurrent<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (maxConcurrency == 1)
@@ -487,102 +641,6 @@ class Stream<T> : IStream<T>
                             {
                                 var innerSingle = await selector(item);
                                 await foreach (var result in innerSingle.WithCancellation(cts.Token))
-                                    await channel.Writer.WriteAsync(result, cts.Token);
-                            }
-                            catch (Exception ex)
-                            {
-                                channel.Writer.TryComplete(ex);
-                                throw;
-                            }
-                            finally
-                            {
-                                semaphore.Release();
-                            }
-                        }, cts.Token);
-
-                        tasks.Add(task);
-                        tasks.RemoveAll(t => t.IsCompleted);
-                    }
-                }
-                finally
-                {
-                    await enumerator.DisposeAsync();
-                }
-
-                await Task.WhenAll(tasks);
-                channel.Writer.Complete();
-            }
-            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
-            {
-                channel.Writer.TryComplete();
-            }
-            catch (Exception ex)
-            {
-                channel.Writer.TryComplete(ex);
-            }
-            finally
-            {
-                try { await Task.WhenAll(tasks); } catch { }
-                semaphore.Dispose();
-            }
-        }, cts.Token);
-
-        try
-        {
-            while (await channel.Reader.WaitToReadAsync(cancellationToken))
-                while (channel.Reader.TryRead(out var result))
-                    yield return result;
-
-            await producerTask;
-            await channel.Reader.Completion;
-        }
-        finally
-        {
-            await cts.CancelAsync();
-            try { await producerTask; } catch { }
-        }
-    }
-
-    async IAsyncEnumerable<TResult> flatMapAwaitConcurrent<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        if (maxConcurrency == 1)
-        {
-            await foreach (var item in concatMapAwaitInternal(selector, cancellationToken))
-                yield return item;
-            yield break;
-        }
-
-        var channel = Channel.CreateBounded<TResult>(maxConcurrency);
-
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        var producerTask = Task.Run(async () =>
-        {
-            var semaphore = new SemaphoreSlim(maxConcurrency);
-            var tasks = new List<Task>();
-            try
-            {
-                var enumerator = this.WithCancellation(cts.Token).GetAsyncEnumerator();
-                try
-                {
-                    while (true)
-                    {
-                        await semaphore.WaitAsync(cts.Token);
-
-                        if (!await enumerator.MoveNextAsync())
-                        {
-                            semaphore.Release();
-                            break;
-                        }
-
-                        var item = enumerator.Current;
-
-                        var task = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                var innerStream = await selector(item);
-                                await foreach (var result in innerStream.WithCancellation(cts.Token))
                                     await channel.Writer.WriteAsync(result, cts.Token);
                             }
                             catch (Exception ex)
@@ -1460,170 +1518,6 @@ class Stream<T> : IStream<T>
                 await enumerator.DisposeAsync();
         }
     }
-
-    static async IAsyncEnumerable<T> create(Func<IStreamEmitter<T>, Task> producer, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var channel = Channel.CreateBounded<T>(1);
-        var emitter = new Emitter(channel.Writer, cancellationToken);
-
-        var producerTask = Task.Run(async () =>
-        {
-            try
-            {
-                await producer(emitter);
-                emitter.Complete();
-            }
-            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
-            {
-                emitter.Complete();
-            }
-            catch (Exception ex)
-            {
-                if (emitter.CancellationToken.IsCancellationRequested)
-                    return;
-
-                emitter.Fail(ex);
-            }
-        }, cancellationToken);
-
-        try
-        {
-            while (await channel.Reader.WaitToReadAsync(cancellationToken))
-            {
-                while (channel.Reader.TryRead(out var item))
-                {
-                    yield return item;
-                }
-            }
-
-            await channel.Reader.Completion;
-        }
-        finally
-        {
-            emitter.Cancel();
-            try { await producerTask; } catch { }
-            emitter.Dispose();
-        }
-    }
-
-    static async IAsyncEnumerable<T> create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        var channel = Channel.CreateBounded<T>(1);
-        var emitter = new Emitter(channel.Writer, cancellationToken);
-
-        var producerTask = Task.Run(async () =>
-        {
-            try
-            {
-                await producer(emitter, emitter.CancellationToken);
-                emitter.Complete();
-            }
-            catch (OperationCanceledException) when (emitter.CancellationToken.IsCancellationRequested)
-            {
-                emitter.Complete();
-            }
-            catch (Exception ex)
-            {
-                if (emitter.CancellationToken.IsCancellationRequested)
-                    return;
-
-                emitter.Fail(ex);
-            }
-        }, cancellationToken);
-
-        try
-        {
-            while (await channel.Reader.WaitToReadAsync(cancellationToken))
-            {
-                while (channel.Reader.TryRead(out var item))
-                {
-                    yield return item;
-                }
-            }
-
-            await channel.Reader.Completion;
-        }
-        finally
-        {
-            emitter.Cancel();
-            try { await producerTask; } catch { }
-            emitter.Dispose();
-        }
-    }
-
-    class Emitter : IStreamEmitter<T>, IDisposable
-    {
-        readonly ChannelWriter<T> writer;
-        readonly CancellationTokenSource cts;
-        int terminalState = 0; // 0: active, 1: terminal
-
-        public Emitter(ChannelWriter<T> writer, CancellationToken externalToken)
-        {
-            this.writer = writer;
-            this.cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
-        }
-
-        public CancellationToken CancellationToken => cts.Token;
-
-        public async ValueTask EmitAsync(T item)
-        {
-            if (Volatile.Read(ref terminalState) != 0 || cts.IsCancellationRequested)
-                throw new OperationCanceledException(cts.Token);
-
-            try
-            {
-                await writer.WriteAsync(item, cts.Token);
-            }
-            catch (ChannelClosedException)
-            {
-                throw new OperationCanceledException(cts.Token);
-            }
-            catch (OperationCanceledException ex)
-            {
-                if (cts.IsCancellationRequested)
-                    throw;
-
-                throw new OperationCanceledException(ex.Message, ex, cts.Token);
-            }
-        }
-
-        public void Complete()
-        {
-            if (Interlocked.CompareExchange(ref terminalState, 1, 0) == 0)
-            {
-                writer.TryComplete();
-                cts.Cancel();
-            }
-        }
-
-        public void Fail(Exception error)
-        {
-            if (Interlocked.CompareExchange(ref terminalState, 1, 0) == 0)
-            {
-                writer.TryComplete(error);
-                cts.Cancel();
-            }
-        }
-
-        internal void Cancel()
-        {
-            if (Interlocked.Exchange(ref terminalState, 1) == 0)
-            {
-                writer.TryComplete();
-                cts.Cancel();
-            }
-        }
-
-        public void Dispose()
-        {
-            cts.Dispose();
-        }
-    }
-
-    internal IClock Clock => clock;
-
-    /// <inheritdoc />
-    public string? Name => name;
 
     /// <inheritdoc />
     public IStream<T> Named(string name)

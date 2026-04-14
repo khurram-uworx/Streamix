@@ -603,4 +603,32 @@ public static class Stream
         Func<TResource, IStream<T>> streamFactory)
         where TResource : IAsyncDisposable
         => From(AsyncEnumerable.Using(resourceFactory, streamFactory));
+
+    /// <summary>
+    /// Executes an asynchronous action within a structured concurrency scope.
+    /// The scope waits for all spawned tasks to complete before returning.
+    /// If any task fails, the scope is cancelled, and the error is propagated.
+    /// </summary>
+    /// <param name="action">The action to execute within the scope.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that completes when all work in the scope has finished.</returns>
+    public static async Task ScopedAsync(Func<IStreamScope, Task> action, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        await using var scope = new StreamScope(cancellationToken);
+        try
+        {
+            await action(scope);
+        }
+        catch (Exception)
+        {
+            // If the main action fails, we want to cancel siblings
+            await scope.DisposeAsync();
+            await scope.WaitAllAsync();
+            throw;
+        }
+
+        await scope.WaitAllAsync();
+    }
 }

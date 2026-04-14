@@ -14,8 +14,8 @@ This breakdown keeps that distinction explicit so the roadmap item is only close
 
 ## Suggested Execution Order
 
-1. Task 1: Define the structured concurrency contract and minimal API
-2. Task 2: Implement scope/lifetime primitives in the core library
+1. ✅ Task 1: Define the structured concurrency contract and minimal API
+2. ✅ Task 2: Implement scope/lifetime primitives in the core library
 3. Task 3: Integrate structured concurrency with stream operators and terminals
 4. Task 4: Add behavioral tests for cancellation, failure, and completion semantics
 5. Task 5: Update README and roadmap language
@@ -34,7 +34,7 @@ This breakdown keeps that distinction explicit so the roadmap item is only close
   - `src/Streamix.Tests/ConcurrencyTests.cs`
   - `README.md`
 
-## Task 1: Define Structured Concurrency Contract
+## ✅ Task 1: Define Structured Concurrency Contract
 
 ### Priority
 
@@ -91,7 +91,7 @@ Decide the user-facing model. At minimum, answer:
 - `docs/IDEA.md`
 - `WORK.md`
 
-## Task 2: Implement Core Scope/Lifetime Primitive
+## ✅ Task 2: Implement Core Scope/Lifetime Primitive
 
 ### Priority
 
