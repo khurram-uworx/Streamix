@@ -204,15 +204,15 @@ await temperatureStream
 # Tasks
 
 ## 1. Core Type
-* [ ] Implement `Timestamped<T>`
-* [ ] Add XML docs
-* [ ] Add basic unit tests
+* [✅] Implement `Timestamped<T>`
+* [✅] Add XML docs
+* [✅] Add basic unit tests
 
 ## 2. WindowByTime – Tumbling
-* [ ] Implement `WindowByTime(duration)` (slide = null)
-* [ ] Channel-based window segmentation
-* [ ] Ensure correct boundary handling `[start, end)`
-* [ ] Add tests:
+* [✅] Implement `WindowByTime(duration)` (slide = null)
+* [✅] Channel-based window segmentation
+* [✅] Ensure correct boundary handling `[start, end)`
+* [✅] Add tests:
 
   * exact boundary alignment
   * partial final window
