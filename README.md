@@ -24,18 +24,6 @@ The default mental model is simple:
 - explicit async composition, cancellation, ordering, and error propagation
 
 ## Quick Taste
-## Time-based Operations
-
-Streamix supports event-time windowing with tumbling and sliding windows.
-
-```csharp
-await sensorStream
-    .MapWithTimestamp(s => s.ObservedAt)
-    .WindowByTime(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(1))
-    .FlatMap(window => window.MaxAsync(s => s.Value))
-    .ForEachAsync(Console.WriteLine);
-```
-
 
 ```csharp
 await Stream.Range(1, 10)
@@ -53,6 +41,18 @@ var products =
     .Map(o => o.Product);             // Stream<string>
 ```
 
+### Time-based Operations
+
+Streamix supports event-time windowing with tumbling and sliding windows.
+
+```csharp
+await sensorStream
+    .MapWithTimestamp(s => s.ObservedAt)
+    .WindowByTime(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(1))
+    .FlatMap(window => window.MaxAsync(s => s.Value))
+    .ForEachAsync(Console.WriteLine);
+```
+
 ## Packages
 
 - [`Streamix`](https://www.nuget.org/packages/Streamix): core stream types, operators, terminals, channels, and sinks
@@ -64,7 +64,7 @@ var products =
 - [GETTING-STARTED.md](GETTING-STARTED.md): Hello World, core concepts, feature surface, operators, interop, and package usage
 - [ARCHITECTURE.md](ARCHITECTURE.md): design principles, behavioral semantics, implementation notes, and performance characteristics
 
-## Blog Series
+### Blog Series
 
 - [Streamix: A Stream Library for Modern .NET](https://khurram-uworx.github.io/2026/04/04/Streamix.html)
 - [Streamix: The Core Mental Model](https://khurram-uworx.github.io/2026/04/05/Streamix2.html)
