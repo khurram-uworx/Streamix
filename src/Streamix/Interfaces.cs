@@ -101,3 +101,22 @@ public interface IConnectableStream<T> : IStream<T>
     /// </summary>
     Task WhenRefCountDisconnectedAsync();
 }
+
+/// <summary>
+/// Represents a structured concurrency scope that manages the lifetime of concurrent tasks.
+/// </summary>
+public interface IStreamScope
+{
+    /// <summary>
+    /// Gets a cancellation token that is cancelled when the scope is cancelled or fails.
+    /// This token is linked to the parent cancellation token passed to ScopedAsync.
+    /// </summary>
+    CancellationToken CancellationToken { get; }
+
+    /// <summary>
+    /// Spawns a concurrent task within the scope.
+    /// The scope will wait for this task to complete.
+    /// </summary>
+    /// <param name="work">The work to execute concurrently.</param>
+    void Run(Func<CancellationToken, Task> work);
+}
