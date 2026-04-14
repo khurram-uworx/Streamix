@@ -504,7 +504,9 @@ Streamix provides several operators to help you observe and debug your reactive 
 - `Log()`: Logs items, errors, and completion to standard output. Uses the stream name as a prefix if available.
 - `Debug()`: Similar to `Log()` but outputs to `System.Diagnostics.Debug`.
 - `Checkpoint(string name)`: Tracks progress through a specific stage of the pipeline with timing information.
-- `Trace()`: Provides a comprehensive trace of every stream signal (`Subscribe`, `Next`, `Error`, `Complete`, `Cancel`, `Dispose`).
+- `Trace()`: Provides a comprehensive trace of the current stream lifecycle signals, including `Subscribe`, `Request(1)`, `Next(...)`, `Error(...)`, `Completed`, `Cancelled`, and `Dispose`.
+
+`Trace()` currently includes `Request(1)` in its output to show each downstream pull from the underlying `IAsyncEnumerable<T>` pipeline. Treat that as part of the current emitted trace shape rather than as hidden implementation noise.
 
 ```csharp
 await Stream.Range(1, 100)

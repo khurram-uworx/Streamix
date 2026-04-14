@@ -48,6 +48,26 @@ Common patterns:
 
 Streamix keeps concurrency, ordering, hot/cold behavior, and backpressure explicit instead of implicit.
 
+## Observability and Debugging
+
+The core package also includes lightweight DEVX operators for naming and inspecting pipelines:
+
+- `Named(string name)` tags a stream or single for downstream diagnostics.
+- `Log()` writes `Next(...)`, `Error(...)`, and `Completed` signals.
+- `Debug()` emits the same signal shape to `System.Diagnostics.Debug`.
+- `Checkpoint(string name)` adds timing markers around a stage.
+- `Trace()` emits lifecycle signals such as `Subscribe`, `Request(1)`, `Next(...)`, `Completed`, `Cancelled`, and `Dispose`.
+
+```csharp
+await Stream.Range(1, 10)
+    .Named("Orders")
+    .Log()
+    .Filter(x => x % 2 == 0)
+    .ForEachAsync(Console.WriteLine);
+```
+
+Use the repository docs for fuller signal semantics and examples.
+
 ## Learn More
 
 - Overview and package map: [README.md](https://github.com/khurram-uworx/streamix/blob/main/README.md)

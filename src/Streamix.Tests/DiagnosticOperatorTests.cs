@@ -1,12 +1,18 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
+using System.Diagnostics;
 
 namespace Streamix.Tests;
 
 [TestFixture]
 public class DiagnosticOperatorTests
 {
+    private static readonly object consoleCaptureLock = new();
+#if DEBUG
+    private static readonly object debugCaptureLock = new();
+#endif
+
     [Test]
     public async Task Stream_DoOnNext_ExecutesForEveryItem()
     {
@@ -315,6 +321,35 @@ public class DiagnosticOperatorTests
     }
 
     [Test]
+    public async Task Stream_Log_StringPrefix_LogsAllSignals()
+    {
+        var output = await CaptureConsoleOutAsync(async () =>
+        {
+            await Stream.Range(1, 2)
+                .Log("PrefixStream")
+                .DrainAsync();
+        });
+
+        Assert.That(output, Does.Contain("[PrefixStream] Next(1)"));
+        Assert.That(output, Does.Contain("[PrefixStream] Next(2)"));
+        Assert.That(output, Does.Contain("[PrefixStream] Completed"));
+    }
+
+    [Test]
+    public async Task Single_Log_StringPrefix_LogsAllSignals()
+    {
+        var output = await CaptureConsoleOutAsync(async () =>
+        {
+            await Single.From(42)
+                .Log("PrefixSingle")
+                .ToTask();
+        });
+
+        Assert.That(output, Does.Contain("[PrefixSingle] Next(42)"));
+        Assert.That(output, Does.Contain("[PrefixSingle] Completed"));
+    }
+
+    [Test]
     public async Task Stream_Checkpoint_LogsTimingInformation()
     {
         var logs = new List<string>();
@@ -348,6 +383,22 @@ public class DiagnosticOperatorTests
 
         Assert.That(logs.Any(l => l.Contains("[Checkpoint: SingleCheckpoint] Next(42)") && l.Contains("Total:")), Is.True);
         Assert.That(logs.Any(l => l.Contains("[Checkpoint: SingleCheckpoint] Completed") && l.Contains("Total:")), Is.True);
+    }
+
+    [Test]
+    public async Task Single_Checkpoint_LogsCancellationTiming()
+    {
+        var logs = new List<string>();
+        using var cts = new CancellationTokenSource();
+
+        var single = Single.From(Task.Delay(1000, cts.Token).ContinueWith(_ => 42, cts.Token))
+            .Checkpoint("CancelledSingle", s => logs.Add(s));
+
+        var task = single.ToTask(cts.Token);
+        cts.Cancel();
+
+        Assert.CatchAsync<OperationCanceledException>(async () => await task);
+        Assert.That(logs.Any(l => l.Contains("[Checkpoint: CancelledSingle] Cancelled") && l.Contains("Total:")), Is.True);
     }
 
     [Test]
@@ -385,6 +436,40 @@ public class DiagnosticOperatorTests
     }
 
     [Test]
+    public async Task Stream_Trace_StringPrefix_LogsAllLifecycleSignals()
+    {
+        var output = await CaptureConsoleOutAsync(async () =>
+        {
+            await Stream.Range(1, 1)
+                .Trace("TracePrefix")
+                .DrainAsync();
+        });
+
+        Assert.That(output, Does.Contain("[TracePrefix] Subscribe"));
+        Assert.That(output, Does.Contain("[TracePrefix] Request(1)"));
+        Assert.That(output, Does.Contain("[TracePrefix] Next(1)"));
+        Assert.That(output, Does.Contain("[TracePrefix] Completed"));
+        Assert.That(output, Does.Contain("[TracePrefix] Dispose"));
+    }
+
+    [Test]
+    public async Task Single_Trace_StringPrefix_LogsAllLifecycleSignals()
+    {
+        var output = await CaptureConsoleOutAsync(async () =>
+        {
+            await Single.From(42)
+                .Trace("TraceSinglePrefix")
+                .ToTask();
+        });
+
+        Assert.That(output, Does.Contain("[TraceSinglePrefix] Subscribe"));
+        Assert.That(output, Does.Contain("[TraceSinglePrefix] Request(1)"));
+        Assert.That(output, Does.Contain("[TraceSinglePrefix] Next(42)"));
+        Assert.That(output, Does.Contain("[TraceSinglePrefix] Completed"));
+        Assert.That(output, Does.Contain("[TraceSinglePrefix] Dispose"));
+    }
+
+    [Test]
     public async Task Single_Trace_LogsAllLifecycleSignals()
     {
         var logs = new List<string>();
@@ -398,6 +483,38 @@ public class DiagnosticOperatorTests
         Assert.That(logs, Contains.Item("[TraceSingle] Next(42)"));
         Assert.That(logs, Contains.Item("[TraceSingle] Completed"));
         Assert.That(logs, Contains.Item("[TraceSingle] Dispose"));
+    }
+
+    [Test]
+    public async Task Stream_Trace_ILogger_Prefix_LogsAllLifecycleSignals()
+    {
+        var mockLogger = new Mock<ILogger>();
+
+        await Stream.Range(1, 1)
+            .Trace(mockLogger.Object, "TraceLoggerPrefix")
+            .DrainAsync();
+
+        VerifyInfoLog(mockLogger, "[TraceLoggerPrefix] Subscribe", Times.Once());
+        VerifyInfoLog(mockLogger, "[TraceLoggerPrefix] Request(1)", Times.Exactly(2));
+        VerifyInfoLog(mockLogger, "[TraceLoggerPrefix] Next(1)", Times.Once());
+        VerifyInfoLog(mockLogger, "[TraceLoggerPrefix] Completed", Times.Once());
+        VerifyInfoLog(mockLogger, "[TraceLoggerPrefix] Dispose", Times.Once());
+    }
+
+    [Test]
+    public async Task Single_Trace_ILogger_Prefix_LogsAllLifecycleSignals()
+    {
+        var mockLogger = new Mock<ILogger>();
+
+        await Single.From(42)
+            .Trace(mockLogger.Object, "SingleTraceLoggerPrefix")
+            .ToTask();
+
+        VerifyInfoLog(mockLogger, "[SingleTraceLoggerPrefix] Subscribe", Times.Once());
+        VerifyInfoLog(mockLogger, "[SingleTraceLoggerPrefix] Request(1)", Times.AtLeastOnce());
+        VerifyInfoLog(mockLogger, "[SingleTraceLoggerPrefix] Next(42)", Times.Once());
+        VerifyInfoLog(mockLogger, "[SingleTraceLoggerPrefix] Completed", Times.Once());
+        VerifyInfoLog(mockLogger, "[SingleTraceLoggerPrefix] Dispose", Times.Once());
     }
 
     [Test]
@@ -422,4 +539,116 @@ public class DiagnosticOperatorTests
         Assert.That(logs, Contains.Item("Cancelled"));
         Assert.That(logs, Contains.Item("Dispose"));
     }
+
+    [Test]
+    public async Task Stream_Debug_StringPrefix_WritesPrefixedSignals()
+    {
+#if DEBUG
+        var output = await CaptureDebugOutAsync(async () =>
+        {
+            await Stream.Range(1, 2)
+                .Debug("DebugPrefix")
+                .DrainAsync();
+        });
+
+        Assert.That(output, Does.Contain("[DebugPrefix] Next(1)"));
+        Assert.That(output, Does.Contain("[DebugPrefix] Next(2)"));
+        Assert.That(output, Does.Contain("[DebugPrefix] Completed"));
+#else
+        var result = await Stream.Range(1, 2)
+            .Debug("DebugPrefix")
+            .ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 1, 2 }));
+#endif
+    }
+
+    [Test]
+    public async Task Single_Debug_StringPrefix_WritesPrefixedSignals()
+    {
+#if DEBUG
+        var output = await CaptureDebugOutAsync(async () =>
+        {
+            await Single.From(42)
+                .Debug("DebugSinglePrefix")
+                .ToTask();
+        });
+
+        Assert.That(output, Does.Contain("[DebugSinglePrefix] Next(42)"));
+        Assert.That(output, Does.Contain("[DebugSinglePrefix] Completed"));
+#else
+        var result = await Single.From(42)
+            .Debug("DebugSinglePrefix")
+            .ToTask();
+
+        Assert.That(result, Is.EqualTo(42));
+#endif
+    }
+
+    private static void VerifyInfoLog(Mock<ILogger> mockLogger, string message, Times times)
+    {
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(message)),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            times);
+    }
+
+    private static Task<string> CaptureConsoleOutAsync(Func<Task> action)
+    {
+        lock (consoleCaptureLock)
+        {
+            return Task.FromResult(CaptureConsoleOutCoreAsync(action).GetAwaiter().GetResult());
+        }
+    }
+
+    private static async Task<string> CaptureConsoleOutCoreAsync(Func<Task> action)
+    {
+        var original = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            await action();
+            await writer.FlushAsync();
+            return writer.ToString();
+        }
+        finally
+        {
+            Console.SetOut(original);
+        }
+    }
+
+#if DEBUG
+    private static Task<string> CaptureDebugOutAsync(Func<Task> action)
+    {
+        lock (debugCaptureLock)
+        {
+            return Task.FromResult(CaptureDebugOutCoreAsync(action).GetAwaiter().GetResult());
+        }
+    }
+
+    private static async Task<string> CaptureDebugOutCoreAsync(Func<Task> action)
+    {
+        using var writer = new StringWriter();
+        using var listener = new TextWriterTraceListener(writer);
+        Trace.Listeners.Add(listener);
+
+        try
+        {
+            await action();
+            Trace.Flush();
+            await writer.FlushAsync();
+            return writer.ToString();
+        }
+        finally
+        {
+            Trace.Listeners.Remove(listener);
+        }
+    }
+#endif
 }

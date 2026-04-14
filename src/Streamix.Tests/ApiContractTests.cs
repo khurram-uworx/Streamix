@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using System.Reflection;
 
 namespace Streamix.Tests;
 
@@ -58,6 +59,7 @@ public class ApiContractTests
         Assert.That(type.GetMethod("RunOnChannel"), Is.Not.Null);
         Assert.That(type.GetMethod("TeeToChannel"), Is.Not.Null);
         Assert.That(type.GetMethods().Any(m => m.Name == "ForEachAsync"), Is.True);
+        AssertDevxSurface(type, typeof(string));
 
         // Terminal extensions (LINQ style)
         var extensionsType = typeof(TerminalExtensions);
@@ -91,6 +93,7 @@ public class ApiContractTests
         Assert.That(type.GetMethods().Any(m => m.Name == "ForEachAsync"), Is.True);
         Assert.That(type.GetMethods().Any(m => m.Name == "Retry"), Is.True);
         Assert.That(type.GetMethod("ToTask"), Is.Not.Null);
+        AssertDevxSurface(type, typeof(string));
     }
 
     [Test]
@@ -100,5 +103,53 @@ public class ApiContractTests
 
         Assert.That(type.GetMethod("Connect"), Is.Not.Null);
         Assert.That(type.GetMethod("RefCount"), Is.Not.Null);
+    }
+
+    private static void AssertDevxSurface(Type type, Type stringType)
+    {
+        Assert.That(type.GetMethod("Named", new[] { stringType }), Is.Not.Null, $"{type.Name} should expose Named(string).");
+        Assert.That(type.GetMethod("Log", Type.EmptyTypes), Is.Not.Null, $"{type.Name} should expose Log().");
+        Assert.That(type.GetMethod("Log", new[] { stringType }), Is.Not.Null, $"{type.Name} should expose Log(string).");
+
+        var logWithLogger = type.GetMethods().SingleOrDefault(m =>
+            m.Name == "Log" &&
+            ParametersMatch(m, typeof(Microsoft.Extensions.Logging.ILogger), typeof(string)) &&
+            m.GetParameters()[1].HasDefaultValue &&
+            m.GetParameters()[1].DefaultValue is null);
+
+        Assert.That(logWithLogger, Is.Not.Null, $"{type.Name} should expose Log(ILogger, string? prefix = null).");
+        Assert.That(type.GetMethod("Debug", Type.EmptyTypes), Is.Not.Null, $"{type.Name} should expose Debug().");
+        Assert.That(type.GetMethod("Debug", new[] { stringType }), Is.Not.Null, $"{type.Name} should expose Debug(string).");
+        Assert.That(type.GetMethod("Checkpoint", new[] { stringType }), Is.Not.Null, $"{type.Name} should expose Checkpoint(string).");
+        Assert.That(type.GetMethod("Checkpoint", new[] { stringType, typeof(Action<string>) }), Is.Not.Null, $"{type.Name} should expose Checkpoint(string, Action<string>).");
+        Assert.That(type.GetMethod("Trace", Type.EmptyTypes), Is.Not.Null, $"{type.Name} should expose Trace().");
+        Assert.That(type.GetMethod("Trace", new[] { stringType }), Is.Not.Null, $"{type.Name} should expose Trace(string).");
+
+        var traceWithLogger = type.GetMethods().SingleOrDefault(m =>
+            m.Name == "Trace" &&
+            ParametersMatch(m, typeof(Microsoft.Extensions.Logging.ILogger), typeof(string)) &&
+            m.GetParameters()[1].HasDefaultValue &&
+            m.GetParameters()[1].DefaultValue is null);
+
+        Assert.That(traceWithLogger, Is.Not.Null, $"{type.Name} should expose Trace(ILogger, string? prefix = null).");
+    }
+
+    private static bool ParametersMatch(MethodInfo method, params Type[] parameterTypes)
+    {
+        var parameters = method.GetParameters();
+        if (parameters.Length != parameterTypes.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            if (parameters[i].ParameterType != parameterTypes[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
