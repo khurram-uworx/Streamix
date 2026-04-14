@@ -148,6 +148,7 @@ var replayed = Stream.Range(1, 3).Replay(2);
 - `RunOn`
 - `Named`, `Log`, `Debug`, `Checkpoint`, `Trace`
 - `DoOnNext`, `Do`, `Tap`, `DoOnError`, `DoOnComplete`, `DoOnTerminate`
+- `MapWithTimestamp` / `WindowByTime`
 
 `IStream<T>` includes `ForEachAsync(...)`, sink output, and channel output. Additional terminal operators are available through extension methods:
 
@@ -163,6 +164,42 @@ var replayed = Stream.Range(1, 3).Replay(2);
 - `DrainAsync` / `ToSinkAsync`
 
 `ISingle<T>` also supports `ToTask()`.
+
+## Time-based Operators
+
+Streamix provides first-class support for time-series processing using event time. Input streams are wrapped in `Timestamped<T>`, and windows are created based on these timestamps.
+
+### `MapWithTimestamp`
+
+Converts a regular stream into a stream of `Timestamped<T>` by extracting a timestamp from each item.
+
+```csharp
+var timestamped = source.MapWithTimestamp(x => x.CreatedAt);
+```
+
+### `WindowByTime`
+
+Groups elements into tumbling or sliding windows based on their timestamps. Returns a stream of cold, single-consumer streams (`IStream<IStream<Timestamped<T>>>`).
+
+**Tumbling Window:**
+
+```csharp
+await temperatureStream
+    .WindowByTime(TimeSpan.FromMinutes(30))
+    .FlatMap(window => window.MaxAsync(x => x.Value))
+    .ForEachAsync(Console.WriteLine);
+```
+
+**Sliding Window:**
+
+```csharp
+await temperatureStream
+    .WindowByTime(
+        duration: TimeSpan.FromMinutes(30),
+        slide: TimeSpan.FromMinutes(5))
+    .FlatMap(window => window.AverageAsync(x => x.Value))
+    .ForEachAsync(Console.WriteLine);
+```
 
 ## LINQ and Query Syntax Support
 
