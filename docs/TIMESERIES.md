@@ -220,10 +220,10 @@ await temperatureStream
   * single item
 
 ## 3. WindowByTime – Sliding
-* [ ] Extend implementation to support `slide`
-* [ ] Ensure overlapping window correctness
-* [ ] Avoid unbounded memory growth
-* [ ] Add tests:
+* [✅] Extend implementation to support `slide`
+* [✅] Ensure overlapping window correctness
+* [✅] Avoid unbounded memory growth
+* [✅] Add tests:
 
   * overlapping membership
   * dense sliding (slide < duration)
