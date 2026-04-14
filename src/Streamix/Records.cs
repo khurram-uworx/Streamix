@@ -81,3 +81,26 @@ public readonly record struct Option<T>
     /// </summary>
     public override string ToString() => HasValue ? $"Some({Value})" : "None";
 }
+
+/// <summary>
+/// Represents a value that has been timestamped.
+/// </summary>
+/// <typeparam name="T">The type of the value.</typeparam>
+public readonly record struct Timestamped<T>(
+    T Value,
+    DateTimeOffset Timestamp);
+
+/// <summary>
+/// Provides static methods for creating timestamped values.
+/// </summary>
+public static class Timestamped
+{
+    /// <summary>
+    /// Creates a new timestamped value.
+    /// </summary>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    /// <param name="value">The value.</param>
+    /// <param name="timestamp">The timestamp.</param>
+    /// <returns>A new timestamped value.</returns>
+    public static Timestamped<T> Create<T>(T value, DateTimeOffset timestamp) => new(value, timestamp);
+}
