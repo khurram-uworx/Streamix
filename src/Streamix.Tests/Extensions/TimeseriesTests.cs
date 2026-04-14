@@ -39,6 +39,19 @@ public class TimeseriesTests
     }
 
     [Test]
+    public async Task MapWithTimestamp_ShouldWork()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var source = Stream.From(1, 2, 3);
+        var result = await source.MapWithTimestamp(x => start.AddMinutes(x)).ToListAsync();
+
+        Assert.That(result, Has.Count.EqualTo(3));
+        Assert.That(result[0], Is.EqualTo(Timestamped.Create(1, start.AddMinutes(1))));
+        Assert.That(result[1], Is.EqualTo(Timestamped.Create(2, start.AddMinutes(2))));
+        Assert.That(result[2], Is.EqualTo(Timestamped.Create(3, start.AddMinutes(3))));
+    }
+
+    [Test]
     public async Task WindowByTime_Tumbling_ShouldGroupItemsCorrectly()
     {
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -56,15 +69,11 @@ public class TimeseriesTests
         var source = Stream.From(items);
         var windows = source.WindowByTime(duration);
 
+        var windowStreams = await windows.ToListAsync();
         var windowList = new List<List<Timestamped<int>>>();
-        await foreach (var window in windows)
+        foreach (var window in windowStreams)
         {
-            var list = new List<Timestamped<int>>();
-            await foreach (var item in window)
-            {
-                list.Add(item);
-            }
-            windowList.Add(list);
+            windowList.Add(await window.ToListAsync());
         }
 
         Assert.That(windowList, Has.Count.EqualTo(3));
@@ -88,15 +97,11 @@ public class TimeseriesTests
         var source = Stream.From(items);
         var windows = source.WindowByTime(duration);
 
+        var windowStreams = await windows.ToListAsync();
         var windowList = new List<List<Timestamped<int>>>();
-        await foreach (var window in windows)
+        foreach (var window in windowStreams)
         {
-            var list = new List<Timestamped<int>>();
-            await foreach (var item in window)
-            {
-                list.Add(item);
-            }
-            windowList.Add(list);
+            windowList.Add(await window.ToListAsync());
         }
 
         Assert.That(windowList, Has.Count.EqualTo(2));
@@ -126,17 +131,13 @@ public class TimeseriesTests
         var items = new[] { Timestamped.Create(1, start) };
 
         var source = Stream.From(items);
-        var windows = source.WindowByTime(TimeSpan.FromMinutes(10));
+        var windows = source.WindowByTime(duration: TimeSpan.FromMinutes(10));
 
+        var windowStreams = await windows.ToListAsync();
         var windowList = new List<List<Timestamped<int>>>();
-        await foreach (var window in windows)
+        foreach (var window in windowStreams)
         {
-            var list = new List<Timestamped<int>>();
-            await foreach (var item in window)
-            {
-                list.Add(item);
-            }
-            windowList.Add(list);
+            windowList.Add(await window.ToListAsync());
         }
 
         Assert.That(windowList, Has.Count.EqualTo(1));
@@ -157,36 +158,28 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(11)),
         };
 
-        // Window 1: [0, 10) -> items 1, 2
-        // Window 2: [5, 15) -> items 2, 3
-        // Window 3: [10, 20) -> item 3
-
         var source = Stream.From(items);
         var windows = source.WindowByTime(duration, slide);
 
-        var windowList = new List<List<Timestamped<int>>>();
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<int>>();
         var tasks = new List<Task>();
-        await foreach (var window in windows)
+        foreach (var w in windowStreams)
         {
-            var w = window;
+            var inner = w;
             tasks.Add(Task.Run(async () =>
             {
-                var list = new List<Timestamped<int>>();
-                await foreach (var item in w)
-                {
-                    list.Add(item);
-                }
+                var list = await inner.Map(x => x.Value).ToListAsync();
                 lock (windowList) windowList.Add(list);
             }));
         }
         await Task.WhenAll(tasks);
 
-        windowList = windowList.Where(w => w.Count > 0).OrderBy(w => w[0].Timestamp.UtcTicks).ThenByDescending(w => w.Count).ToList();
-
-        Assert.That(windowList, Has.Count.EqualTo(3));
-        Assert.That(windowList[0].Select(x => x.Value), Is.EquivalentTo(new[] { 1, 2 }));
-        Assert.That(windowList[1].Select(x => x.Value), Is.EquivalentTo(new[] { 2, 3 }));
-        Assert.That(windowList[2].Select(x => x.Value), Is.EquivalentTo(new[] { 3 }));
+        Assert.That(windowList, Has.Count.EqualTo(4));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 1 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 1, 2 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 2, 3 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 3 }));
     }
 
     [Test]
@@ -203,34 +196,19 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(11)),
         };
 
-        // Window 1: [0, 5) -> item 1
-        // Window 2: [10, 15) -> item 3
-
         var source = Stream.From(items);
         var windows = source.WindowByTime(duration, slide);
 
-        var windowList = new List<List<Timestamped<int>>>();
-        var tasks = new List<Task>();
-        await foreach (var window in windows)
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<int>>();
+        foreach (var w in windowStreams)
         {
-            var w = window;
-            tasks.Add(Task.Run(async () =>
-            {
-                var list = new List<Timestamped<int>>();
-                await foreach (var item in w)
-                {
-                    list.Add(item);
-                }
-                lock (windowList) windowList.Add(list);
-            }));
+            windowList.Add(await w.Map(x => x.Value).ToListAsync());
         }
-        await Task.WhenAll(tasks);
-
-        windowList = windowList.Where(w => w.Count > 0).OrderBy(w => w[0].Timestamp.UtcTicks).ToList();
 
         Assert.That(windowList, Has.Count.EqualTo(2));
-        Assert.That(windowList[0].Select(x => x.Value), Is.EquivalentTo(new[] { 1 }));
-        Assert.That(windowList[1].Select(x => x.Value), Is.EquivalentTo(new[] { 3 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 1 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 3 }));
     }
 
     [Test]
@@ -242,40 +220,259 @@ public class TimeseriesTests
 
         var items = new[]
         {
-            Timestamped.Create(1, start), // Start of Window 1
-            Timestamped.Create(2, start.AddMinutes(5)), // Start of Window 2, middle of Window 1
-            Timestamped.Create(3, start.AddMinutes(10)), // Start of Window 3, end of Window 1 (exclusive)
+            Timestamped.Create(1, start), // Start of Window starting at 0
+            Timestamped.Create(2, start.AddMinutes(5)), // Start of Window starting at 5
+            Timestamped.Create(3, start.AddMinutes(10)), // Start of Window starting at 10
         };
-
-        // Window 1: [0, 10) -> items 1, 2
-        // Window 2: [5, 15) -> items 2, 3
-        // Window 3: [10, 20) -> item 3
 
         var source = Stream.From(items);
         var windows = source.WindowByTime(duration, slide);
 
-        var windowList = new List<List<Timestamped<int>>>();
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<int>>();
         var tasks = new List<Task>();
-        await foreach (var window in windows)
+        foreach (var w in windowStreams)
         {
-            var w = window;
+            var inner = w;
             tasks.Add(Task.Run(async () =>
             {
-                var list = new List<Timestamped<int>>();
-                await foreach (var item in w)
-                {
-                    list.Add(item);
-                }
+                var list = await inner.Map(x => x.Value).ToListAsync();
                 lock (windowList) windowList.Add(list);
             }));
         }
         await Task.WhenAll(tasks);
 
-        windowList = windowList.Where(w => w.Count > 0).OrderBy(w => w[0].Timestamp.UtcTicks).ThenByDescending(w => w.Count).ToList();
+        Assert.That(windowList, Has.Count.EqualTo(4));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 1 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 1, 2 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 2, 3 }));
+        Assert.That(windowList, Has.Some.EquivalentTo(new[] { 3 }));
+    }
 
-        Assert.That(windowList, Has.Count.EqualTo(3));
-        Assert.That(windowList[0].Select(x => x.Value), Is.EquivalentTo(new[] { 1, 2 }));
-        Assert.That(windowList[1].Select(x => x.Value), Is.EquivalentTo(new[] { 2, 3 }));
-        Assert.That(windowList[2].Select(x => x.Value), Is.EquivalentTo(new[] { 3 }));
+    [Test]
+    public async Task WindowByTime_Backpressure_Fail_ShouldThrow()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        // Produce 5 items for the same window, with capacity 2 and Fail mode
+        var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
+        var source = Stream.From<Timestamped<int>>(items);
+        var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.Fail);
+
+        var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
+        {
+            await foreach (var window in windows)
+            {
+                // We don't consume the window items, so it should fill up and fail upstream
+                await Task.Delay(100);
+            }
+        });
+
+        Assert.That(ex.Message, Does.Contain("Channel boundary is full"));
+    }
+
+    [Test]
+    public async Task WindowByTime_Backpressure_DropOldest_ShouldDrop()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        // Produce 5 items for the same window, with capacity 2 and DropOldest mode
+        var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
+        var source = Stream.From<Timestamped<int>>(items);
+        var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.DropOldest);
+
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<Timestamped<int>>>();
+        foreach (var window in windowStreams)
+        {
+            // Wait to ensure producer can fill the window
+            await Task.Delay(200);
+            var list = await window.ToListAsync();
+            windowList.Add(list);
+        }
+
+        Assert.That(windowList, Has.Count.EqualTo(1));
+        // Capacity 2, DropOldest. 1, 2, 3(drops 1), 4(drops 2), 5(drops 3) -> should have 4, 5
+        Assert.That(windowList[0].Select(x => x.Value), Is.EqualTo(new[] { 4, 5 }));
+    }
+
+    [Test]
+    public async Task WindowByTime_Backpressure_DropNewest_ShouldDrop()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        // Produce 5 items for the same window, with capacity 2 and DropNewest mode
+        var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
+        var source = Stream.From<Timestamped<int>>(items);
+        var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.DropNewest);
+
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<Timestamped<int>>>();
+        foreach (var window in windowStreams)
+        {
+            // Wait to ensure producer can fill the window
+            await Task.Delay(200);
+            var list = await window.ToListAsync();
+            windowList.Add(list);
+        }
+
+        Assert.That(windowList, Has.Count.EqualTo(1));
+        // Capacity 2, DropNewest. [1, 2] -> 3 comes, drops 2 -> [1, 3] -> 4 comes, drops 3 -> [1, 4] -> 5 comes, drops 4 -> [1, 5]
+        Assert.That(windowList[0].Select(x => x.Value), Is.EqualTo(new[] { 1, 5 }));
+    }
+
+    [Test]
+    public async Task WindowByTime_Backpressure_LatestOnly_ShouldDrop()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        // Produce 5 items for the same window, with LatestOnly mode (capacity ignored, effective capacity 1)
+        var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
+        var source = Stream.From<Timestamped<int>>(items);
+        var windows = source.WindowByTime(duration, mode: ChannelBackpressureMode.LatestOnly);
+
+        var windowStreams = await windows.ToListAsync();
+        var windowList = new List<List<Timestamped<int>>>();
+        foreach (var window in windowStreams)
+        {
+            // Wait to ensure producer can fill the window
+            await Task.Delay(200);
+            var list = await window.ToListAsync();
+            windowList.Add(list);
+        }
+
+        Assert.That(windowList, Has.Count.EqualTo(1));
+        // Effective capacity 1, DropOldest behavior.
+        // 1, 2(drops 1), 3(drops 2), 4(drops 3), 5(drops 4) -> should have 5
+        Assert.That(windowList[0].Select(x => x.Value), Is.EqualTo(new[] { 5 }));
+    }
+
+    [Test]
+    public async Task WindowByTime_Backpressure_Wait_ShouldPropagate()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        var itemsEmitted = 0;
+        var source = Stream.Create<Timestamped<int>>(async emitter =>
+        {
+            for (int i = 1; i <= 5; i++)
+            {
+                await emitter.EmitAsync(Timestamped.Create(i, start.AddMinutes(1)));
+                itemsEmitted++;
+            }
+        });
+
+        // Capacity 2, mode Wait
+        var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.Wait);
+
+        var windowEnumerator = windows.GetAsyncEnumerator();
+        Assert.That(await windowEnumerator.MoveNextAsync(), Is.True);
+        var window = windowEnumerator.Current;
+
+        // Do NOT consume the window yet.
+        // Producer should be blocked after emitting 3 or 4 items (capacity + current + internal)
+        await Task.Delay(100);
+        Assert.That(itemsEmitted, Is.LessThanOrEqualTo(4));
+
+        var list = await window.ToListAsync();
+        Assert.That(list.Select(x => x.Value), Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
+        Assert.That(itemsEmitted, Is.EqualTo(5));
+    }
+
+    [Test]
+    public async Task WindowByTime_Sliding_StressTest_SlowConsumer()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromSeconds(5);
+        var slide = TimeSpan.FromSeconds(1);
+
+        // 20 items, 1 per second
+        var items = Enumerable.Range(0, 20).Select(i => Timestamped.Create(i, start.AddSeconds(i))).ToList();
+        var source = Stream.From<Timestamped<int>>(items);
+
+        // Many overlapping windows, small capacity
+        var windows = source.WindowByTime(duration, slide, capacity: 2);
+
+        var windowCount = 0;
+        var totalItemsAcrossWindows = 0;
+
+        // Use FlatMap to consume concurrently (important to avoid deadlocks with overlapping windows)
+        await windows.FlatMap(async window =>
+        {
+            Interlocked.Increment(ref windowCount);
+            var list = await window.ToListAsync();
+            Interlocked.Add(ref totalItemsAcrossWindows, list.Count);
+            // Simulate slow consumption
+            await Task.Delay(20);
+            return 0;
+        }, maxConcurrency: 8).DrainAsync();
+
+        Assert.That(windowCount, Is.GreaterThan(10));
+        // Each item belongs to up to 5 windows.
+        // Total items across all windows should be 100 with the new earliest window logic.
+        Assert.That(totalItemsAcrossWindows, Is.EqualTo(100));
+    }
+
+    [Test]
+    public async Task WindowByTime_Completion_ShouldCompleteAllWindows()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        var source = Stream.From(
+            Timestamped.Create(1, start.AddMinutes(1)),
+            Timestamped.Create(2, start.AddMinutes(5))
+        );
+
+        var windows = source.WindowByTime(duration);
+        var windowList = await windows.ToListAsync();
+
+        Assert.That(windowList, Has.Count.EqualTo(1));
+        var items = await windowList[0].ToListAsync();
+        Assert.That(items, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task WindowByTime_Cancellation_ShouldPropagateToWindows()
+    {
+        var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var duration = TimeSpan.FromMinutes(10);
+
+        var tcs = new TaskCompletionSource<bool>();
+        var source = Stream.Create<Timestamped<int>>(async (emitter, ct) =>
+        {
+            await emitter.EmitAsync(Timestamped.Create(1, start.AddMinutes(1)));
+            try
+            {
+                await Task.Delay(Timeout.Infinite, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                tcs.SetResult(true);
+                throw;
+            }
+        });
+
+        using var cts = new CancellationTokenSource();
+        var windows = source.WindowByTime(duration);
+
+        var windowEnumerator = windows.GetAsyncEnumerator(cts.Token);
+        Assert.That(await windowEnumerator.MoveNextAsync(), Is.True);
+        var firstWindow = windowEnumerator.Current;
+
+        var itemsEnumerator = firstWindow.GetAsyncEnumerator(cts.Token);
+        Assert.That(await itemsEnumerator.MoveNextAsync(), Is.True);
+
+        // Cancel outer
+        await cts.CancelAsync();
+
+        // Should catch OperationCanceledException (or subclass like TaskCanceledException)
+        Assert.CatchAsync<OperationCanceledException>(async () => await itemsEnumerator.MoveNextAsync());
+        Assert.That(await tcs.Task, Is.True);
     }
 }

@@ -230,23 +230,23 @@ await temperatureStream
   * sparse sliding (slide > duration)
 
 ## 4. Backpressure + Capacity
-* [ ] Respect `capacity` and `ChannelBackpressureMode`
-* [ ] Add stress tests for slow consumers
+* [✅] Respect `capacity` and `ChannelBackpressureMode`
+* [✅] Add stress tests for slow consumers
 
 ## 5. Completion + Cancellation
-* [ ] Ensure all active windows complete on upstream completion
-* [ ] Ensure cancellation propagates correctly
-* [ ] Add tests
+* [✅] Ensure all active windows complete on upstream completion
+* [✅] Ensure cancellation propagates correctly
+* [✅] Add tests
 
 ## 6. Documentation
-* [ ] Add section in README:
+* [✅] Add section in README:
 
   * “Time-based operators”
-* [ ] Provide 2–3 real-world examples
-* [ ] Clarify event-time requirement
+* [✅] Provide 2–3 real-world examples
+* [✅] Clarify event-time requirement
 
 ## 7. (Optional, Nice-to-Have)
-* [ ] Add helper:
+* [✅] Add helper:
 
 ```csharp
 MapWithTimestamp(Func<T, DateTimeOffset>)

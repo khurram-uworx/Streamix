@@ -24,6 +24,18 @@ The default mental model is simple:
 - explicit async composition, cancellation, ordering, and error propagation
 
 ## Quick Taste
+## Time-based Operations
+
+Streamix supports event-time windowing with tumbling and sliding windows.
+
+```csharp
+await sensorStream
+    .MapWithTimestamp(s => s.ObservedAt)
+    .WindowByTime(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(1))
+    .FlatMap(window => window.MaxAsync(s => s.Value))
+    .ForEachAsync(Console.WriteLine);
+```
+
 
 ```csharp
 await Stream.Range(1, 10)
