@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using Streamix;
 
 namespace Streamix.Tests;
 
@@ -112,7 +111,8 @@ public class DevxBehavioralTests
             .Checkpoint("Test")
             .Debug();
 
-        var task = Task.Run(async () => {
+        var task = Task.Run(async () =>
+        {
             await foreach (var item in stream.WithCancellation(cts.Token))
             {
                 if (item == 2) cts.Cancel();

@@ -1,5 +1,3 @@
-using Streamix.Implementations;
-
 using NUnit.Framework;
 
 namespace Streamix.Tests;
