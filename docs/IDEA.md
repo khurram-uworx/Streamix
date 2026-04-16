@@ -103,9 +103,7 @@ await stream
 var stream = Stream.Create<int>(async writer =>
 {
     for (int i = 0; i < 1_000_000; i++)
-    {
         await writer.WriteAsync(i); // respects downstream pressure
-    }
 });
 ```
 

@@ -50,10 +50,10 @@ public class TransformationOperatorTests
     }
 
     [Test]
-    public async Task FilterAwait_Filters_Elements_Asynchronously()
+    public async Task FilterAsync_Filters_Elements_Asynchronously()
     {
         var result = await Stream.Range(1, 5)
-            .FilterAwait(async x =>
+            .FilterAsync(async x =>
             {
                 await Task.Yield();
                 return x % 2 == 0;

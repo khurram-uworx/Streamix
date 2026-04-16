@@ -8,13 +8,13 @@ namespace Streamix.Implementations;
 /// This class is sealed to provide a stable API surface and ensure consistent behavior across operator chains.
 /// </summary>
 /// <typeparam name="T">The type of item in the stream.</typeparam>
-class Single<T> : ISingle<T>
+class SingleImplementation<T> : ISingle<T>
 {
     readonly IAsyncEnumerable<T> source;
     readonly IClock clock;
     readonly string? name;
 
-    internal Single(IAsyncEnumerable<T> source, IClock? clock = null, string? name = null)
+    internal SingleImplementation(IAsyncEnumerable<T> source, IClock? clock = null, string? name = null)
     {
         this.source = source;
         this.clock = clock ?? SystemClock.Instance;
@@ -459,7 +459,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> Named(string name)
     {
-        return new Single<T>(source, clock, name);
+        return new SingleImplementation<T>(source, clock, name);
     }
 
     /// <inheritdoc />
@@ -477,19 +477,19 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<TResult> MapAwait<TResult>(Func<T, ValueTask<TResult>> selector)
     {
-        return new Single<TResult>(mapAwait(selector), clock, name);
+        return new SingleImplementation<TResult>(mapAwait(selector), clock, name);
     }
 
     /// <inheritdoc />
     public ISingle<TResult> Map<TResult>(Func<T, TResult> selector)
     {
-        return new Single<TResult>(map(selector), clock, name);
+        return new SingleImplementation<TResult>(map(selector), clock, name);
     }
 
     /// <inheritdoc />
     public ISingle<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector)
     {
-        return new Single<TResult>(flatMapAwait(selector), clock, name);
+        return new SingleImplementation<TResult>(flatMapAwait(selector), clock, name);
     }
 
     /// <inheritdoc />
@@ -498,7 +498,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<TResult> FlatMap<TResult>(Func<T, ISingle<TResult>> selector)
     {
-        return new Single<TResult>(flatMap(selector), clock, name);
+        return new SingleImplementation<TResult>(flatMap(selector), clock, name);
     }
 
     /// <inheritdoc />
@@ -516,7 +516,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> OnErrorResume(Func<Exception, ISingle<T>> errorHandler)
     {
-        return new Single<T>(onErrorResume(errorHandler), clock, name);
+        return new SingleImplementation<T>(onErrorResume(errorHandler), clock, name);
     }
 
     /// <inheritdoc />
@@ -534,7 +534,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> RunOn(TaskScheduler scheduler)
     {
-        return new Single<T>(runOn(scheduler), clock, name);
+        return new SingleImplementation<T>(runOn(scheduler), clock, name);
     }
 
     /// <inheritdoc />
@@ -596,7 +596,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> DoOnNext(Action<T> onNext)
     {
-        return new Single<T>(doOnNext(onNext), clock, name);
+        return new SingleImplementation<T>(doOnNext(onNext), clock, name);
     }
 
     /// <inheritdoc />
@@ -608,19 +608,19 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> DoOnError(Action<Exception> onError)
     {
-        return new Single<T>(doOnError(onError), clock, name);
+        return new SingleImplementation<T>(doOnError(onError), clock, name);
     }
 
     /// <inheritdoc />
     public ISingle<T> DoOnComplete(Action onComplete)
     {
-        return new Single<T>(doOnComplete(onComplete), clock, name);
+        return new SingleImplementation<T>(doOnComplete(onComplete), clock, name);
     }
 
     /// <inheritdoc />
     public ISingle<T> DoOnTerminate(Action onTerminate)
     {
-        return new Single<T>(doOnTerminate(onTerminate), clock, name);
+        return new SingleImplementation<T>(doOnTerminate(onTerminate), clock, name);
     }
 
     /// <inheritdoc />
@@ -671,7 +671,7 @@ class Single<T> : ISingle<T>
     /// <inheritdoc />
     public ISingle<T> Checkpoint(string checkpointName, Action<string> loggerAction)
     {
-        return new Single<T>(checkpointInternal(checkpointName, loggerAction), clock, name);
+        return new SingleImplementation<T>(checkpointInternal(checkpointName, loggerAction), clock, name);
     }
 
     /// <inheritdoc />
@@ -685,7 +685,7 @@ class Single<T> : ISingle<T>
 
     private ISingle<T> TraceAction(Action<string> loggerAction, string prefix)
     {
-        return new Single<T>(traceInternal(prefix, loggerAction), clock, name);
+        return new SingleImplementation<T>(traceInternal(prefix, loggerAction), clock, name);
     }
 
     /// <inheritdoc />

@@ -86,7 +86,7 @@ public static class Single
     /// <param name="source">The source asynchronous enumerable.</param>
     /// <returns>A single-item stream wrapping the source.</returns>
     /// <exception cref="InvalidOperationException">The source emits more than one element during enumeration.</exception>
-    public static ISingle<T> From<T>(IAsyncEnumerable<T> source) => new Single<T>(source);
+    public static ISingle<T> From<T>(IAsyncEnumerable<T> source) => new SingleImplementation<T>(source);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from an <see cref="IAsyncEnumerable{T}"/> and name.
@@ -98,18 +98,18 @@ public static class Single
     public static ISingle<T> From<T>(IAsyncEnumerable<T> source, string? name)
     {
         if (source is ISingle<T> single && single.Name == name) return single;
-        return new Single<T>(source, null, name);
+        return new SingleImplementation<T>(source, null, name);
     }
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from an <see cref="IAsyncEnumerable{T}"/> with a specific clock.
     /// </summary>
-    public static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Single<T>(source, clock);
+    public static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new SingleImplementation<T>(source, clock);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from an <see cref="IAsyncEnumerable{T}"/> with a specific clock and name.
     /// </summary>
-    public static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock, string? name) => new Single<T>(source, clock, name);
+    public static ISingle<T> From<T>(IAsyncEnumerable<T> source, IClock clock, string? name) => new SingleImplementation<T>(source, clock, name);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a single value.

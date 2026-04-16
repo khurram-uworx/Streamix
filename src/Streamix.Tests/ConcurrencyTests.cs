@@ -238,34 +238,6 @@ public class ConcurrencyTests
     }
 
     [Test]
-    public async Task Map_RespectsMaxConcurrency()
-    {
-        const int maxConcurrency = 3;
-        int activeTasks = 0;
-        int maxObservedConcurrency = 0;
-        var lockObj = new object();
-
-        var result = await Stream.Range(1, 10)
-            .Map(async x =>
-            {
-                int currentActive = Interlocked.Increment(ref activeTasks);
-                lock (lockObj)
-                {
-                    maxObservedConcurrency = Math.Max(maxObservedConcurrency, currentActive);
-                }
-
-                await Task.Delay(50);
-
-                Interlocked.Decrement(ref activeTasks);
-                return x;
-            }, maxConcurrency: maxConcurrency)
-            .ToListAsync();
-
-        Assert.That(maxObservedConcurrency, Is.LessThanOrEqualTo(maxConcurrency));
-        Assert.That(result, Is.EquivalentTo(Enumerable.Range(1, 10)));
-    }
-
-    [Test]
     public async Task MapOrdered_RespectsMaxConcurrency()
     {
         const int maxConcurrency = 3;
@@ -426,20 +398,6 @@ public class ConcurrencyTests
         });
 
         Assert.That(async () => await innerCancelled.Task.WaitAsync(TimeSpan.FromSeconds(2)), Throws.Nothing);
-    }
-
-    [Test]
-    public void Map_PropagatesErrorsCorrectly()
-    {
-        var stream = Stream.Range(1, 10)
-            .Map(async x =>
-            {
-                if (x == 5) throw new InvalidOperationException("Boom");
-                await Task.Yield();
-                return x;
-            }, maxConcurrency: 2);
-
-        Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
 
     [Test]

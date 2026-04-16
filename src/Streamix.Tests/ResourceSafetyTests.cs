@@ -128,7 +128,7 @@ public class ResourceSafetyTests
         }
 
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 1).ConcatMap<int>(x => Stream.From((IAsyncEnumerable<int>)GetInner()));
+        var stream = Stream.Range(1, 1).ConcatMap(x => Stream.From((IAsyncEnumerable<int>)GetInner()));
 
         var enumerator = stream.GetAsyncEnumerator(cts.Token);
         Assert.That(await enumerator.MoveNextAsync(), Is.True);
@@ -186,14 +186,14 @@ public class ResourceSafetyTests
     }
 
     [Test]
-    public async Task Map_CancelsOutstandingTasks_OnCancellation()
+    public async Task FlatMap_CancelsOutstandingTasks_OnCancellation()
     {
         var taskStarted = 0;
         var taskCancelled = 0;
 
         var cts = new CancellationTokenSource();
         var stream = Stream.Range(1, 10)
-            .Map(async x =>
+            .FlatMap(async x =>
             {
                 Interlocked.Increment(ref taskStarted);
                 try

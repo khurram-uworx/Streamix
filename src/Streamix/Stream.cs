@@ -218,12 +218,12 @@ public static class Stream
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/> and <see cref="IClock"/>
     /// </summary>
-    public static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new Stream<T>(source, clock);
+    public static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock) => new StreamImplementation<T>(source, clock);
 
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/>, <see cref="IClock"/> and name.
     /// </summary>
-    public static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock, string? name) => new Stream<T>(source, clock, name);
+    public static IStream<T> From<T>(IAsyncEnumerable<T> source, IClock clock, string? name) => new StreamImplementation<T>(source, clock, name);
 
     /// <summary>
     /// Creates a stream from an <see cref="IAsyncEnumerable{T}"/>.
@@ -234,7 +234,7 @@ public static class Stream
     public static IStream<T> From<T>(IAsyncEnumerable<T> source)
     {
         if (source is IStream<T> stream) return stream;
-        return new Stream<T>(source);
+        return new StreamImplementation<T>(source);
     }
 
     /// <summary>
@@ -247,7 +247,7 @@ public static class Stream
     public static IStream<T> From<T>(IAsyncEnumerable<T> source, string? name)
     {
         if (source is IStream<T> stream && stream.Name == name) return stream;
-        return new Stream<T>(source, null, name);
+        return new StreamImplementation<T>(source, null, name);
     }
 
     /// <summary>
@@ -256,7 +256,7 @@ public static class Stream
     /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="source">The source single-item stream.</param>
     /// <returns>A stream wrapping the source.</returns>
-    public static IStream<T> From<T>(ISingle<T> source) => new Stream<T>(source);
+    public static IStream<T> From<T>(ISingle<T> source) => new StreamImplementation<T>(source);
 
     /// <summary>
     /// Creates a stream from a single value.
@@ -480,7 +480,7 @@ public static class Stream
     /// <typeparam name="T">The type of items in the streams.</typeparam>
     /// <param name="streams">The streams to merge.</param>
     /// <returns>A merged stream.</returns>
-    public static IStream<T> Merge<T>(params IStream<T>[] streams) => Stream<T>.Merge(streams);
+    public static IStream<T> Merge<T>(params IStream<T>[] streams) => StreamImplementation<T>.Merge(streams);
 
     /// <summary>
     /// Combines elements from multiple streams using a specified function.
@@ -492,7 +492,7 @@ public static class Stream
     /// <param name="second">The second stream.</param>
     /// <param name="resultSelector">The result selector function.</param>
     /// <returns>A zipped stream.</returns>
-    public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector) => Stream<TResult>.Zip(first, second, resultSelector);
+    public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector) => StreamImplementation<TResult>.Zip(first, second, resultSelector);
 
     /// <summary>
     /// Returns a stream that is created by a factory function for each subscriber.
@@ -516,7 +516,7 @@ public static class Stream
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <param name="producer">A function that uses the emitter to produce items.</param>
     /// <returns>A stream created from the emitter.</returns>
-    public static IStream<T> Create<T>(Func<IStreamEmitter<T>, Task> producer) => Stream<T>.Create(producer);
+    public static IStream<T> Create<T>(Func<IStreamEmitter<T>, Task> producer) => StreamImplementation<T>.Create(producer);
 
     /// <summary>
     /// Creates a stream by providing an emitter that can be used to push items, complete, or signal errors.
@@ -525,7 +525,7 @@ public static class Stream
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <param name="producer">A function that uses the emitter to produce items.</param>
     /// <returns>A stream created from the emitter.</returns>
-    public static IStream<T> Create<T>(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer) => Stream<T>.Create(producer);
+    public static IStream<T> Create<T>(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer) => StreamImplementation<T>.Create(producer);
 
     /// <summary>
     /// Creates a stream from an async callback or event source that can await item delivery and returns an <see cref="IDisposable"/> subscription.

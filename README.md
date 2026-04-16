@@ -41,23 +41,37 @@ var products =
     .Map(o => o.Product);             // Stream<string>
 ```
 
-### Time-based Operations
+Streamix provides several operators to help you observe and debug your reactive pipelines.
+
+```csharp
+await Stream.Range(1, 100)
+    .Named("Orders")
+    .Trace()
+    .Checkpoint("ProcessStart")
+    .Map(async x => await ProcessAsync(x), maxConcurrency: 5)
+    .Checkpoint("ProcessEnd")
+    .ForEachAsync(Console.WriteLine);
+```
+
+Streamix supports both fluent and query comprehension syntax.
+
+```csharp
+var result = await (
+    from x in Stream.Range(1, 10)
+    where x % 2 == 0
+    select x * 10
+).ToListAsync();
+```
 
 Streamix supports event-time windowing with tumbling and sliding windows.
 
 ```csharp
 await sensorStream
     .MapWithTimestamp(s => s.ObservedAt)
-    .WindowByTime(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(1))
+    .WindowByTime(duration: TimeSpan.FromMinutes(5), slide: TimeSpan.FromMinutes(1))
     .FlatMap(window => window.MaxAsync(s => s.Value))
     .ForEachAsync(Console.WriteLine);
 ```
-
-## Packages
-
-- [`Streamix`](https://www.nuget.org/packages/Streamix): core stream types, operators, terminals, channels, and sinks
-- [`Streamix.Extensions`](https://www.nuget.org/packages/Streamix.Extensions): AsyncRx.NET interop, isolated from the core package
-- [`Streamix.AspNetCore`](https://www.nuget.org/packages/Streamix.AspNetCore): SSE, WebSocket, and HTTP response streaming integration for ASP.NET Core
 
 ## Documentation
 
@@ -70,6 +84,12 @@ await sensorStream
 - [Streamix: The Core Mental Model](https://khurram-uworx.github.io/2026/04/05/Streamix2.html)
 - [Hot vs Cold Streams, Ordering, and Async Composition in Streamix](https://khurram-uworx.github.io/2026/04/11/Streamix3.html)
 - [Backpressure, Interop, and Streaming ASP.NET Core Responses With Streamix](https://khurram-uworx.github.io/2026/04/12/Streamix4.html)
+
+## Packages
+
+- [`Streamix`](https://www.nuget.org/packages/Streamix): core stream types, operators, terminals, channels, and sinks
+- [`Streamix.Extensions`](https://www.nuget.org/packages/Streamix.Extensions): AsyncRx.NET interop, isolated from the core package
+- [`Streamix.AspNetCore`](https://www.nuget.org/packages/Streamix.AspNetCore): SSE, WebSocket, and HTTP response streaming integration for ASP.NET Core
 
 ## Status
 

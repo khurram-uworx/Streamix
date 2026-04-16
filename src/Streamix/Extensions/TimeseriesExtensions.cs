@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 namespace Streamix;
@@ -6,7 +5,7 @@ namespace Streamix;
 /// <summary>
 /// Provides time-series extension methods for <see cref="IStream{T}"/>.
 /// </summary>
-public static class TimeseriesExtension
+public static class TimeseriesExtensions
 {
     /// <summary>
     /// Projects each element of a stream into a <see cref="Timestamped{T}"/> using the specified timestamp selector.

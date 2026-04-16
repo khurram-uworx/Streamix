@@ -215,8 +215,8 @@ public class IoTScenarios
             .WindowByTime(
                 duration: options.Window,
                 slide: options.SensorPeriod)
-            .FlatMap(window => 
-                Stream.From<double>((CancellationToken ct) => 
+            .FlatMap(window =>
+                Stream.From<double>((CancellationToken ct) =>
                 {
                     var max = window.Select(ts => ts.Value.Temperature).MaxAsync(cancellationToken: ct);
                     return max;

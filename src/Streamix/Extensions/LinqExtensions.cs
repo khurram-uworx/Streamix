@@ -121,7 +121,7 @@ public static class LinqExtensions
 
     /// <summary>
     /// Filters a stream of values based on a predicate.
-    /// LINQ-style extension for <see cref="IStream{T}.Filter(Func{T, bool})"/>.
+    /// LINQ-style extension for <see cref="StreamExtensions.Filter{T}(IStream{T}, Func{T, bool})"/>.
     /// </summary>
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <param name="source">The stream to filter.</param>
@@ -139,12 +139,12 @@ public static class LinqExtensions
     /// <returns>An <see cref="IStream{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
     public static IStream<T> WhereAsync<T>(this IStream<T> source, Func<T, ValueTask<bool>> predicate)
     {
-        return source.FilterAwait(predicate);
+        return source.FilterAsync(predicate);
     }
 
     /// <summary>
     /// Projects each element of a stream into a new form using a synchronous selector function.
-    /// LINQ-style extension for <see cref="IStream{T}.Map{TResult}(Func{T, TResult})"/>.
+    /// LINQ-style extension for <see cref="StreamExtensions.Map{T, TResult}(IStream{T}, Func{T, TResult})"/>.
     /// </summary>
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
@@ -167,24 +167,28 @@ public static class LinqExtensions
         return source.MapAwait(selector);
     }
 
+    /// <inheritdoc />
+    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
+        => source.FlatMap(selector, maxConcurrency);
+
     /// <summary>
     /// Projects each element of a stream to an <see cref="IStream{TResult}"/> and flattens the resulting streams into one stream.
     /// Results are emitted concurrently as they complete (unordered).
-    /// Use fluent operators such as <see cref="IStream{T}.ConcatMap{TResult}(Func{T, IStream{TResult}})"/> or <see cref="IStream{T}.FlatMapOrdered{TResult}(Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
     public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector)
         => source.FlatMap(selector, maxConcurrency: int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream to an <see cref="IStream{TResult}"/> and flattens the resulting streams into one stream with concurrency support (unordered).
-    /// Use fluent operators such as <see cref="IStream{T}.ConcatMap{TResult}(Func{T, IStream{TResult}})"/> or <see cref="IStream{T}.FlatMapOrdered{TResult}(Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
     public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector, int maxConcurrency)
         => source.FlatMap(selector, maxConcurrency);
 
     /// <summary>
     /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IStream{TResult}"/>, and flattens the result concurrently (unordered).
-    /// Use fluent operators such as <see cref="IStream{T}.ConcatMap{TResult}(Func{T, IStream{TResult}})"/> or <see cref="IStream{T}.FlatMapOrdered{TResult}(Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
     public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector)
     {
@@ -193,7 +197,7 @@ public static class LinqExtensions
 
     /// <summary>
     /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IStream{TResult}"/>, and flattens the result with concurrency support (unordered).
-    /// Use fluent operators such as <see cref="IStream{T}.ConcatMap{TResult}(Func{T, IStream{TResult}})"/> or <see cref="IStream{T}.FlatMapOrdered{TResult}(Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
     public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency)
     {
@@ -206,12 +210,6 @@ public static class LinqExtensions
     /// </summary>
     public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector)
         => source.FlatMap(selector, maxConcurrency: int.MaxValue);
-
-    /// <summary>
-    /// Projects each element of a stream to an <see cref="ISingle{TResult}"/> and flattens the resulting streams into one stream with concurrency support (unordered).
-    /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency)
-        => source.FlatMap(selector, maxConcurrency);
 
     /// <summary>
     /// Projects each element of a stream using an asynchronous selector function and flattens the result (unordered concurrent).

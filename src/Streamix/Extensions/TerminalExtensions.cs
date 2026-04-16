@@ -1,4 +1,3 @@
-using Streamix.Implementations;
 using System.Collections.ObjectModel;
 using System.Threading.Channels;
 
@@ -26,12 +25,7 @@ public enum SinkCompletionMode
 /// </summary>
 public static class TerminalExtensions
 {
-    private static IClock GetClock<T>(IStream<T> stream)
-    {
-        if (stream is Stream<T> s) return s.Clock;
-        if (stream is ConnectableStream<T> cs) return cs.Clock;
-        return SystemClock.Instance;
-    }
+    static IClock GetClock<T>(IStream<T> stream) => stream.Clock;
 
     /// <summary>
     /// Determines whether the stream contains a specific element by using the default equality comparer.
