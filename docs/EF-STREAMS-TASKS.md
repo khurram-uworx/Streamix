@@ -4,271 +4,272 @@
 
 This document breaks the Entity Framework Core integration feature into concrete, assignable tasks for coding agents.
 
+Use `docs/TASKS-TEMPLATE.md` when adding new workstreams; this file follows the same pattern (decision gates, acceptance criteria, likely files).
+
 ## Suggested Execution Order
 
-1. Task 1: Design review and API contract finalization
-2. Task 2: Core EntityFrameworkStream<T> implementation
-3. Task 3: Extension methods and fluent API
-4. Task 4: Integration testing and validation
-5. Task 5: Documentation and examples
-6. Task 6: Performance optimization and review
+1. Task 1: Design review and API contract finalization (decision gate)
+2. Task 2: Implement EF stream adapter and execution path in `Streamix.Extensions`
+3. Task 3: Extension methods and XML documentation
+4. Task 4: Integration testing and validation (`Streamix.Tests`)
+5. Task 5: Documentation (README / package README / design note alignment)
+6. Task 6: Performance and materialization review (post–Phase 1)
 
 ## Coordination Notes
 
-- Task 1 is a decision gate. Do not start broad implementation until the API contract is settled.
-- Task 2 and Task 3 will touch related files and should be owned by one agent or sequenced carefully.
-- Task 4 can begin once Task 2 is complete and basic functionality works.
-- Task 5 should wait until naming and behavior are final.
-- Task 6 should come after basic functionality is proven.
+- **Task 1 is a decision gate.** Do not land public API in code until `docs/EF-STREAMS.md` and signatures match.
+- **Task 2 and Task 3** touch the same project (`Streamix.Extensions`); one owner or strict sequencing to avoid merge pain.
+- **`Streamix.Extensions` transitive dependencies grow** when EF Core is added; note that in package README so AsyncRx-only consumers understand the tradeoff (or document mitigations if the team later splits packages).
+- **Lifetime rule is non-negotiable:** query must be built from the **same** `DbContext` instance that executes it (factory + `Func<DbContext, IQueryable<T>>`), unless the caller-owned overload is implemented and documented.
+- Shared files with merge-conflict risk:
+  - `src/Streamix.Extensions/Streamix.Extensions.csproj`
+  - `src/Streamix.Extensions/**/*.cs` (new or restored from excluded sources)
+  - `src/Streamix.Tests/Streamix.Tests.csproj`
+  - `src/Streamix.Tests/EfStreamTests.cs` (new)
+  - `README.md`, `src/Streamix.Extensions/README.md`, `docs/EF-STREAMS.md`
 
 ## Task 1: Finalize EF Stream Design and API Contract
 
 ### Priority
+
 High
 
 ### Goal
-Choose and document the final public API and behavior contract for Entity Framework streams.
+
+Freeze the public surface and semantics for EF-backed streams so implementation does not re-litigate context lifetime or materialization behavior.
 
 ### Why this exists
-The design document outlines the general approach, but specific API details need to be finalized before implementation begins.
+
+EF integration is easy to get subtly wrong (wrong `DbContext`, hidden materialization cost). The design note must match what ships.
 
 ### Decision required
-- Finalize extension method names and signatures
-- Confirm error handling approach
-- Decide on DbContext factory pattern
-- Confirm naming conventions
+
+- Final **`EfStream`** method overloads (`From`, optional caller-owned variant), **namespace**, and whether any **extension-method** sugar wraps the static factory.
+- Confirm **primary** entry point: `Func<DbContext, IQueryable<T>>` + `Func<DbContext>` factory.
+- Confirm whether **caller-owned context** overload ships in Phase 1 or later.
+- Confirm **v1** uses `ToListAsync` + yield (full materialization per subscription).
+- Confirm **IClock** / naming parity with other Streamix sources.
 
 ### Scope
-- Review and finalize the API design in EF-STREAMS.md
-- Ensure consistency with existing Streamix patterns
-- Document any deviations from standard EF Core usage
-- Create concrete usage examples
+
+- Keep `docs/EF-STREAMS.md` the source of truth; update if API names change.
+- Ensure examples are **lifetime-correct** and **compile-realistic** (async terminals, valid EF patterns).
+- List breaking changes if a stub existed with a different shape.
 
 ### Constraints
-- Must follow existing Streamix naming conventions
-- Must work with any EF Core database provider
-- Must not require changes to entity models
-- Must support proper resource disposal
+
+- **No `Microsoft.EntityFrameworkCore` reference in `Streamix` (core).**
+- Integration code lives in **`Streamix.Extensions`**.
+- Must work with any EF Core provider supported by the chosen EF version.
 
 ### Suggested implementation path
-- Review existing stream creation patterns in Stream.cs
-- Ensure consistency with other From* methods
-- Validate the DbContext factory approach
-- Confirm error handling matches stream conventions
+
+- Compare with existing `From*` / resource-owning patterns in core (`Stream.Using`, etc.).
+- Resolve any excluded prototype sources under `Streamix.Extensions` (see csproj `Compile Remove`).
 
 ### Acceptance criteria
-- Final API design documented in EF-STREAMS.md
-- Usage examples compile and make sense
-- Design is consistent with existing Streamix patterns
-- All team members agree on the approach
+
+- `docs/EF-STREAMS.md` reflects agreed API and packaging.
+- Examples demonstrate **correct** context lifetime (no query built on one context and executed on another).
+- Materialization cost and cancellation behavior are explicitly stated.
 
 ### Files likely involved
+
 - `docs/EF-STREAMS.md`
 - `docs/EF-STREAMS-TASKS.md`
+- `src/Streamix.Extensions/Streamix.Extensions.csproj`
 
-## Task 2: Implement EntityFrameworkStream<T> Core
+## Task 2: Implement EF Stream Adapter in Streamix.Extensions
 
 ### Priority
+
 High
 
 ### Goal
-Implement the core EntityFrameworkStream<T> class that handles query execution and resource management.
+
+Provide an internal (or minimal) adapter that turns an EF query into `IStream<T>` behavior with correct disposal and cancellation for the factory-based entry point.
 
 ### Scope
-- Create EntityFrameworkStream<T> class in Implementations namespace
-- Implement IStream<T> interface with all required methods
-- Handle query execution with proper cancellation
-- Ensure DbContext is properly disposed
-- Implement all stream operations (MergeWith, ZipWith, Window, etc.)
+
+- Add **`PackageReference`** to **`Microsoft.EntityFrameworkCore`** on **`Streamix.Extensions`** (version per repo conventions).
+- Remove or replace **`Compile Remove`** entries that hide prototype files if the team adopts them; otherwise add new implementation files.
+- Implement **per-subscription** `DbContext` create / dispose for the factory overload.
+- **v1 execution:** `ToListAsync(cancellationToken)` then yield items (see design doc).
+- Prefer **delegating** to `Stream.From(...)` / `IAsyncEnumerable<T>` rather than hand-rolling every `IStream<T>` combinator unless required.
 
 ### Constraints
-- Must follow existing Streamix implementation patterns
-- Must handle cancellation properly
-- Must dispose resources in all scenarios
-- Must not block threads unnecessarily
+
+- Do not block threads for query execution; use EF async APIs.
+- Nullable reference types and `TreatWarningsAsErrors` must stay clean.
+- `DbContext` is **not thread-safe**; document or enforce patterns for concurrent downstream operators (same as any EF usage).
 
 ### Suggested implementation path
-- Start with basic IAsyncEnumerable<T> implementation
-- Add proper cancellation handling
-- Implement resource disposal
-- Add all IStream<T> interface methods
-- Follow patterns from StreamImplementation<T>
+
+- Start with `GetAsyncEnumerator`: open context, build query from delegate, `ToListAsync`, yield.
+- Add tests early for **context disposal** and **cancellation**.
 
 ### Acceptance criteria
-- EntityFrameworkStream<T> compiles without errors
-- Basic query execution works
-- Cancellation propagates correctly
-- DbContext is disposed in all scenarios
-- All IStream<T> methods are implemented
+
+- `Streamix.Extensions` builds with EF Core referenced.
+- Factory-based path disposes context on success, failure, and cancellation.
+- Query uses the **same** context instance as the query builder delegate.
 
 ### Files likely involved
-- `src/Streamix/Implementations/EntityFrameworkStream.cs` (new)
-- `src/Streamix/Implementations/StreamImplementation.cs` (reference)
+
+- `src/Streamix.Extensions/Streamix.Extensions.csproj`
+- `src/Streamix.Extensions/EfStream.cs` (public static factory type) and/or internal adapter (for example `EntityFrameworkStream<T>`)
+- `src/Streamix.Extensions/*.cs` (helpers as needed)
 
 ## Task 3: Add Extension Methods and Fluent API
 
 ### Priority
+
 High
 
 ### Goal
-Add extension methods to make EF stream creation easy and intuitive.
+
+Expose discoverable, documented **`EfStream.From`** overloads and optional extension-method sugar; signatures must match Task 1 and `docs/EF-STREAMS.md`.
 
 ### Scope
-- Add FromEntityFramework extension methods to StreamExtensions
-- Provide overloads for different scenarios
-- Add proper XML documentation
-- Ensure methods follow existing patterns
+
+- Public extension methods in **`Streamix.Extensions`** only.
+- Parameter validation (null checks, meaningful exceptions).
+- XML documentation describing **context lifetime** and **materialization**.
 
 ### Constraints
-- Must follow existing extension method patterns
-- Must have proper parameter validation
-- Must have comprehensive XML documentation
-- Must be discoverable via IntelliSense
+
+- Do not imply row-by-row DB streaming in docs if v1 materializes via `ToListAsync`.
 
 ### Suggested implementation path
-- Review existing From* methods in StreamExtensions
-- Add FromEntityFramework methods following same patterns
-- Add proper parameter validation
-- Add comprehensive XML documentation
+
+- Mirror patterns from core `Stream` factory methods and `Streamix.Extensions` AsyncRx entry points.
 
 ### Acceptance criteria
-- Extension methods compile without errors
-- Methods follow existing naming conventions
-- XML documentation is complete
-- Methods are properly discoverable
+
+- IntelliSense-friendly API with clear overload differences.
+- XML docs warn against wrong-context query composition.
 
 ### Files likely involved
-- `src/Streamix/Extensions/StreamExtensions.cs`
+
+- `src/Streamix.Extensions/*.cs` (new extension class if split from adapter)
+- `src/Streamix.Extensions/README.md` (consumer-facing package note)
 
 ## Task 4: Integration Testing and Validation
 
 ### Priority
+
 High
 
 ### Goal
-Ensure EF streams work correctly with the existing stream ecosystem.
+
+Prove correctness, cancellation, disposal, and composition using automated tests.
 
 ### Scope
-- Test basic query execution
-- Test cancellation scenarios
-- Test error handling
-- Test composition with other operators
-- Test resource disposal
-- Test multiple subscriptions
+
+- Add **`Microsoft.EntityFrameworkCore.InMemory`** (or SQLite) to **`Streamix.Tests`** if not already present for this feature.
+- Tests: success path, cancellation during query, exception propagation, **multiple subscriptions** with factory (distinct contexts).
+- Composition tests: `Map`, `Filter`, `Take`, terminal `ForEachAsync`.
 
 ### Constraints
-- Tests must use in-memory database for reliability
-- Tests must cover all major scenarios
-- Tests must be fast and reliable
-- Tests must not require external database
+
+- No external database server required for CI.
+- Avoid timing-only assertions where deterministic synchronization is possible.
 
 ### Suggested implementation path
-- Create test DbContext and entities
-- Add basic functionality tests
-- Add cancellation tests
-- Add error handling tests
-- Add composition tests
-- Add resource disposal tests
+
+- Small `DbContext` + entity types scoped to tests.
+- Use `CancellationTokenSource` to cancel mid-enumeration.
 
 ### Acceptance criteria
-- All tests pass reliably
-- Test coverage includes all major scenarios
-- Tests run quickly
-- Tests don't require external dependencies
+
+- New tests fail on pre-implementation / wrong-lifetime behavior and pass on correct implementation.
+- `dotnet test --configuration Release` succeeds.
 
 ### Files likely involved
+
+- `src/Streamix.Tests/Streamix.Tests.csproj`
 - `src/Streamix.Tests/EfStreamTests.cs` (new)
-- `src/Streamix.Tests/Streamix.Tests.csproj` (add EF Core references)
 
 ## Task 5: Documentation and Examples
 
 ### Priority
+
 Medium
 
 ### Goal
-Provide comprehensive documentation and examples for EF streams.
+
+Ship accurate public documentation so users understand dependency cost and EF lifetime rules.
 
 ### Scope
-- Update README.md with EF stream section
-- Add usage examples
-- Document best practices
-- Add API reference documentation
-- Create getting started guide
+
+- Short section in root **`README.md`** pointing to **`Streamix.Extensions`** for EF (once API exists); avoid claiming the feature before it builds.
+- Update **`src/Streamix.Extensions/README.md`** with EF usage, **NuGet transitive dependency** note, and a minimal example.
+- Keep **`docs/EF-STREAMS.md`** aligned with shipped API.
 
 ### Constraints
-- Documentation must be accurate
-- Examples must compile and work
-- Must follow existing documentation patterns
-- Must be clear and concise
 
-### Suggested implementation path
-- Add EF streams section to README
-- Add comprehensive usage examples
-- Document best practices and patterns
-- Add API reference documentation
+- Examples must compile against the actual public API.
+- Do not duplicate long prose in three places; link to `docs/EF-STREAMS.md` for depth.
 
 ### Acceptance criteria
-- README has comprehensive EF streams section
-- All examples compile and make sense
-- Documentation is clear and accurate
-- Best practices are documented
+
+- README / package README / design doc do not contradict each other.
+- Call out v1 materialization (`ToListAsync`) honestly.
 
 ### Files likely involved
+
 - `README.md`
+- `src/Streamix.Extensions/README.md`
 - `docs/EF-STREAMS.md`
 
-## Task 6: Performance Optimization and Review
+## Task 6: Performance Optimization and Materialization Review
 
 ### Priority
+
 Medium
 
 ### Goal
-Review and optimize EF stream performance.
+
+After Phase 1 works, decide whether to add a streaming execution path or other optimizations without breaking semantics.
 
 ### Scope
-- Review query execution patterns
-- Optimize memory usage
-- Review cancellation handling
-- Add performance tests
-- Document performance characteristics
+
+- Evaluate `AsAsyncEnumerable` (or provider-specific patterns) for large-result scenarios.
+- Measure memory for large lists; document tuning (batching, limits, projection).
 
 ### Constraints
-- Must not break existing functionality
-- Must maintain correctness
-- Optimizations must be measurable
-- Must not complicate API
 
-### Suggested implementation path
-- Review current implementation for bottlenecks
-- Add performance tests
-- Optimize query execution
-- Review memory usage patterns
-- Document performance characteristics
+- Any new execution mode must be documented with ordering, cancellation, and provider caveats.
 
 ### Acceptance criteria
-- Performance tests added and passing
-- No major performance issues identified
-- Memory usage is reasonable
-- Performance characteristics documented
+
+- Written recommendation in `docs/EF-STREAMS.md` (Phase 2 section updated) or a short addendum.
+- If code changes land, they include targeted tests.
 
 ### Files likely involved
-- `src/Streamix/Implementations/EntityFrameworkStream.cs`
-- `src/Streamix.Tests/EfStreamPerformanceTests.cs` (new)
+
 - `docs/EF-STREAMS.md`
+- `src/Streamix.Extensions/**/*.cs`
 
 ## Suggested Agent Handout Batches
 
-### Batch A: Design and Core Implementation
-- Task 1: Finalize EF Stream Design and API Contract
-- Task 2: Implement EntityFrameworkStream<T> Core
-- Task 3: Add Extension Methods and Fluent API
+### Batch A: decision-critical
 
-### Batch B: Testing and Validation
-- Task 4: Integration Testing and Validation
+- Task 1
 
-### Batch C: Documentation and Optimization
-- Task 5: Documentation and Examples
-- Task 6: Performance Optimization and Review
+### Batch B: implementation
+
+- Task 2
+- Task 3
+
+### Batch C: tests and docs
+
+- Task 4
+- Task 5
+
+### Batch D: follow-up
+
+- Task 6
 
 ## Final Checklist
 
@@ -277,4 +278,4 @@ Review and optimize EF stream performance.
 - Decision-gate tasks are clearly marked
 - Likely files are listed to reduce agent search time
 - Execution order reflects real dependencies
-- All tasks support the overall goal of enterprise-ready EF streams
+- Packaging impact (`Streamix.Extensions` + EF Core) is explicit
