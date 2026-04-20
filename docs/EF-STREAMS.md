@@ -41,7 +41,7 @@ An `IStream<T>` that:
 
 ## API Design
 
-Place public entry points in **`Streamix.Extensions`**. Core **`Stream`** factory methods live in the **`Streamix`** assembly; EF-backed factories use the same **static `From` / overload** style on **`EfStream`** in **`Streamix.Extensions`** (C# does not allow adding `partial class Stream` from another project). Optional extension-method sugar may wrap these factories; keep naming aligned with existing `Stream.From*` patterns.
+Place public entry points in **`Streamix.Extensions`**. Core **`Stream`** factory methods live in the **`Streamix`** assembly; EF-backed factories use the same **static `From` / overload** style on **`EfStream`** in **`Streamix.Extensions`** (C# does not allow adding `partial class Stream` from another project). The shipped API also includes `Func<DbContext>` extension-method sugar via `ToStream(...)`.
 
 `IOrderedQueryable<T>` is a shaped **`IQueryable<T>`**; **no separate API** is required for ordered queries.
 
@@ -52,7 +52,7 @@ An **`IQueryable<T>` is bound to the `DbContext` it was built from**. It is inco
 - Build the query **inside** the same scope where the executing context is created (recommended factory shape below), or
 - Execute a query that is still tied to a **caller-owned** context that remains alive for the whole subscription.
 
-### Recommended: query builder + context factory
+### Shipped in v1: query builder + context factory
 
 The stream creates a context per subscription, builds the query from that context, executes, then disposes the context.
 
@@ -76,14 +76,34 @@ public static class EfStream
 }
 ```
 
-### Optional: caller-owned `DbContext`
+Factory extension-method wrappers are also available in `Streamix.Extensions`:
 
-For advanced scenarios, an overload may accept an **`IQueryable<T>`** (or a `DbContext` + delegate) with **documented** semantics:
+```csharp
+public static class EfStreamExtensions
+{
+    public static IStream<T> ToStream<T>(
+        this Func<DbContext> dbContextFactory,
+        Func<DbContext, IQueryable<T>> query,
+        string? name = null)
+        where T : class;
+
+    public static IStream<T> ToStream<T>(
+        this Func<DbContext> dbContextFactory,
+        Func<DbContext, IQueryable<T>> query,
+        IClock clock,
+        string? name = null)
+        where T : class;
+}
+```
+
+### Not shipped in v1: caller-owned `DbContext`
+
+For advanced scenarios, a future overload may accept an **`IQueryable<T>`** (or a `DbContext` + delegate) with **documented** semantics:
 
 - The stream **does not dispose** the `DbContext`.
 - The caller **must** keep the context valid until that subscription completes (including on error paths).
 
-This avoids a factory when the caller already manages unit-of-work scope.
+This avoids a factory when the caller already manages unit-of-work scope, but this overload is currently deferred.
 
 ### Usage Examples
 
@@ -163,6 +183,35 @@ Document this honestly in release notes: **large queries pay full materializatio
 - **v1**: `ToListAsync` materializes the full result set per subscription; then items are pushed downstream one-by-one without retaining an extra buffer beyond that list.
 - **Cold stream**: each subscriber runs the query again (unless composed with hot primitives like `Publish` upstream of sharing — still not “live DB subscription” by default).
 
+### Phase 2 recommendation (Task 6)
+
+Keep `ToListAsync` as the default execution mode for now, and introduce a future **opt-in streaming mode** rather than changing default semantics.
+
+Rationale:
+
+- `ToListAsync` preserves a stable and provider-agnostic baseline behavior for existing consumers.
+- `AsAsyncEnumerable` can reduce peak memory on large reads, but behavior can vary more by provider and query shape.
+- Changing default execution from buffered to streamed can shift timing characteristics (time-to-first-item, cancellation points, and failure surface timing), which is risky as a silent behavior change.
+
+Recommended next implementation step:
+
+1. Add an explicit opt-in API for streamed query execution (for example, a distinct factory or execution-mode option).
+2. Keep the current factory-based lifetime rule unchanged: query build + execution must use the same context instance.
+3. Add targeted tests that validate:
+   - cancellation during row-by-row enumeration,
+   - disposal on success/failure/cancellation,
+   - ordering parity with v1.
+4. Document provider caveats clearly for streamed mode.
+
+### Materialization tuning guidance (current release)
+
+Until streamed mode is introduced, users should reduce per-subscription memory by shaping queries:
+
+- Project only needed columns (`Select`) before materialization.
+- Apply `Where`, `OrderBy`, and `Take` in SQL before stream creation.
+- Process in pages/chunks at the query layer for very large data sets.
+- Avoid unbounded fan-out on already-large materialized result sets.
+
 ### Concurrency
 
 - With a **context factory**, each subscription should use **its own** `DbContext` instance (EF’s intended usage).
@@ -231,7 +280,7 @@ await processedOrders.ForEachAsync(async processedOrder =>
 
 ### Phase 2: Advanced features
 
-- Optional **streaming** execution path (`AsAsyncEnumerable`) with documented semantics.
+- Optional **opt-in** streaming execution path (`AsAsyncEnumerable`) with documented provider caveats and behavior differences.
 - Transaction or unit-of-work patterns if required by consumers.
 - Batch helpers where materialization strategy matters.
 

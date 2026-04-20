@@ -494,6 +494,37 @@ IAsyncObservable<int> observable = stream.ToAsyncObservable();
 
 The extensions project also supports `ISingle<T>` interop.
 
+### Entity Framework Core (`EfStream`)
+
+EF integration also lives in `Streamix.Extensions` so the core `Streamix` package stays free of EF dependencies.
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Streamix.Extensions;
+
+await EfStream.From(
+        ctx => ctx.Set<Customer>().Where(c => c.IsActive),
+        () => new AppDbContext())
+    .Take(100)
+    .ForEachAsync(customer => Console.WriteLine(customer.Name));
+```
+
+Equivalent factory-extension style:
+
+```csharp
+await (() => new AppDbContext()).ToStream(
+        ctx => ctx.Set<Customer>().Where(c => c.IsActive))
+    .ForEachAsync(customer => Console.WriteLine(customer.Name));
+```
+
+EF semantics:
+
+- A new `DbContext` is created per subscription when using the factory overloads.
+- Query construction and execution use that same context instance.
+- Query execution materializes via `ToListAsync`, then emits each item.
+- Large queries therefore pay full per-subscription materialization cost.
+- Referencing `Streamix.Extensions` intentionally adds EF Core as a transitive dependency.
+
 ### ASP.NET Core
 
 Streamix integrates with ASP.NET Core for Server-Sent Events, WebSocket streaming, and HTTP response streaming via the `Streamix.AspNetCore` package.

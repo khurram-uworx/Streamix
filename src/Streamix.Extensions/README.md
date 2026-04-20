@@ -1,10 +1,11 @@
 # Streamix.Extensions
 
-AsyncRx.NET interop for Streamix.
+Optional integrations for Streamix.
 
-This package provides the bridge between Streamix and [AsyncRx.NET](https://github.com/dotnet/reactive) without forcing the core `Streamix` package to depend on preview AsyncRx bits.
+This package hosts integration features that are intentionally isolated from the core `Streamix` package:
 
-It also hosts optional Entity Framework Core integration via `EfStream`.
+- AsyncRx.NET interop via [AsyncRx.NET](https://github.com/dotnet/reactive)
+- Entity Framework Core stream factories via `EfStream`
 
 ## Maturity and Dependency Isolation
 
@@ -18,19 +19,33 @@ To prevent destabilizing the core Streamix package and to avoid forcing a depend
 2. **Extension-Based API**: Methods like `ToAsyncObservable()`, `ToStream()`, and `ToSingle()` are implemented as extension methods to maintain a clean separation from the core `IStream<T>` and `ISingle<T>` interfaces.
 3. **Push-Pull Bridge**: The bridge uses `System.Threading.Channels` for efficient and backpressure-aware conversion between the pull-based `IAsyncEnumerable<T>` used by Streamix and the push-based `IAsyncObservable<T>` used by AsyncRx.NET.
 
+## Transitive Dependencies
+
+`Streamix.Extensions` intentionally carries a wider dependency graph than core `Streamix`:
+
+- AsyncRx support adds AsyncRx-related dependencies.
+- EF stream support adds `Microsoft.EntityFrameworkCore`.
+
+If you need only core stream operators, reference `Streamix` directly.
+
 ## Entity Framework Integration
 
-Use `EfStream.From(...)` (or the `ToStream(...)` extension on a `DbContext` factory) to execute EF queries as Streamix streams:
+Use `EfStream.From(...)` (or the `ToStream(...)` extension on a `DbContext` factory) to execute EF queries as Streamix streams.
 
 ```csharp
-var activeCustomers = EfStream.From(
-    ctx => ctx.Set<Customer>().Where(c => c.IsActive),
-    () => new AppDbContext());
+await EfStream.From(
+        ctx => ctx.Set<Customer>().Where(c => c.IsActive),
+        () => new AppDbContext())
+    .Take(100)
+    .ForEachAsync(customer => Console.WriteLine(customer.Name));
 ```
 
+Equivalent fluent factory-extension style:
+
 ```csharp
-var activeCustomers = (() => new AppDbContext()).ToStream(
-    ctx => ctx.Set<Customer>().Where(c => c.IsActive));
+await (() => new AppDbContext()).ToStream(
+        ctx => ctx.Set<Customer>().Where(c => c.IsActive))
+    .ForEachAsync(customer => Console.WriteLine(customer.Name));
 ```
 
 Important semantics:
@@ -38,6 +53,7 @@ Important semantics:
 - Query construction and execution use the same `DbContext` instance per subscription.
 - v1 execution materializes with `ToListAsync` before yielding items downstream.
 - `Streamix.Extensions` includes EF Core as a transitive dependency by design.
+- The package currently exposes factory-based overloads; caller-owned context overloads are not part of the shipped API.
 
 ## Learn More
 

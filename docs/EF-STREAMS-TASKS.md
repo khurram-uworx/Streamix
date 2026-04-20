@@ -8,12 +8,12 @@ Use `docs/TASKS-TEMPLATE.md` when adding new workstreams; this file follows the 
 
 ## Suggested Execution Order
 
-1. Task 1: Design review and API contract finalization (decision gate)
-2. Task 2: Implement EF stream adapter and execution path in `Streamix.Extensions`
-3. Task 3: Extension methods and XML documentation
-4. Task 4: Integration testing and validation (`Streamix.Tests`)
-5. Task 5: Documentation (README / package README / design note alignment)
-6. Task 6: Performance and materialization review (post–Phase 1)
+1. ✅ Task 1: Design review and API contract finalization (decision gate)
+2. ✅ Task 2: Implement EF stream adapter and execution path in `Streamix.Extensions`
+3. ✅ Task 3: Extension methods and XML documentation
+4. ✅ Task 4: Integration testing and validation (`Streamix.Tests`)
+5. ✅ Task 5: Documentation (README / package README / design note alignment)
+6. ✅ Task 6: Performance and materialization review (post–Phase 1)
 
 ## Coordination Notes
 
@@ -52,7 +52,7 @@ EF integration is easy to get subtly wrong (wrong `DbContext`, hidden materializ
 
 ### Scope
 
-- Keep `docs/EF-STREAMS.md` the source of truth; update if API names change.
+- Keep EF documentation aligned with shipped API; migrate durable guidance into `README.md`, `GETTING-STARTED.md`, `ARCHITECTURE.md`, and `src/Streamix.Extensions/README.md`.
 - Ensure examples are **lifetime-correct** and **compile-realistic** (async terminals, valid EF patterns).
 - List breaking changes if a stub existed with a different shape.
 
@@ -69,13 +69,16 @@ EF integration is easy to get subtly wrong (wrong `DbContext`, hidden materializ
 
 ### Acceptance criteria
 
-- `docs/EF-STREAMS.md` reflects agreed API and packaging.
+- Core docs and package README reflect agreed API and packaging.
 - Examples demonstrate **correct** context lifetime (no query built on one context and executed on another).
 - Materialization cost and cancellation behavior are explicitly stated.
 
 ### Files likely involved
 
-- `docs/EF-STREAMS.md`
+- `README.md`
+- `GETTING-STARTED.md`
+- `ARCHITECTURE.md`
+- `src/Streamix.Extensions/README.md`
 - `docs/EF-STREAMS-TASKS.md`
 - `src/Streamix.Extensions/Streamix.Extensions.csproj`
 
@@ -128,7 +131,7 @@ High
 
 ### Goal
 
-Expose discoverable, documented **`EfStream.From`** overloads and optional extension-method sugar; signatures must match Task 1 and `docs/EF-STREAMS.md`.
+Expose discoverable, documented **`EfStream.From`** overloads and optional extension-method sugar; signatures must match Task 1 and the main documentation set.
 
 ### Scope
 
@@ -190,7 +193,7 @@ Prove correctness, cancellation, disposal, and composition using automated tests
 - `src/Streamix.Tests/Streamix.Tests.csproj`
 - `src/Streamix.Tests/EfStreamTests.cs` (new)
 
-## Task 5: Documentation and Examples
+## ✅ Task 5: Documentation and Examples
 
 ### Priority
 
@@ -204,12 +207,12 @@ Ship accurate public documentation so users understand dependency cost and EF li
 
 - Short section in root **`README.md`** pointing to **`Streamix.Extensions`** for EF (once API exists); avoid claiming the feature before it builds.
 - Update **`src/Streamix.Extensions/README.md`** with EF usage, **NuGet transitive dependency** note, and a minimal example.
-- Keep **`docs/EF-STREAMS.md`** aligned with shipped API.
+- Keep EF guidance in `README.md`, `GETTING-STARTED.md`, `ARCHITECTURE.md`, and `src/Streamix.Extensions/README.md` aligned with shipped API.
 
 ### Constraints
 
 - Examples must compile against the actual public API.
-- Do not duplicate long prose in three places; link to `docs/EF-STREAMS.md` for depth.
+- Keep guidance concise in each location and avoid contradictory duplication across docs.
 
 ### Acceptance criteria
 
@@ -220,9 +223,12 @@ Ship accurate public documentation so users understand dependency cost and EF li
 
 - `README.md`
 - `src/Streamix.Extensions/README.md`
-- `docs/EF-STREAMS.md`
+- `README.md`
+- `GETTING-STARTED.md`
+- `ARCHITECTURE.md`
+- `src/Streamix.Extensions/README.md`
 
-## Task 6: Performance Optimization and Materialization Review
+## ✅ Task 6: Performance Optimization and Materialization Review
 
 ### Priority
 
@@ -243,12 +249,12 @@ After Phase 1 works, decide whether to add a streaming execution path or other o
 
 ### Acceptance criteria
 
-- Written recommendation in `docs/EF-STREAMS.md` (Phase 2 section updated) or a short addendum.
+- Written recommendation in `ARCHITECTURE.md` (Phase 2 section updated) or a short addendum.
 - If code changes land, they include targeted tests.
 
 ### Files likely involved
 
-- `docs/EF-STREAMS.md`
+- `ARCHITECTURE.md`
 - `src/Streamix.Extensions/**/*.cs`
 
 ## Suggested Agent Handout Batches

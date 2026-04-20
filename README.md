@@ -73,6 +73,15 @@ await sensorStream
     .ForEachAsync(Console.WriteLine);
 ```
 
+Entity Framework integration is provided by `Streamix.Extensions` via `EfStream`.
+
+```csharp
+await EfStream.From(
+        ctx => ctx.Set<Customer>().Where(c => c.IsActive),
+        () => new AppDbContext())
+    .ForEachAsync(customer => Console.WriteLine(customer.Name));
+```
+
 ## Documentation
 
 - [GETTING-STARTED.md](GETTING-STARTED.md): Hello World, core concepts, feature surface, operators, interop, and package usage
@@ -88,7 +97,7 @@ await sensorStream
 ## Packages
 
 - [`Streamix`](https://www.nuget.org/packages/Streamix): core stream types, operators, terminals, channels, and sinks
-- [`Streamix.Extensions`](https://www.nuget.org/packages/Streamix.Extensions): AsyncRx.NET interop, isolated from the core package
+- [`Streamix.Extensions`](https://www.nuget.org/packages/Streamix.Extensions): optional integrations (AsyncRx.NET interop and Entity Framework `EfStream`), isolated from the core package
 - [`Streamix.AspNetCore`](https://www.nuget.org/packages/Streamix.AspNetCore): SSE, WebSocket, and HTTP response streaming integration for ASP.NET Core
 
 ## Status

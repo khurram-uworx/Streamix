@@ -34,6 +34,24 @@ Ordered operators have explicit runtime semantics:
 - Pull by default, channel-backed coordination when needed
 - Explicit behavior around concurrency, cancellation, and error propagation
 - Optional interop with AsyncRx.NET through a separate package
+- Optional EF integration through `Streamix.Extensions` (not in core `Streamix`)
+
+## Extension Package Boundaries
+
+- `Streamix` (core) has no `Microsoft.EntityFrameworkCore` dependency.
+- `Streamix.Extensions` hosts optional integrations with heavier transitive graphs (for example AsyncRx and EF Core).
+- Consumers that only need core stream operators should reference `Streamix` directly.
+
+## Entity Framework Stream Semantics
+
+`EfStream` in `Streamix.Extensions` adapts EF queries to `IStream<T>` with explicit lifetime and materialization behavior:
+
+- Public entry points are `EfStream.From(...)` and `Func<DbContext>.ToStream(...)`.
+- Factory-based usage creates one `DbContext` per subscription and disposes it on completion, error, or cancellation.
+- Query builder delegates are executed against the same context instance that performs query execution.
+- v1 executes EF queries with `ToListAsync(cancellationToken)`, then emits each item to downstream operators.
+- Result sets are fully materialized per subscription before first emission; this is not row-by-row provider streaming in v1.
+- Planned Phase 2 direction is to add an explicit opt-in streamed execution mode (`AsAsyncEnumerable`) while keeping buffered materialization as the default for backward-compatible semantics.
 
 ## Implementation Notes
 
