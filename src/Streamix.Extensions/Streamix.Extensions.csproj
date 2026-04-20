@@ -21,10 +21,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="EntityFrameworkStream.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.6" />
     <PackageReference Include="System.Reactive.Async" Version="6.0.0-alpha.18" />
   </ItemGroup>
 

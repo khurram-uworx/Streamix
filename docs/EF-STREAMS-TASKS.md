@@ -28,7 +28,7 @@ Use `docs/TASKS-TEMPLATE.md` when adding new workstreams; this file follows the 
   - `src/Streamix.Tests/EfStreamTests.cs` (new)
   - `README.md`, `src/Streamix.Extensions/README.md`, `docs/EF-STREAMS.md`
 
-## Task 1: Finalize EF Stream Design and API Contract
+## ✅ Task 1: Finalize EF Stream Design and API Contract
 
 ### Priority
 
@@ -79,7 +79,7 @@ EF integration is easy to get subtly wrong (wrong `DbContext`, hidden materializ
 - `docs/EF-STREAMS-TASKS.md`
 - `src/Streamix.Extensions/Streamix.Extensions.csproj`
 
-## Task 2: Implement EF Stream Adapter in Streamix.Extensions
+## ✅ Task 2: Implement EF Stream Adapter in Streamix.Extensions
 
 ### Priority
 
@@ -120,7 +120,7 @@ Provide an internal (or minimal) adapter that turns an EF query into `IStream<T>
 - `src/Streamix.Extensions/EfStream.cs` (public static factory type) and/or internal adapter (for example `EntityFrameworkStream<T>`)
 - `src/Streamix.Extensions/*.cs` (helpers as needed)
 
-## Task 3: Add Extension Methods and Fluent API
+## ✅ Task 3: Add Extension Methods and Fluent API
 
 ### Priority
 
@@ -154,7 +154,7 @@ Expose discoverable, documented **`EfStream.From`** overloads and optional exten
 - `src/Streamix.Extensions/*.cs` (new extension class if split from adapter)
 - `src/Streamix.Extensions/README.md` (consumer-facing package note)
 
-## Task 4: Integration Testing and Validation
+## ✅ Task 4: Integration Testing and Validation
 
 ### Priority
 

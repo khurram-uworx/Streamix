@@ -279,7 +279,9 @@ class ConnectableStream<T> : IConnectableStream<T>
     {
         lock (_lock)
         {
-            if (connectionTask != null && !connectionTask.IsCompleted)
+            // Only reuse the existing connection if it's still running and hasn't completed
+            // If isCompleted is true, we must start a fresh connection with reset state
+            if (connectionTask != null && !connectionTask.IsCompleted && !isCompleted)
                 return new ConnectionDisposable(this);
 
             replayBuffer.Clear();
