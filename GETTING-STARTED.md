@@ -138,6 +138,8 @@ If any task within the scope fails, the entire scope is cancelled (sibling cance
 
 This model is also integrated into concurrent operators like `FlatMap`, `MapOrdered`, and `RunOnChannel`, ensuring that child tasks never "escape" their parent operator's lifetime.
 
+The architecture guide includes a concurrency verification matrix that maps these invariants to representative tests across scopes, concurrent operators, channel boundaries, cancellation, ordering, and teardown behavior.
+
 ## Hot vs Cold Streams
 
 Streams are cold by default: each subscriber re-enumerates the source. `Publish()` turns a cold stream into a connectable shared stream.
@@ -476,7 +478,13 @@ Channel-native backpressure modes:
 - `LatestOnly`
 - `Fail`
 
-`PipeThroughChannel(...)` is the explicit execution boundary operator. `RunOnChannel(...)` adds the same boundary plus a worker-pool relay while preserving source order. `TeeToChannel(...)` mirrors items into an existing channel without turning the main pipeline into a terminal.
+`PipeThroughChannel(...)`, `RunOnChannel(...)`, and `TeeToChannel(...)` all keep `IStream<T>` as the primary composition model. They introduce channel-backed coordination where needed, but they do not switch the library into a channel-first API style.
+
+- `PipeThroughChannel(...)` inserts an explicit channel boundary in the pipeline. Successful completion, failure propagation, and boundary settlement stay tied to the stream's supervision model.
+- `RunOnChannel(...)` adds that same boundary plus a worker-pool relay while preserving source order. The boundary does not complete until in-flight worker work has settled.
+- `TeeToChannel(...)` mirrors each item into a caller-provided side channel and still yields the original items downstream. By default the caller keeps ownership of the side channel lifetime, so the writer is left open. If `completeWriter: true` is specified, the tee forwards successful completion or failure to the side channel as well.
+
+Use `TeeToChannel(...)` when you want fan-out into an existing channel without converting the main pipeline into a terminal operation. Use `ToChannel(...)` when the channel itself is the terminal destination.
 
 ```csharp
 var merged = Stream.MergeChannels(reader1, reader2, reader3);

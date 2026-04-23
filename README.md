@@ -102,6 +102,10 @@ await Stream.ScopedAsync(async scope =>
 });
 ```
 
+`maxConcurrency` and `ScopedAsync` solve different problems. `maxConcurrency` is an operator-level throughput control that limits how many asynchronous operations run at once. `ScopedAsync` and supervised boundaries define lifetime, cancellation propagation, fail-fast behavior, and when concurrent work is considered fully settled.
+
+Channel APIs follow the same stream-first model. `PipeThroughChannel(...)` and `RunOnChannel(...)` introduce explicit execution boundaries inside a pipeline, while `TeeToChannel(...)` mirrors items into a side channel without turning the main stream into a terminal or a channel-first composition model.
+
 Entity Framework integration is provided by `Streamix.Extensions` via `EfStream`.
 
 ```csharp
@@ -122,7 +126,7 @@ EF-specific batching or paging helpers are not currently part of the contract; t
 ## Documentation
 
 - [GETTING-STARTED.md](GETTING-STARTED.md): Hello World, core concepts, feature surface, operators, interop, and package usage
-- [ARCHITECTURE.md](ARCHITECTURE.md): design principles, behavioral semantics, implementation notes, and performance characteristics
+- [ARCHITECTURE.md](ARCHITECTURE.md): design principles, behavioral semantics, concurrency verification matrix, implementation notes, and performance characteristics
 
 ### Blog Series
 
