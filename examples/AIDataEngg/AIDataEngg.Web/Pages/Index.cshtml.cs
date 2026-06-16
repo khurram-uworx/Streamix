@@ -26,10 +26,11 @@ public class IndexModel : PageModel
         NoiseCount = await db.Classifications.CountAsync(c => c.IsNoise);
         BouncedCount = await db.Classifications.CountAsync(c => c.AttemptCount >= 5);
 
-        RecentItems = await db.Classifications
+        RecentItems = (await db.Classifications
             .Include(c => c.RssItem)
-            .OrderByDescending(c => c.ClassifiedAt)
+            .ToListAsync())
+            .OrderByDescending(c => c.ClassifiedAt.LocalDateTime)
             .Take(10)
-            .ToListAsync();
+            .ToList();
     }
 }

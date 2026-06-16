@@ -48,49 +48,23 @@ The plan calls for it (Task 4). Currently Index is a dashboard with no config ed
 
 ---
 
-## Task B: Item Detail Page
+## Task B: Item Detail Page ✅
 
 ### Priority
 
 High
 
-### Goal
+### Status
 
-A Razor Page at `/Item/{id}` with full classification details, summary, and actions — reclassify, mark-not-noise, retry, and "more like this".
-
-### Why this exists
-
-The plan calls for it (Task 7). Currently there's nowhere to drill into a single item from the signal/noise/bounced lists.
-
-### Scope
-
-- Add `Pages/Item.cshtml` + `Item.cshtml.cs` with route `/Item/{id}`
-- Header: title, link, published date, feed source
-- Classification card: signal badge, source, reasoning, attempt count, noise status
+Completed. Implemented `Pages/Item.cshtml` + `Item.cshtml.cs` with route `/Item/{id}`. Includes:
+- Detail header with title, original link, feed name, published/classified dates
+- Classification card: signal badge, noise badge, attempt count, hallucinated signal, reasoning text
 - Summary section: full RSS summary
-- Actions: Reclassify (dropdown of all signals), Not Noise (if IsNoise), Retry (if Failed)
-- "More Like This" panel: 5 similar items via vector search with similarity scores
+- Actions card: Reclassify dropdown (all signals from config), Mark Not Noise (when IsNoise), Retry (when failed), Delete
+- "More Like This" panel: similar items via `MoreLikeAsync` with cosine similarity scores
 - 404 for non-existent id
-
-### Constraints
-
-- `IFeedbackService.GetItemDetailsAsync` already exists
-- Need a `MoreLikeAsync` method on `IFeedbackService` (may need implementation)
-- Navigation from Signals/Noise/Bounced item rows to this page
-
-### Acceptance criteria
-
-- `/Item/1` shows classification fields for item with id=1
-- Reclassify changes signal and redirects
-- "More Like This" shows similar items with scores
-- `/Item/999` returns 404
-
-### Files likely involved
-
-- `examples/AIDataEngg/AIDataEngg.Web/Pages/Item.cshtml`
-- `examples/AIDataEngg/AIDataEngg.Web/Pages/Item.cshtml.cs`
-- `examples/AIDataEngg/Streamix.AIDataEngg/Services/IFeedbackService.cs`
-- `examples/AIDataEngg/Streamix.AIDataEngg/Services/FeedbackService.cs`
+- All three list pages (Signals, Noise, Bounced) wired to navigate on row click
+- Action buttons use `event.stopPropagation()` to prevent row-click navigation
 
 ---
 

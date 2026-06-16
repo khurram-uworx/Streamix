@@ -12,10 +12,10 @@ public class FeedbackService(RssDbContext db) : IFeedbackService
         var items = await db.Classifications
             .Include(c => c.RssItem)
             .Where(c => !c.IsNoise)
-            .OrderByDescending(c => c.ClassifiedAt)
             .ToListAsync(ct);
 
         return items
+            .OrderByDescending(c => c.ClassifiedAt.LocalDateTime)
             .GroupBy(c => c.Signal, StringComparer.OrdinalIgnoreCase)
             .Select(g => new SignalGroup(g.Key, g.Count(), g.ToList()))
             .OrderByDescending(g => g.Count)
@@ -24,20 +24,22 @@ public class FeedbackService(RssDbContext db) : IFeedbackService
 
     public async Task<List<ClassifiedRssItem>> GetNoiseAsync(CancellationToken ct = default)
     {
-        return await db.Classifications
+        return (await db.Classifications
             .Include(c => c.RssItem)
             .Where(c => c.IsNoise)
-            .OrderByDescending(c => c.ClassifiedAt)
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .OrderByDescending(c => c.ClassifiedAt.LocalDateTime)
+            .ToList();
     }
 
     public async Task<List<ClassifiedRssItem>> GetBouncedAsync(CancellationToken ct = default)
     {
-        return await db.Classifications
+        return (await db.Classifications
             .Include(c => c.RssItem)
             .Where(c => c.AttemptCount >= 5)
-            .OrderByDescending(c => c.ClassifiedAt)
-            .ToListAsync(ct);
+            .ToListAsync(ct))
+            .OrderByDescending(c => c.ClassifiedAt.LocalDateTime)
+            .ToList();
     }
 
     public async Task<ClassifiedRssItem?> GetItemDetailsAsync(int itemId, CancellationToken ct = default)
