@@ -2,5 +2,7 @@
 
 Each line: - Name | URL
 
-- Google Alert: Name1 | https://www.google.com/alerts/feeds/1
-- Google Alert: Name2 | https://www.google.com/alerts/feeds/2
+- .NET DevBlogs | https://devblogs.microsoft.com/dotnet/feed/
+- GitHub Blog | https://github.blog/feed/
+- AWS News Blog | https://aws.amazon.com/blogs/aws/feed/
+- Ars Technica | https://feeds.arstechnica.com/arstechnica/index

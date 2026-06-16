@@ -54,6 +54,14 @@ for (var i = 0; i < feedSources.Length; i++)
     Console.WriteLine($"  {i + 1}. {feedSources[i].Name} — {feedSources[i].Url}");
 }
 
+Console.WriteLine($"Signals listed: {string.Join(", ", signals)}");
+
+if (args.Contains("--config-check", StringComparer.OrdinalIgnoreCase))
+{
+    Console.WriteLine("[Config] PASS");
+    return 0;
+}
+
 IChatClient chatClient = new OpenAIClient(new ApiKeyCredential(apiKey), new OpenAIClientOptions { Endpoint = new Uri(endpoint) })
     .GetChatClient(modelName)
     .AsIChatClient();
