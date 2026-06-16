@@ -19,4 +19,5 @@
   <Project Path="src/Streamix.Extensions/Streamix.Extensions.csproj" />
   <Project Path="src/Streamix.Tests/Streamix.Tests.csproj" />
   <Project Path="src/Streamix/Streamix.csproj" Id="558f25ed-012c-4d4c-bf4d-355e4bdbd492" />
+  <Project Path="examples/AIDataEngg/AIDataEngg.csproj" />
 </Solution>

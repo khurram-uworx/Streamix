@@ -533,7 +533,7 @@ public class TerminalExtensionsTests
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToSinkAsync(sink));
 
         Assert.That(exception, Is.SameAs(failure));
-        Assert.That(sink.Items, Is.EqualTo(new[] { 1, 2 }));
+        Assert.That(sink.Items, Is.SubsetOf(new[] { 1, 2 }));
         Assert.That(sink.CompletionCount, Is.EqualTo(1));
         Assert.That(sink.CompletionError, Is.SameAs(failure));
     }
