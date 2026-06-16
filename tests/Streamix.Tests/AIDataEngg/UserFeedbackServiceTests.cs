@@ -127,9 +127,9 @@ public class UserFeedbackServiceTests
         var anchor = MakeUnitVector(seed: 1);
 
         // Seed three items in DB with the same embedding column.
-        await SeedClassificationAsync(1, "AI/ML", "Anchor",     anchor);
+        await SeedClassificationAsync(1, "AI/ML", "Anchor", anchor);
         await SeedClassificationAsync(2, "AI/ML", "Near anchor", Perturb(anchor, 0.02f, 10));
-        await SeedClassificationAsync(3, "Security", "Far",      MakeUnitVector(seed: 99));
+        await SeedClassificationAsync(3, "Security", "Far", MakeUnitVector(seed: 99));
 
         // Mirror those records into the in-memory vector store using the same ids.
         await collection.UpsertAsync(new[]

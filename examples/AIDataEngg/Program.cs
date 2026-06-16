@@ -310,8 +310,12 @@ static async Task<int> RestoreVectorStateAsync(
     CategoryCentroidTracker centroids)
 {
     await using var db = new RssDbContext();
+    // Note: SQLite's EF provider can't translate byte[].Length to SQL, so we
+    // only filter by non-null on the server. ClassifiedRssItem.Embedding is
+    // either null (LLM fallback embed-fail path) or a fully-formed byte[]
+    // (PersistAndIndexAsync invariant), never an empty array.
     var prior = await db.Classifications
-        .Where(c => c.Embedding != null && c.Embedding.Length > 0)
+        .Where(c => c.Embedding != null)
         .Include(c => c.RssItem)
         .OrderBy(c => c.Id)
         .ToListAsync();
@@ -321,6 +325,7 @@ static async Task<int> RestoreVectorStateAsync(
     var entries = new List<VectorIndexEntry>(prior.Count);
     foreach (var c in prior)
     {
+        if (c.Embedding is null || c.Embedding.Length == 0) continue;
         var emb = EmbeddingSerializer.FromBytes(c.Embedding!);
         centroids.AddOrUpdate(c.Signal, emb);
         entries.Add(new VectorIndexEntry

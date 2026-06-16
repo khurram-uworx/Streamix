@@ -133,13 +133,13 @@ public class VectorClassifierTests
 
         // Mixed signals near anchor: AI/ML wins by count but agreement < minNeighborAgreement(5).
         await SeedAsync(col,
-            (1, "AI/ML",    Perturb(anchor, 0.01f, 100)),
+            (1, "AI/ML", Perturb(anchor, 0.01f, 100)),
             (2, "Security", Perturb(anchor, 0.01f, 101)),
-            (3, "AI/ML",    Perturb(anchor, 0.01f, 102)),
+            (3, "AI/ML", Perturb(anchor, 0.01f, 102)),
             (4, "Security", Perturb(anchor, 0.01f, 103)),
-            (5, "AI/ML",    Perturb(anchor, 0.01f, 104)),
+            (5, "AI/ML", Perturb(anchor, 0.01f, 104)),
             (6, "Security", Perturb(anchor, 0.01f, 105)),
-            (7, "AI/ML",    Perturb(anchor, 0.01f, 106)));
+            (7, "AI/ML", Perturb(anchor, 0.01f, 106)));
 
         var llm = new StubLlm();
         var sut = new VectorClassifier(col, llm.ClassifyAsync, DefaultValidSignals, bootstrapThreshold: 0);
