@@ -1,6 +1,7 @@
-using AIDataEngg.Data;
-using AIDataEngg.Models;
 using AIDataEngg.Services;
+using Streamix.AIDataEngg.Data;
+using Streamix.AIDataEngg.Models;
+using Streamix.AIDataEngg.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.VectorData;
 using NUnit.Framework;

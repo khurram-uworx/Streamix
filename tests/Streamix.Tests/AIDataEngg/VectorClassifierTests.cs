@@ -1,5 +1,5 @@
-using AIDataEngg.Models;
-using AIDataEngg.Services;
+using Streamix.AIDataEngg.Models;
+using Streamix.AIDataEngg.Services;
 using NUnit.Framework;
 
 namespace Streamix.Tests.AIDataEngg;

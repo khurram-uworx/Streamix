@@ -1,0 +1,93 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <p class="text-muted">Overview of recent signal intelligence activity</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value" id="stat-signals">@Model.SignalCount</div>
+        <div class="stat-label">Signals</div>
+    </div>
+    <div class="stat-card stat-noise">
+        <div class="stat-value" id="stat-noise">@Model.NoiseCount</div>
+        <div class="stat-label">Noise</div>
+    </div>
+    <div class="stat-card stat-bounced">
+        <div class="stat-value" id="stat-bounced">@Model.BouncedCount</div>
+        <div class="stat-label">Bounced</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">@Model.TotalFeeds</div>
+        <div class="stat-label">Feeds</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Recent Classifications</h3>
+        <span class="text-muted" id="recent-updated"></span>
+    </div>
+    <div class="card-body" id="recent-items">
+        @if (Model.RecentItems.Count == 0)
+        {
+            <p class="text-muted">No classifications yet. Click <strong>Process</strong> to start.</p>
+        }
+        else
+        {
+            <div class="item-list">
+                @foreach (var item in Model.RecentItems)
+                {
+                    <div class="item-row" data-id="@item.Id">
+                        <div class="item-signal @(item.IsNoise ? "signal-noise" : "")">
+                            @(item.IsNoise ? "NOISE" : item.Signal)
+                        </div>
+                        <div class="item-content">
+                            <div class="item-title">@item.RssItem.Title</div>
+                            <div class="item-meta">
+                                @item.RssItem.FeedName &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Pipeline Log</h3>
+    </div>
+    <div class="card-body log-body" id="pipeline-log">
+        <p class="text-muted">No activity yet.</p>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        connectHub();
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateCounts();
+        });
+
+        async function updateCounts() {
+            try {
+                const conn = getConnection();
+                if (!conn) return;
+                const signals = await conn.invoke('GetSignals');
+                const noise = await conn.invoke('GetNoise');
+                const bounced = await conn.invoke('GetBounced');
+                document.getElementById('signal-count').textContent = signals.reduce((s, g) => s + g.count, 0);
+                document.getElementById('noise-count').textContent = noise.length;
+                document.getElementById('bounced-count').textContent = bounced.length;
+            } catch {}
+        }
+    </script>
+}

@@ -1,0 +1,63 @@
+@page
+@model SignalsModel
+@{
+    ViewData["Title"] = "Signals";
+}
+
+<div class="page-header">
+    <h2>Signals <span class="text-muted">(inbox)</span></h2>
+    <p class="text-muted">Classified signal items grouped by category</p>
+</div>
+
+<div class="signal-groups" id="signal-groups">
+    @if (Model.Groups.Count == 0)
+    {
+        <div class="card">
+            <div class="card-body">
+                <p class="text-muted">No signals yet. Run the pipeline to classify items.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var group in Model.Groups)
+        {
+            <div class="signal-group">
+                <div class="signal-group-header" onclick="toggleGroup(this)">
+                    <span class="signal-group-name">@group.Signal</span>
+                    <span class="signal-group-count">@group.Count items</span>
+                    <span class="signal-toggle">&#9660;</span>
+                </div>
+                <div class="signal-group-body">
+                    @foreach (var item in group.Items)
+                    {
+                        <div class="item-row" onclick="window.location='/Item/@item.Id'" data-id="@item.Id">
+                            <div class="item-content">
+                                <div class="item-title">@item.RssItem.Title</div>
+                                <div class="item-meta">
+                                    @item.RssItem.FeedName &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
+                                </div>
+                                @if (!string.IsNullOrEmpty(item.Reasoning))
+                                {
+                                    <div class="item-reasoning">@item.Reasoning</div>
+                                }
+                            </div>
+                            <div class="item-actions" onclick="event.stopPropagation()">
+                                <button class="btn-sm btn-noise" onclick="event.stopPropagation(); reclassify(@item.Id, '@group.Signal', true)" title="Mark as noise">&#9888;</button>
+                                <button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteItem(@item.Id)" title="Delete">&#10005;</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleGroup(header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+    </script>
+}
