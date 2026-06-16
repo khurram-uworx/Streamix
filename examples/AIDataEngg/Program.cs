@@ -10,6 +10,7 @@ using System.ClientModel;
 
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
+const string DefaultEmbeddingModel = "nomic-embed-text";
 
 if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
 {
@@ -18,6 +19,7 @@ if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
 
 var endpoint = Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? DefaultEndpoint;
 var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? DefaultModel;
+var embeddingModel = Environment.GetEnvironmentVariable("AI_EMBEDDING_MODEL") ?? DefaultEmbeddingModel;
 var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
 
 {
@@ -46,6 +48,7 @@ var signals = File.ReadAllLines("configs/signals.md")
 
 Console.WriteLine($"Endpoint: {endpoint}");
 Console.WriteLine($"Model: {modelName}");
+Console.WriteLine($"Embedding model: {embeddingModel}");
 Console.WriteLine($"Feed sources: {feedSources.Length}");
 Console.WriteLine($"Signals: {signals.Length}");
 
@@ -62,9 +65,18 @@ if (args.Contains("--config-check", StringComparer.OrdinalIgnoreCase))
     return 0;
 }
 
-IChatClient chatClient = new OpenAIClient(new ApiKeyCredential(apiKey), new OpenAIClientOptions { Endpoint = new Uri(endpoint) })
+var openAIClient = new OpenAIClient(new ApiKeyCredential(apiKey), new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
+
+IChatClient chatClient = openAIClient
     .GetChatClient(modelName)
     .AsIChatClient();
+
+IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator = openAIClient
+    .GetEmbeddingClient(embeddingModel)
+    .AsIEmbeddingGenerator();
+
+var embeddingService = new EmbeddingService(embeddingGenerator);
+_ = embeddingService; // wired in PR-6 (Plan2 Task 5); declared here so registration lives near the chat client.
 
 var signalsText = string.Join("\n", signals.Select(s => $"- {s}"));
 var validSignals = signals.ToHashSet(StringComparer.OrdinalIgnoreCase);
