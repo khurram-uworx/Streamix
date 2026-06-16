@@ -11,6 +11,11 @@ using System.ClientModel;
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
 
+if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
+{
+    return await VectorStoreSmoke.RunAsync();
+}
+
 var endpoint = Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? DefaultEndpoint;
 var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? DefaultModel;
 var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
@@ -161,6 +166,7 @@ await Flux.ScopedAsync(async scope =>
 });
 
 Console.WriteLine("Pipeline complete.");
+return 0;
 
 static async Task<ClassificationResult> ClassifyAndValidateAsync(
     IChatClient client, RssItem item, string systemPrompt,
