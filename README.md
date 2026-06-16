@@ -14,6 +14,8 @@ Streamix fills that gap with:
 - `Flux<T>` for 0..N values
 - `Single<T>` for 0..1 values
 - declarative operators for mapping, filtering, flattening, timing, retries, and recovery
+- explicit `FromTask` / `FromValueTask` factories for unambiguous async work
+- compact recovery helpers such as `RetryThenReturn` and `RetryThenResume`
 - `DoOnNextAsync`, `OfType<T,TResult>`, `Cast<T,TResult>`, and `IAsyncEnumerable`-backed `FlatMap`
 - hot-stream primitives such as `Publish`, `Replay`, and `RefCount`
 - interop with `IAsyncEnumerable<T>`, channels, AsyncRx.NET, and ASP.NET Core streaming
@@ -48,10 +50,18 @@ Streamix provides several operators to help you observe and debug your reactive 
 await Flux.Range(1, 100)
     .Named("Orders")
     .Trace()
-    .Checkpoint("ProcessStart")
+    .Checkpoint("ProcessStart", orderId => $"order-{orderId}")
     .Map(async x => await ProcessAsync(x), maxConcurrency: 5)
     .Checkpoint("ProcessEnd")
     .ForEachAsync(Console.WriteLine);
+```
+
+For single-result async work, `FromTask` and `FromValueTask` avoid overload
+ambiguity at complex call sites:
+
+```csharp
+var profile = Flux.FromTask(async ct => await LoadProfileAsync(userId, ct))
+    .RetryThenReturn(3, ex => Profile.Anonymous);
 ```
 
 Streamix supports both fluent and query comprehension syntax.
@@ -149,6 +159,7 @@ Streamix is currently in active development. Core features including structured 
 **Roadmap**
 
 - Source generators for optimized pipelines
+- Ergonomic composition polish will continue to be driven by real examples such as `examples/AIDataEngg`
 
 ## Contributing
 

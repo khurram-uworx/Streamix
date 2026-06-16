@@ -208,4 +208,159 @@ public class ErrorHandlingTests
         var result = await stream.ToListAsync();
         Assert.That(result, Is.EqualTo(new[] { 1, 2, 99 }));
     }
+
+    [Test]
+    public async Task Stream_OnErrorReturnAsync_ReturnsValueFromException()
+    {
+        IFlux<int> stream = Flux.Error<int>(new InvalidOperationException("Fail"))
+            .OnErrorReturnAsync((ex, ct) =>
+            {
+                Assert.That(ex, Is.InstanceOf<InvalidOperationException>());
+                Assert.That(ct.IsCancellationRequested, Is.False);
+                return ValueTask.FromResult(42);
+            });
+
+        var result = await stream.ToListAsync();
+        Assert.That(result, Is.EqualTo(new[] { 42 }));
+    }
+
+    [Test]
+    public void Stream_OnErrorReturnAsync_PropagatesFallbackCancellation()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(10);
+
+        IFlux<int> stream = Flux.Error<int>(new InvalidOperationException("Fail"))
+            .OnErrorReturnAsync(async (_, ct) =>
+            {
+                await Task.Delay(1000, ct);
+                return 42;
+            });
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await stream.ToListAsync(cts.Token));
+    }
+
+    [Test]
+    public async Task Stream_RetryThenReturn_RetriesBeforeFallback()
+    {
+        var attempts = 0;
+        IFlux<int> stream = Flux.Defer(() =>
+        {
+            attempts++;
+            return attempts < 3
+                ? Flux.Error<int>(new InvalidOperationException($"Fail {attempts}"))
+                : Flux.Just(42);
+        }).RetryThenReturn(3, ex => -1);
+
+        var result = await stream.ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 42 }));
+        Assert.That(attempts, Is.EqualTo(3));
+    }
+
+    [Test]
+    public async Task Stream_RetryThenReturn_UsesFallbackAfterExhaustion()
+    {
+        var attempts = 0;
+        Exception? seen = null;
+        IFlux<int> stream = Flux.Defer(() =>
+        {
+            attempts++;
+            return Flux.Error<int>(new InvalidOperationException($"Fail {attempts}"));
+        }).RetryThenReturn(2, ex =>
+        {
+            seen = ex;
+            return -1;
+        });
+
+        var result = await stream.ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { -1 }));
+        Assert.That(attempts, Is.EqualTo(3));
+        Assert.That(seen?.Message, Is.EqualTo("Fail 3"));
+    }
+
+    [Test]
+    public async Task Stream_RetryThenReturnAsync_UsesAsyncFallbackAfterExhaustion()
+    {
+        var attempts = 0;
+        IFlux<int> stream = Flux.Defer(() =>
+        {
+            attempts++;
+            return Flux.Error<int>(new InvalidOperationException("Fail"));
+        }).RetryThenReturnAsync(1, (ex, ct) => ValueTask.FromResult(-1));
+
+        var result = await stream.ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { -1 }));
+        Assert.That(attempts, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Stream_RetryThenResume_UsesFallbackStreamAfterExhaustion()
+    {
+        IFlux<int> stream = Flux.Error<int>(new InvalidOperationException("Fail"))
+            .RetryThenResume(1, ex => Flux.From(7, 8));
+
+        var result = await stream.ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 7, 8 }));
+    }
+
+    [Test]
+    public async Task Single_OnErrorReturnAsync_ReturnsValueFromException()
+    {
+        ISingle<int> single = Single.Error<int>(new InvalidOperationException("Fail"))
+            .OnErrorReturnAsync((ex, ct) => ValueTask.FromResult(42));
+
+        var result = await single.ToTask();
+
+        Assert.That(result, Is.EqualTo(42));
+    }
+
+    [Test]
+    public async Task Single_RetryThenReturn_RetriesBeforeFallback()
+    {
+        var attempts = 0;
+        ISingle<int> single = Single.Defer(() =>
+        {
+            attempts++;
+            return attempts < 2
+                ? Single.Error<int>(new InvalidOperationException("Fail"))
+                : Single.Just(42);
+        }).RetryThenReturn(2, ex => -1);
+
+        var result = await single.ToTask();
+
+        Assert.That(result, Is.EqualTo(42));
+        Assert.That(attempts, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Single_RetryThenReturnAsync_UsesAsyncFallbackAfterExhaustion()
+    {
+        var attempts = 0;
+        ISingle<int> single = Single.Defer(() =>
+        {
+            attempts++;
+            return Single.Error<int>(new InvalidOperationException("Fail"));
+        }).RetryThenReturnAsync(1, (ex, ct) => ValueTask.FromResult(-1));
+
+        var result = await single.ToTask();
+
+        Assert.That(result, Is.EqualTo(-1));
+        Assert.That(attempts, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task Single_RetryThenResume_UsesFallbackSingleAfterExhaustion()
+    {
+        ISingle<int> single = Single.Error<int>(new InvalidOperationException("Fail"))
+            .RetryThenResume(1, ex => Single.Just(7));
+
+        var result = await single.ToTask();
+
+        Assert.That(result, Is.EqualTo(7));
+    }
 }

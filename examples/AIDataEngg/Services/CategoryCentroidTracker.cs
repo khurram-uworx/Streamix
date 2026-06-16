@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Numerics.Tensors;
 
 namespace AIDataEngg.Services;
 
@@ -129,16 +130,7 @@ public sealed class CategoryCentroidTracker
     private static float CosineSimilarity(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
         if (a.Length != b.Length) return 0f;
-        var dot = 0.0;
-        var na = 0.0;
-        var nb = 0.0;
-        for (var i = 0; i < a.Length; i++)
-        {
-            dot += a[i] * b[i];
-            na += a[i] * a[i];
-            nb += b[i] * b[i];
-        }
-        var denom = Math.Sqrt(na) * Math.Sqrt(nb);
-        return denom == 0.0 ? 0f : (float)(dot / denom);
+        var similarity = TensorPrimitives.CosineSimilarity(a, b);
+        return float.IsNaN(similarity) ? 0f : similarity;
     }
 }

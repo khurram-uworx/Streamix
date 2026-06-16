@@ -6,8 +6,6 @@ namespace AIDataEngg.Services;
 // Run with: dotnet run --project examples/AIDataEngg -- --smoke
 internal static class VectorStoreSmoke
 {
-    private const int Dimensions = 768;
-
     public static async Task<int> RunAsync(CancellationToken ct = default)
     {
         Console.WriteLine("[Smoke] Creating in-memory vector collection...");
@@ -56,15 +54,15 @@ internal static class VectorStoreSmoke
     private static ReadOnlyMemory<float> MakeUnitVector(int seed)
     {
         var rng = new Random(seed);
-        var v = new float[Dimensions];
+        var v = new float[EmbeddingDefaults.Dimensions];
         double sumSq = 0.0;
-        for (var i = 0; i < Dimensions; i++)
+        for (var i = 0; i < EmbeddingDefaults.Dimensions; i++)
         {
             v[i] = (float)(rng.NextDouble() * 2.0 - 1.0);
             sumSq += v[i] * v[i];
         }
         var norm = (float)Math.Sqrt(sumSq);
-        for (var i = 0; i < Dimensions; i++) v[i] /= norm;
+        for (var i = 0; i < EmbeddingDefaults.Dimensions; i++) v[i] /= norm;
         return v;
     }
 

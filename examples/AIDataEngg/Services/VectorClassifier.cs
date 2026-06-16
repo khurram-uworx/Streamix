@@ -158,6 +158,8 @@ public enum ClassificationSource
     VectorAuto,
     LlmSparseNeighbors,
     LlmLowConfidence,
+    LlmEmbeddingFailed,
+    Failed,
 }
 
 public sealed record ClassificationDecision(

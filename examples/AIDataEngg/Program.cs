@@ -10,7 +10,7 @@ using System.ClientModel;
 
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
-const string DefaultEmbeddingModel = "nomic-embed-text";
+const string DefaultEmbeddingModel = EmbeddingDefaults.ModelName;
 const int BootstrapThreshold = VectorClassifier.DefaultBootstrapThreshold;
 const string VectorCollectionName = "rss-vectors";
 
@@ -23,10 +23,11 @@ var endpoint = Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? DefaultEndpo
 var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? DefaultModel;
 var embeddingModel = Environment.GetEnvironmentVariable("AI_EMBEDDING_MODEL") ?? DefaultEmbeddingModel;
 var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
+var configDir = Path.Combine(AppContext.BaseDirectory, "configs");
 
 await EnsureSchemaAsync();
 
-var feedSources = File.ReadAllLines("configs/source.md")
+var feedSources = File.ReadAllLines(Path.Combine(configDir, "source.md"))
     .Where(l => l.TrimStart().StartsWith('-'))
     .Select(l => l.TrimStart('-', ' '))
     .Select(l =>
@@ -38,9 +39,9 @@ var feedSources = File.ReadAllLines("configs/source.md")
     })
     .ToArray();
 
-var goal = File.ReadAllText("configs/goal.md");
+var goal = File.ReadAllText(Path.Combine(configDir, "goal.md"));
 
-var signals = File.ReadAllLines("configs/signals.md")
+var signals = File.ReadAllLines(Path.Combine(configDir, "signals.md"))
     .Where(l => l.TrimStart().StartsWith('-'))
     .Select(l => l.TrimStart('-', ' '))
     .ToArray();
@@ -79,7 +80,7 @@ var embeddingService = new EmbeddingService(embeddingGenerator);
 var signalsText = string.Join("\n", signals.Select(s => $"- {s}"));
 var validSignals = signals.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-var promptTemplate = File.ReadAllText("configs/prompt.md");
+var promptTemplate = File.ReadAllText(Path.Combine(configDir, "prompt.md"));
 var systemPrompt = promptTemplate
     .Replace("{goalText}", goal)
     .Replace("{signalsText}", signalsText);
@@ -171,54 +172,56 @@ await Flux.ScopedAsync(async scope =>
         ctx => ctx.Set<RssItem>().Where(r => !r.Processed),
         () => new RssDbContext(),
         name: "Unprocessed")
-        .Checkpoint("Embed")
+        .Checkpoint("Embed", item => item.Title)
         .FlatMap(async item =>
         {
             try
             {
                 var embedding = await embeddingService.GenerateAsync(item, ct);
-                return (Item: item, Embedding: embedding, Ok: true);
+                return new EmbeddedRssItem(item, embedding, EmbeddingSucceeded: true);
             }
             catch (Exception ex)
             {
                 Interlocked.Increment(ref embedFailures);
                 Console.WriteLine($"  [EMBED-FAIL] {item.Title}: {ex.Message}");
-                return (Item: item, Embedding: ReadOnlyMemory<float>.Empty, Ok: false);
+                return new EmbeddedRssItem(item, ReadOnlyMemory<float>.Empty, EmbeddingSucceeded: false);
             }
         }, maxConcurrency: 4)
-        .Checkpoint("Classify")
-        .FlatMap(async tuple =>
+        .Checkpoint("Classify", work => work.Item.Title)
+        .ForEachAsync(async work =>
         {
-            if (!tuple.Ok)
-            {
-                return new ClassificationDecision(
-                    new ClassificationResult("General", "Embedding failed", IsNoise: true),
-                    ClassificationSource.LlmLowConfidence,
-                    NeighborStats.Empty);
-            }
-
-            var (item, embedding, _) = tuple;
+            var item = work.Item;
+            var embedding = work.Embedding;
+            var attemptCount = 0;
             var currentCount = (int)(initialClassifiedCount + processedSoFar);
 
-            var attemptCount = 0;
-            var decision = await Flux
-                .From(ct2 =>
+            async Task<ClassificationDecision> ClassifyAttemptAsync(CancellationToken ct2)
+            {
+                attemptCount++;
+                if (!work.EmbeddingSucceeded)
                 {
-                    attemptCount++;
-                    return classifier.ClassifyAsync(item, embedding, currentCount, ct2);
-                })
-                .Retry(3)
-                .OnErrorResume(ex =>
+                    var llmResult = await ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
+                    return new ClassificationDecision(
+                        llmResult,
+                        ClassificationSource.LlmEmbeddingFailed,
+                        NeighborStats.Empty);
+                }
+
+                return await classifier.ClassifyAsync(item, embedding, currentCount, ct2);
+            }
+
+            var decision = await Flux.FromTask(ClassifyAttemptAsync)
+                .RetryThenReturn(3, ex =>
                 {
                     var hallucinated = ex.Data["HallucinatedSignal"] as string;
-                    return Streamix.Single.Just(new ClassificationDecision(
+                    return new ClassificationDecision(
                         new ClassificationResult(
                             "General",
                             $"All 3 attempts failed. Last invalid signal: '{hallucinated}'",
                             IsNoise: true,
                             HallucinatedSignal: hallucinated),
-                        ClassificationSource.LlmLowConfidence,
-                        NeighborStats.Empty));
+                        ClassificationSource.Failed,
+                        NeighborStats.Empty);
                 })
                 .ToTask(ct);
 
@@ -230,10 +233,7 @@ await Flux.ScopedAsync(async scope =>
             var prefix = decision.WasAutoLabelled ? "[AUTO]" : "[LLM ]";
             var noiseTag = decision.Result.IsNoise ? " (noise)" : "";
             Console.WriteLine($"  {prefix} [{processedSoFar}/{totalUnprocessed}] {item.Title} -> {decision.Result.Signal}{noiseTag} ({decision.Source})");
-
-            return decision;
-        }, maxConcurrency: 1)
-        .DrainAsync(ct);
+        }, maxConcurrency: 1, cancellationToken: ct);
 
     // Stage 6: summary
     Console.WriteLine("[Summary]");
@@ -382,3 +382,8 @@ static async Task PersistAndIndexAsync(
 
     centroids.AddOrUpdate(decision.Result.Signal, embedding);
 }
+
+sealed record EmbeddedRssItem(
+    RssItem Item,
+    ReadOnlyMemory<float> Embedding,
+    bool EmbeddingSucceeded);

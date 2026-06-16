@@ -60,6 +60,36 @@ public class SingleFactoryTests
     }
 
     [Test]
+    public async Task FromTask_FuncCTTask_AvoidsAsyncLambdaAmbiguity()
+    {
+        var single = Single.FromTask(async ct =>
+        {
+            await Task.Yield();
+            ct.ThrowIfCancellationRequested();
+            return 42;
+        });
+
+        (await TestSubscriber<int>.SubscribeAsync(single))
+            .AssertValues(42)
+            .AssertComplete();
+    }
+
+    [Test]
+    public async Task StreamFromTask_FuncCTTask_AvoidsAsyncLambdaAmbiguity()
+    {
+        var stream = Flux.FromTask(async ct =>
+        {
+            await Task.Yield();
+            ct.ThrowIfCancellationRequested();
+            return 42;
+        });
+
+        (await TestSubscriber<int>.SubscribeAsync(stream))
+            .AssertValues(42)
+            .AssertComplete();
+    }
+
+    [Test]
     public async Task From_ValueTask_Emits_Item()
     {
         var single = Single.From(ValueTask.FromResult(42));
@@ -107,6 +137,34 @@ public class SingleFactoryTests
             .AssertComplete();
 
         Assert.That(count, Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task FromValueTask_FuncCTValueTask_AvoidsAsyncLambdaAmbiguity()
+    {
+        var single = Single.FromValueTask(ct =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(42);
+        });
+
+        (await TestSubscriber<int>.SubscribeAsync(single))
+            .AssertValues(42)
+            .AssertComplete();
+    }
+
+    [Test]
+    public async Task StreamFromValueTask_FuncCTValueTask_AvoidsAsyncLambdaAmbiguity()
+    {
+        var stream = Flux.FromValueTask(ct =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(42);
+        });
+
+        (await TestSubscriber<int>.SubscribeAsync(stream))
+            .AssertValues(42)
+            .AssertComplete();
     }
 
     [Test]
