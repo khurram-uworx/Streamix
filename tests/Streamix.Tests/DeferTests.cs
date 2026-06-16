@@ -10,10 +10,10 @@ public class DeferTests
     public async Task Defer_Factory_Is_Not_Called_Until_Enumeration()
     {
         int factoryCalls = 0;
-        var stream = Stream.Defer(() =>
+        var stream = Flux.Defer(() =>
         {
             factoryCalls++;
-            return Stream.Range(1, 3);
+            return Flux.Range(1, 3);
         });
 
         Assert.That(factoryCalls, Is.EqualTo(0));
@@ -29,10 +29,10 @@ public class DeferTests
     public async Task Defer_Factory_Is_Called_Once_Per_Subscriber()
     {
         int factoryCalls = 0;
-        var stream = Stream.Defer(() =>
+        var stream = Flux.Defer(() =>
         {
             factoryCalls++;
-            return Stream.From(factoryCalls);
+            return Flux.From(factoryCalls);
         });
 
         (await TestSubscriber<int>.SubscribeAsync(stream))
@@ -50,12 +50,12 @@ public class DeferTests
     public async Task Defer_Works_With_Retry_Later()
     {
         int factoryCalls = 0;
-        var stream = Stream.Defer(() =>
+        var stream = Flux.Defer(() =>
         {
             factoryCalls++;
             if (factoryCalls == 1)
-                return Stream.Error<int>(new System.Exception("Fail first time"));
-            return Stream.From(factoryCalls);
+                return Flux.Error<int>(new System.Exception("Fail first time"));
+            return Flux.From(factoryCalls);
         });
 
         (await TestSubscriber<int>.SubscribeAsync(stream.Retry(1)))
@@ -68,10 +68,10 @@ public class DeferTests
     public async Task Defer_Overload_Passes_CancellationToken()
     {
         CancellationToken capturedToken = default;
-        var stream = Stream.Defer(ct =>
+        var stream = Flux.Defer(ct =>
         {
             capturedToken = ct;
-            return Stream.Range(1, 3);
+            return Flux.Range(1, 3);
         });
 
         using var cts = new CancellationTokenSource();
@@ -86,7 +86,7 @@ public class DeferTests
     [Test]
     public async Task Defer_Factory_Exception_Propagates()
     {
-        var stream = Stream.Defer<int>(() =>
+        var stream = Flux.Defer<int>(() =>
         {
             throw new InvalidOperationException("Factory Boom");
         });

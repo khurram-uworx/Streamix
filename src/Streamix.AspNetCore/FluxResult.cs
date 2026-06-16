@@ -17,17 +17,17 @@ namespace Streamix.AspNetCore;
 /// }
 /// </code>
 /// </example>
-public class StreamResult<T> : IActionResult
+public class FluxResult<T> : IActionResult
 {
-    private readonly IStream<T> stream;
+    private readonly IFlux<T> stream;
     private readonly string contentType;
-    private readonly Func<IStream<T>, HttpResponse, CancellationToken, Task>? customHandler;
+    private readonly Func<IFlux<T>, HttpResponse, CancellationToken, Task>? customHandler;
 
     /// <summary>
     /// Creates a StreamResult that streams items as Server-Sent Events.
     /// </summary>
     /// <param name="stream">The stream to serialize and send.</param>
-    public StreamResult(IStream<T> stream) : this(stream, "text/event-stream", null)
+    public FluxResult(IFlux<T> stream) : this(stream, "text/event-stream", null)
     { }
 
     /// <summary>
@@ -36,8 +36,8 @@ public class StreamResult<T> : IActionResult
     /// <param name="stream">The stream to process.</param>
     /// <param name="contentType">The Content-Type header value.</param>
     /// <param name="customHandler">Optional custom handler function. If not provided, uses SSE format.</param>
-    public StreamResult(IStream<T> stream, string contentType,
-        Func<IStream<T>, HttpResponse, CancellationToken, Task>? customHandler = null)
+    public FluxResult(IFlux<T> stream, string contentType,
+        Func<IFlux<T>, HttpResponse, CancellationToken, Task>? customHandler = null)
     {
         this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
         this.contentType = contentType ?? throw new ArgumentNullException(nameof(contentType));

@@ -6,7 +6,7 @@ namespace Streamix.Implementations;
 
 /// <summary>
 /// Implementation of <see cref="IConnectableStream{T}"/> that allows multicasting a single source to multiple subscribers.
-/// This class is internal as it's intended to be created via the <see cref="StreamExtensions.Publish"/> method.
+/// This class is internal as it's intended to be created via the <see cref="FluxExtensions.Publish"/> method.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
 class ConnectableStream<T> : IConnectableStream<T>
@@ -23,7 +23,7 @@ class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    readonly IStream<T> source;
+    readonly IFlux<T> source;
     readonly IClock clock;
     readonly string? name;
     readonly ConcurrentDictionary<Guid, Channel<T>> subscribers = new();
@@ -38,12 +38,12 @@ class ConnectableStream<T> : IConnectableStream<T>
     IDisposable? autoConnection;
     TaskCompletionSource<bool>? refCountDisconnectedTcs;
 
-    public ConnectableStream(IStream<T> source, int bufferSize = 0, IClock? clock = null, string? name = null)
+    public ConnectableStream(IFlux<T> source, int bufferSize = 0, IClock? clock = null, string? name = null)
     {
         if (bufferSize < 0) throw new ArgumentOutOfRangeException(nameof(bufferSize), "Buffer size must be non-negative.");
         this.source = source;
         this.replayBufferSize = bufferSize;
-        this.clock = clock ?? (source is StreamImplementation<T> s ? s.Clock : Streamix.Implementations.SystemClock.Instance);
+        this.clock = clock ?? (source is FluxImplementation<T> s ? s.Clock : Streamix.Implementations.SystemClock.Instance);
         this.name = name ?? source.Name;
     }
 
@@ -173,7 +173,7 @@ class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<T> mergeWith(IStream<T>[] others, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<T> mergeWith(IFlux<T>[] others, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streams = new IAsyncEnumerable<T>[others.Length + 1];
         streams[0] = this;
@@ -201,7 +201,7 @@ class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> zipWith<TOther, TResult>(IStream<TOther> other, Func<T, TOther, TResult> resultSelector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<TResult> zipWith<TOther, TResult>(IFlux<TOther> other, Func<T, TOther, TResult> resultSelector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var enumerator1 = this.GetAsyncEnumerator(cancellationToken);
         var enumerator2 = other.GetAsyncEnumerator(cancellationToken);
@@ -218,7 +218,7 @@ class ConnectableStream<T> : IConnectableStream<T>
         }
     }
 
-    async IAsyncEnumerable<IStream<T>> window(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<IFlux<T>> window(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var window = new List<T>();
         await foreach (var item in this.WithCancellation(cancellationToken))
@@ -226,7 +226,7 @@ class ConnectableStream<T> : IConnectableStream<T>
             window.Add(item);
             if (window.Count >= count)
             {
-                yield return Stream.From(window.ToAsyncEnumerable());
+                yield return Flux.From(window.ToAsyncEnumerable());
                 window.RemoveAt(0);
             }
         }
@@ -253,7 +253,7 @@ class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<T> Named(string name)
+    public IFlux<T> Named(string name)
     {
         return new ConnectableStream<T>(source, replayBufferSize, clock, name);
     }
@@ -296,9 +296,9 @@ class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<T> RefCount()
+    public IFlux<T> RefCount()
     {
-        return Stream.From(refCount(), clock, name);
+        return Flux.From(refCount(), clock, name);
     }
 
     /// <inheritdoc />
@@ -329,26 +329,26 @@ class ConnectableStream<T> : IConnectableStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<T> MergeWith(params IStream<T>[] others)
+    public IFlux<T> MergeWith(params IFlux<T>[] others)
     {
-        return Stream.From(mergeWith(others), clock, name);
+        return Flux.From(mergeWith(others), clock, name);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ZipWith<TOther, TResult>(IStream<TOther> other, Func<T, TOther, TResult> resultSelector)
+    public IFlux<TResult> ZipWith<TOther, TResult>(IFlux<TOther> other, Func<T, TOther, TResult> resultSelector)
     {
-        return Stream.From(zipWith(other, resultSelector), clock, name);
+        return Flux.From(zipWith(other, resultSelector), clock, name);
     }
 
     /// <inheritdoc />
-    public IStream<IStream<T>> Window(int count)
+    public IFlux<IFlux<T>> Window(int count)
     {
-        return Stream.From(window(count), clock, name);
+        return Flux.From(window(count), clock, name);
     }
 
     /// <inheritdoc />
-    public IStream<T> RunOn(TaskScheduler scheduler)
+    public IFlux<T> RunOn(TaskScheduler scheduler)
     {
-        return Stream.From(runOn(scheduler), clock, name);
+        return Flux.From(runOn(scheduler), clock, name);
     }
 }

@@ -9,11 +9,11 @@ public class ErrorHandlingTests
     public async Task Stream_OnErrorResume_Recovers_From_Error()
     {
         var exception = new InvalidOperationException("Initial failure");
-        IStream<int> stream = Stream.Error<int>(exception)
+        IFlux<int> stream = Flux.Error<int>(exception)
             .OnErrorResume(ex =>
             {
                 Assert.That(ex, Is.SameAs(exception));
-                return Stream.Range(1, 3);
+                return Flux.Range(1, 3);
             });
 
         var result = new List<int>();
@@ -35,8 +35,8 @@ public class ErrorHandlingTests
             throw new Exception("Boom");
         }
 
-        IStream<int> stream = Stream.From(FailingSource())
-            .OnErrorResume(ex => Stream.From(100));
+        IFlux<int> stream = Flux.From(FailingSource())
+            .OnErrorResume(ex => Flux.From(100));
 
         var result = new List<int>();
         await foreach (var item in stream)
@@ -51,7 +51,7 @@ public class ErrorHandlingTests
     public void Stream_OnErrorResume_Propagates_Recovery_Failure()
     {
         var recoveryException = new Exception("Recovery failed");
-        IStream<int> stream = Stream.Error<int>(new Exception("Initial"))
+        IFlux<int> stream = Flux.Error<int>(new Exception("Initial"))
             .OnErrorResume(ex => throw recoveryException);
 
         Assert.ThrowsAsync<Exception>(async () =>
@@ -63,7 +63,7 @@ public class ErrorHandlingTests
     [Test]
     public async Task Stream_OnErrorReturn_Returns_Value()
     {
-        IStream<int> stream = Stream.Error<int>(new Exception("Fail"))
+        IFlux<int> stream = Flux.Error<int>(new Exception("Fail"))
             .OnErrorReturn(42);
 
         var result = new List<int>();
@@ -75,7 +75,7 @@ public class ErrorHandlingTests
     [Test]
     public void Stream_OnErrorMap_Transforms_Exception()
     {
-        IStream<int> stream = Stream.Error<int>(new InvalidOperationException("Original"))
+        IFlux<int> stream = Flux.Error<int>(new InvalidOperationException("Original"))
             .OnErrorMap(ex => new ArgumentException("Mapped", ex));
 
         var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -89,8 +89,8 @@ public class ErrorHandlingTests
     [Test]
     public async Task Stream_ErrorOperators_NoOp_When_No_Error()
     {
-        IStream<int> stream = Stream.Range(1, 3)
-            .OnErrorResume(ex => Stream.From(10))
+        IFlux<int> stream = Flux.Range(1, 3)
+            .OnErrorResume(ex => Flux.From(10))
             .OnErrorReturn(20)
             .OnErrorMap(ex => new Exception("Should not happen"));
 
@@ -104,8 +104,8 @@ public class ErrorHandlingTests
     public void Stream_OnErrorResume_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        IStream<int> stream = Stream.Error<int>(new Exception("Fail"))
-            .OnErrorResume(ex => Stream.Range(1, 100));
+        IFlux<int> stream = Flux.Error<int>(new Exception("Fail"))
+            .OnErrorResume(ex => Flux.Range(1, 100));
 
         cts.Cancel();
 
@@ -180,7 +180,7 @@ public class ErrorHandlingTests
     [Test]
     public async Task Stream_OnErrorReturn_Func_ReturnsValueFromException()
     {
-        IStream<int> stream = Stream.Error<int>(new InvalidOperationException("Fail"))
+        IFlux<int> stream = Flux.Error<int>(new InvalidOperationException("Fail"))
             .OnErrorReturn(ex =>
             {
                 Assert.That(ex, Is.InstanceOf<InvalidOperationException>());
@@ -202,7 +202,7 @@ public class ErrorHandlingTests
             throw new Exception("Boom");
         }
 
-        IStream<int> stream = Stream.From(FailingSource())
+        IFlux<int> stream = Flux.From(FailingSource())
             .OnErrorReturn(ex => 99);
 
         var result = await stream.ToListAsync();

@@ -76,7 +76,7 @@
 - Prefer small, clear public APIs. This repo is early enough that surface area discipline matters more than convenience overloads.
 - Prefer .NET-idiomatic naming and semantics over mechanically copying Reactor or Rx naming.
 - Use `IAsyncEnumerable<T>` as the default mental model unless concurrency or hot-stream behavior specifically requires channels or other machinery.
-- `Stream.From(Task<T>)`, `Stream.From(ValueTask<T>)`, `Stream.From(Func<CT,Task<T>>)`, and their `ValueTask` variants all return `ISingle<T>`, not `IStream<T>`. `ISingle<T> : IAsyncEnumerable<T>`, so `TestSubscriber.SubscribeAsync(ISingle<T>)` works through the `IAsyncEnumerable<T>` parameter.
+- `Flux.From(Task<T>)`, `Flux.From(ValueTask<T>)`, `Flux.From(Func<CT,Task<T>>)`, and their `ValueTask` variants all return `ISingle<T>`, not `IFlux<T>`. `ISingle<T> : IAsyncEnumerable<T>`, so `TestSubscriber.SubscribeAsync(ISingle<T>)` works through the `IAsyncEnumerable<T>` parameter.
 - DoOnNextAsync (Task + ValueTask variants), OfType<T,TResult>, Cast<T,TResult>, OnErrorReturn(Func<Exception,T>), and FlatMap(Func<T,IAsyncEnumerable<TResult>>) are implemented and available.
 - Be explicit about cancellation, error propagation, buffering, and ordering semantics in both code and tests.
 - It is fine to keep closely related small types in the same file when that improves locality.

@@ -6,12 +6,12 @@ This document holds the design intent and implementation-oriented semantics for 
 
 Modern .NET has `IAsyncEnumerable<T>` and channels, but Streamix intentionally provides a unified composable abstraction on top:
 
-- `Stream<T>` for 0..N item streams
+- `Flux<T>` for 0..N item streams
 - `Single<T>` for 0..1 item streams
 
-`Single.From(...)` supports values, `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` sources. `Stream.From(Task<T>)` and `Stream.From(ValueTask<T>)` also return `ISingle<T>` rather than `IStream<T>`, matching the single-result semantics of a task.
+`Single.From(...)` supports values, `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` sources. `Flux.From(Task<T>)` and `Flux.From(ValueTask<T>)` also return `ISingle<T>` rather than `IFlux<T>`, matching the single-result semantics of a task.
 
-`ISingle<T>` exposes async side-effects (`DoOnNextAsync`), dynamic error recovery (`OnErrorReturn(Func<Exception,T>)`), and configurable retry alongside the `IStream<T>` extension operator set.
+`ISingle<T>` exposes async side-effects (`DoOnNextAsync`), dynamic error recovery (`OnErrorReturn(Func<Exception,T>)`), and configurable retry alongside the `IFlux<T>` extension operator set.
 
 The default mental model is:
 
@@ -33,7 +33,7 @@ Ordered operators have explicit runtime semantics:
 Streamix uses one supervision and lifetime model across explicit scopes, concurrent operators, and channel-backed execution boundaries, but these concepts remain distinct in the public API.
 
 - **Bounded Operator Concurrency**: Operator settings such as `maxConcurrency` are throughput controls. They limit how many asynchronous operations may run at once inside an operator, but they are not themselves a separate structured-concurrency entry point.
-- **Explicit Supervision Boundaries**: `Stream.ScopedAsync` defines a clear parent-child lifetime boundary for concurrent work created inside the scope body.
+- **Explicit Supervision Boundaries**: `Flux.ScopedAsync` defines a clear parent-child lifetime boundary for concurrent work created inside the scope body.
 - **Deterministic Settlement**: A supervision boundary does not complete until the parent body has finished AND all registered child tasks have reached a terminal state.
 - **Fail-Fast**: The first observed non-cancellation fault triggers boundary-wide cancellation via a linked token.
 - **Exception Propagation**: After all children settle, the first encountered non-cancellation exception is propagated. Subsequent faults are suppressed to ensure deterministic error handling.
@@ -46,13 +46,13 @@ The following matrix is the public audit view of the current concurrency contrac
 
 | Invariant | Representative coverage | What it demonstrates |
 |----------|----------|----------|
-| Success and deterministic settlement | `StreamScopeTests.ScopedAsync_WaitsForAllChildren`, `StreamScopeTests.ScopedAsync_NestedScopes_ComposeSupervision`, `StreamTests.PipeThroughChannel_SupervisesProducer_AndWaitsForSettlement`, `StreamTests.RunOnChannel_SupervisesWorkers_AndWaitsForSettlement` | Explicit scopes and channel-backed boundaries do not complete before their child work has reached a terminal state. |
-| Cancellation propagation | `StreamScopeTests.ScopedAsync_ParentCancellationCancelsChildren`, `ConcurrencyTests.FlatMapOrdered_StopsPromptlyWhenConsumerCancels`, `ResourceSafetyTests.FlatMap_CancelsOutstandingTasks_OnCancellation`, `ResourceSafetyTests.MapOrdered_CancelsOutstandingTasks_OnCancellation` | Outer cancellation flows into supervised child work and stops ordered/concurrent operators promptly. |
-| First-fault propagation | `StreamScopeTests.ScopedAsync_PropagatesFirstException`, `ConcurrencyTests.FlatMap_PropagatesFirstException`, `ConcurrencyTests.MapOrdered_PropagatesErrorsCorrectly`, `ConcurrencyTests.FlatMapOrdered_PropagatesFailurePromptly` | The first non-cancellation fault wins and is the exception observed by the caller after required settlement. |
-| Sibling cancellation and fail-fast behavior | `StreamScopeTests.ScopedAsync_ChildFailureCancelsSiblings`, `ConcurrencyTests.FlatMap_SiblingCancellationOnFailure`, `ConcurrencyTests.FlatMapOrdered_InnerFailure_CancelsSiblings_AndWaitsForSettlement` | A fault in one child cancels sibling work, and the boundary still waits for sibling teardown before exiting. |
-| Ordering guarantees | `ConcurrencyTests.FlatMap_OrderingIsNonDeterministic`, `ConcurrencyTests.MapOrdered_PreservesOrder`, `ConcurrencyTests.MapOrdered_DefersLaterFailureUntilEarlierWorkCanDrain`, `StreamTests.RunOnChannel_PreservesOrdering` | Unordered operators may emit out of order, while ordered operators and `RunOnChannel(...)` preserve source order and defer later failures until earlier work can drain. |
-| Bounded concurrency and backpressure | `ConcurrencyTests.FlatMap_RespectsMaxConcurrency`, `ConcurrencyTests.FlatMapOrdered_RespectsMaxConcurrency`, `ConcurrencyTests.MapOrdered_RespectsMaxConcurrency`, `ConcurrencyTests.FlatMap_BackpressureBlocksProducer`, `ConcurrencyTests.FlatMapOrdered_BoundsBufferedItemsPerInner`, `StreamTests.ToChannel_Supports_Backpressure`, `StreamTests.PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull` | `maxConcurrency` is enforced as throughput control, internal buffering remains bounded, and channel boundaries keep backpressure observable rather than hiding it behind unbounded queues. |
-| Teardown and resource safety | `ResourceSafetyTests.Merge_DisposesAllSources_OnCancellation`, `ResourceSafetyTests.Merge_DisposesAllSources_OnFailure`, `ResourceSafetyTests.Using_IDisposable_DisposesOnCancellation`, `ResourceSafetyTests.Using_IAsyncDisposable_DisposesOnCancellation`, `ResourceSafetyTests.SupervisedBoundary_DisposesResources_OnlyAfterAllChildrenSettle`, `StreamTests.ToChannel_Completes_Writer_With_Upstream_Error`, `StreamTests.TeeToChannel_LeavesWriterOpen_ByDefault`, `StreamTests.TeeToChannel_CompletesWriterWithError_WhenRequested` | Resource disposal, sink/channel completion, and supervised teardown remain aligned with completion, failure, and cancellation semantics. |
+| Success and deterministic settlement | `FluxScopeTests.ScopedAsync_WaitsForAllChildren`, `FluxScopeTests.ScopedAsync_NestedScopes_ComposeSupervision`, `FluxTests.PipeThroughChannel_SupervisesProducer_AndWaitsForSettlement`, `FluxTests.RunOnChannel_SupervisesWorkers_AndWaitsForSettlement` | Explicit scopes and channel-backed boundaries do not complete before their child work has reached a terminal state. |
+| Cancellation propagation | `FluxScopeTests.ScopedAsync_ParentCancellationCancelsChildren`, `ConcurrencyTests.FlatMapOrdered_StopsPromptlyWhenConsumerCancels`, `ResourceSafetyTests.FlatMap_CancelsOutstandingTasks_OnCancellation`, `ResourceSafetyTests.MapOrdered_CancelsOutstandingTasks_OnCancellation` | Outer cancellation flows into supervised child work and stops ordered/concurrent operators promptly. |
+| First-fault propagation | `FluxScopeTests.ScopedAsync_PropagatesFirstException`, `ConcurrencyTests.FlatMap_PropagatesFirstException`, `ConcurrencyTests.MapOrdered_PropagatesErrorsCorrectly`, `ConcurrencyTests.FlatMapOrdered_PropagatesFailurePromptly` | The first non-cancellation fault wins and is the exception observed by the caller after required settlement. |
+| Sibling cancellation and fail-fast behavior | `FluxScopeTests.ScopedAsync_ChildFailureCancelsSiblings`, `ConcurrencyTests.FlatMap_SiblingCancellationOnFailure`, `ConcurrencyTests.FlatMapOrdered_InnerFailure_CancelsSiblings_AndWaitsForSettlement` | A fault in one child cancels sibling work, and the boundary still waits for sibling teardown before exiting. |
+| Ordering guarantees | `ConcurrencyTests.FlatMap_OrderingIsNonDeterministic`, `ConcurrencyTests.MapOrdered_PreservesOrder`, `ConcurrencyTests.MapOrdered_DefersLaterFailureUntilEarlierWorkCanDrain`, `FluxTests.RunOnChannel_PreservesOrdering` | Unordered operators may emit out of order, while ordered operators and `RunOnChannel(...)` preserve source order and defer later failures until earlier work can drain. |
+| Bounded concurrency and backpressure | `ConcurrencyTests.FlatMap_RespectsMaxConcurrency`, `ConcurrencyTests.FlatMapOrdered_RespectsMaxConcurrency`, `ConcurrencyTests.MapOrdered_RespectsMaxConcurrency`, `ConcurrencyTests.FlatMap_BackpressureBlocksProducer`, `ConcurrencyTests.FlatMapOrdered_BoundsBufferedItemsPerInner`, `FluxTests.ToChannel_Supports_Backpressure`, `FluxTests.PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull` | `maxConcurrency` is enforced as throughput control, internal buffering remains bounded, and channel boundaries keep backpressure observable rather than hiding it behind unbounded queues. |
+| Teardown and resource safety | `ResourceSafetyTests.Merge_DisposesAllSources_OnCancellation`, `ResourceSafetyTests.Merge_DisposesAllSources_OnFailure`, `ResourceSafetyTests.Using_IDisposable_DisposesOnCancellation`, `ResourceSafetyTests.Using_IAsyncDisposable_DisposesOnCancellation`, `ResourceSafetyTests.SupervisedBoundary_DisposesResources_OnlyAfterAllChildrenSettle`, `FluxTests.ToChannel_Completes_Writer_With_Upstream_Error`, `FluxTests.TeeToChannel_LeavesWriterOpen_ByDefault`, `FluxTests.TeeToChannel_CompletesWriterWithError_WhenRequested` | Resource disposal, sink/channel completion, and supervised teardown remain aligned with completion, failure, and cancellation semantics. |
 
 Audit outcome:
 
@@ -78,10 +78,10 @@ Audit outcome:
 
 ## Entity Framework Stream Semantics
 
-`EfStream` in `Streamix.Extensions` adapts EF queries to `IStream<T>` with explicit lifetime and materialization behavior:
+`EfFlux` in `Streamix.Extensions` adapts EF queries to `IFlux<T>` with explicit lifetime and materialization behavior:
 
-- Public buffered entry points are `EfStream.From(...)` and `Func<DbContext>.ToStream(...)`.
-- Public streamed entry points are `EfStream.FromStreamed(...)` and `Func<DbContext>.ToStreamed(...)`.
+- Public buffered entry points are `EfFlux.From(...)` and `Func<DbContext>.ToStream(...)`.
+- Public streamed entry points are `EfFlux.FromStreamed(...)` and `Func<DbContext>.ToStreamed(...)`.
 - Factory-based usage creates one `DbContext` per subscription and disposes it on completion, error, or cancellation.
 - Query builder delegates are executed against the same context instance that performs query execution.
 - Buffered execution uses `ToListAsync(cancellationToken)`, then emits each item to downstream operators.
@@ -137,7 +137,7 @@ These processing-time operators are intentionally wall-clock based through the s
 
 ## Channel-Boundary Semantics
 
-Channel APIs are explicit execution and interop boundaries inside a stream-first model. They do not replace `IStream<T>` as the main composition surface.
+Channel APIs are explicit execution and interop boundaries inside a stream-first model. They do not replace `IFlux<T>` as the main composition surface.
 
 - `ToChannel(...)` is a terminal adapter that writes the stream into a channel.
 - `PipeThroughChannel(...)` inserts a channel-backed execution boundary and returns a new stream.

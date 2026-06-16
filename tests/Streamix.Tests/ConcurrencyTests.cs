@@ -24,7 +24,7 @@ public class ConcurrencyTests
         int maxObservedConcurrency = 0;
         var lockObj = new object();
 
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .FlatMap(async x =>
             {
                 int currentActive = Interlocked.Increment(ref activeTasks);
@@ -52,8 +52,8 @@ public class ConcurrencyTests
         int maxObservedStreams = 0;
         var lockObj = new object();
 
-        var result = await Stream.Range(1, 4)
-            .FlatMapOrdered(x => Stream.From(GenerateWithTracking(x)), maxConcurrency: maxConcurrency)
+        var result = await Flux.Range(1, 4)
+            .FlatMapOrdered(x => Flux.From(GenerateWithTracking(x)), maxConcurrency: maxConcurrency)
             .ToListAsync();
 
         async IAsyncEnumerable<int> GenerateWithTracking(int x)
@@ -79,11 +79,11 @@ public class ConcurrencyTests
     public void FlatMapOrdered_RejectsNonPositiveLimits()
     {
         Assert.That(
-            () => Stream.Range(1, 3).FlatMapOrdered(x => Stream.From(x), maxConcurrency: 0),
+            () => Flux.Range(1, 3).FlatMapOrdered(x => Flux.From(x), maxConcurrency: 0),
             Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("maxConcurrency"));
 
         Assert.That(
-            () => Stream.Range(1, 3).FlatMapOrdered(x => Stream.From(x), maxConcurrency: 2, maxBufferedItemsPerInner: 0),
+            () => Flux.Range(1, 3).FlatMapOrdered(x => Flux.From(x), maxConcurrency: 2, maxBufferedItemsPerInner: 0),
             Throws.TypeOf<ArgumentOutOfRangeException>().With.Property("ParamName").EqualTo("maxBufferedItemsPerInner"));
     }
 
@@ -94,7 +94,7 @@ public class ConcurrencyTests
         var secondInnerAttemptedSecondWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thirdInnerStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var stream = Stream.Range(1, 3)
+        var stream = Flux.Range(1, 3)
             .FlatMapOrdered(CreateInner, maxConcurrency: 2, maxBufferedItemsPerInner: 1);
 
         await using var enumerator = stream.GetAsyncEnumerator();
@@ -119,9 +119,9 @@ public class ConcurrencyTests
         Assert.That(enumerator.Current, Is.EqualTo(30));
         Assert.That(await enumerator.MoveNextAsync(), Is.False);
 
-        IStream<int> CreateInner(int value)
+        IFlux<int> CreateInner(int value)
         {
-            return Stream.Create<int>(async emitter =>
+            return Flux.Create<int>(async emitter =>
             {
                 if (value == 1)
                 {
@@ -155,7 +155,7 @@ public class ConcurrencyTests
         int inFlight = 0;
         int maxObserved = 0;
 
-        var source = Stream.From(generateWithLogging(new List<int>()));
+        var source = Flux.From(generateWithLogging(new List<int>()));
 
         var enumerator = source
             .FlatMap(async x =>
@@ -178,7 +178,7 @@ public class ConcurrencyTests
     [Test]
     public void FlatMap_PropagatesErrorsCorrectly()
     {
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .FlatMap(async x =>
             {
                 if (x == 5) throw new InvalidOperationException("Boom");
@@ -194,7 +194,7 @@ public class ConcurrencyTests
     {
         // We want to prove that with concurrency, results can arrive out of order
         // if they take different amounts of time.
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .FlatMap(async x =>
             {
                 // Task for 1 takes 100ms, others take 1ms
@@ -216,7 +216,7 @@ public class ConcurrencyTests
         int maxObservedConcurrency = 0;
         var lockObj = new object();
 
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .MapOrdered(async x =>
             {
                 int currentActive = Interlocked.Increment(ref activeTasks);
@@ -239,7 +239,7 @@ public class ConcurrencyTests
     [Test]
     public async Task MapOrdered_PreservesOrder()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .MapOrdered(async x =>
             {
                 // Task for 1 takes 100ms, others take 1ms
@@ -259,7 +259,7 @@ public class ConcurrencyTests
         var firstCanComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var stream = Stream.Range(1, 2)
+        var stream = Flux.Range(1, 2)
             .MapOrdered(async x =>
             {
                 if (x == 1)
@@ -294,7 +294,7 @@ public class ConcurrencyTests
         var firstInnerCanContinue = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondInnerFailed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var stream = Stream.Range(1, 2)
+        var stream = Flux.Range(1, 2)
             .FlatMapOrdered(CreateInner, maxConcurrency: 2, maxBufferedItemsPerInner: 1);
 
         await using var enumerator = stream.GetAsyncEnumerator();
@@ -324,9 +324,9 @@ public class ConcurrencyTests
         }
         return;
 
-        IStream<int> CreateInner(int value)
+        IFlux<int> CreateInner(int value)
         {
-            return Stream.Create<int>(async emitter =>
+            return Flux.Create<int>(async emitter =>
             {
                 if (value == 1)
                 {
@@ -349,8 +349,8 @@ public class ConcurrencyTests
         var innerCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var cancellation = new CancellationTokenSource();
 
-        var stream = Stream.Range(1, 2)
-            .FlatMapOrdered(_ => Stream.Create<int>(async emitter =>
+        var stream = Flux.Range(1, 2)
+            .FlatMapOrdered(_ => Flux.Create<int>(async emitter =>
             {
                 try
                 {
@@ -381,7 +381,7 @@ public class ConcurrencyTests
     [Test]
     public void MapOrdered_PropagatesErrorsCorrectly()
     {
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .MapOrdered(async x =>
             {
                 if (x == 5) throw new InvalidOperationException("Boom");
@@ -396,11 +396,11 @@ public class ConcurrencyTests
     public async Task FlatMap_SiblingCancellationOnFailure()
     {
         // Arrange
-        var source = Stream.From(1, 2, 3);
+        var source = Flux.From(1, 2, 3);
         var cancelledSiblings = 0;
 
         // Act
-        var stream = source.FlatMap(i => Stream.Create<int>(async (emitter, ct) =>
+        var stream = source.FlatMap(i => Flux.Create<int>(async (emitter, ct) =>
         {
             if (i == 1)
             {
@@ -436,7 +436,7 @@ public class ConcurrencyTests
     public async Task MapOrdered_WaitsForAllChildrenToSettle()
     {
         // Arrange
-        var source = Stream.From(1, 2);
+        var source = Flux.From(1, 2);
         var completedChildren = 0;
 
         // Act
@@ -461,7 +461,7 @@ public class ConcurrencyTests
     public async Task FlatMap_PropagatesFirstException()
     {
         // Arrange
-        var source = Stream.From(1, 2);
+        var source = Flux.From(1, 2);
 
         // Act
         var stream = source.FlatMap(async (int i) =>
@@ -484,7 +484,7 @@ public class ConcurrencyTests
     public async Task FlatMap_StopsYieldingImmediatelyOnFault()
     {
         // Arrange
-        var source = Stream.Range(1, 10);
+        var source = Flux.Range(1, 10);
         var yieldedItems = new List<int>();
 
         // Act
@@ -518,19 +518,19 @@ public class ConcurrencyTests
         var siblingSettled = false;
         var tcs = new TaskCompletionSource();
 
-        var stream = Stream.From(1, 2)
+        var stream = Flux.From(1, 2)
             .FlatMapOrdered(i =>
             {
                 if (i == 1)
                 {
-                    return Stream.Create<int>(async emitter =>
+                    return Flux.Create<int>(async emitter =>
                     {
                         await tcs.Task;
                         throw new InvalidOperationException("Boom");
                     });
                 }
 
-                return Stream.Create<int>(async emitter =>
+                return Flux.Create<int>(async emitter =>
                 {
                     try
                     {

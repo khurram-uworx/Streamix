@@ -82,7 +82,7 @@ public interface IAsyncSink<in T>
 /// Represents a stream that can be connected to a shared source.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
-public interface IConnectableStream<T> : IStream<T>
+public interface IConnectableStream<T> : IFlux<T>
 {
     /// <summary>
     /// Connects to the shared source.
@@ -93,7 +93,7 @@ public interface IConnectableStream<T> : IStream<T>
     /// <summary>
     /// Returns a stream that stays connected as long as there is at least one subscriber.
     /// </summary>
-    IStream<T> RefCount();
+    IFlux<T> RefCount();
 
     /// <summary>
     /// Returns a task that completes when all RefCount subscribers have disconnected.

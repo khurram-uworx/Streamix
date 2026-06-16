@@ -10,7 +10,7 @@ public class AsyncRxInteropTests
     [Test]
     public async Task ToAsyncObservable_EmitsAllItems()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var observable = stream.ToAsyncObservable();
         var results = new List<int>();
 
@@ -68,7 +68,7 @@ public class AsyncRxInteropTests
     public async Task ToAsyncObservable_HandlesError()
     {
         var exception = new Exception("Test error");
-        var stream = Stream.Error<int>(exception);
+        var stream = Flux.Error<int>(exception);
         var observable = stream.ToAsyncObservable();
 
         var caught = false;
@@ -87,7 +87,7 @@ public class AsyncRxInteropTests
     [Test]
     public async Task ToAsyncObservable_RespectsSubscriptionCancellation()
     {
-        var stream = Stream.Range(1, 100).Delay(TimeSpan.FromMilliseconds(50));
+        var stream = Flux.Range(1, 100).Delay(TimeSpan.FromMilliseconds(50));
         var observable = stream.ToAsyncObservable();
 
         var results = new List<int>();

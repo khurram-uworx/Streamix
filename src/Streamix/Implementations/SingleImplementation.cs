@@ -50,14 +50,14 @@ class SingleImplementation<T> : ISingle<T>
         }
     }
 
-    async IAsyncEnumerable<TResult> concatMapInternal<TResult>(Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken ct = default)
+    async IAsyncEnumerable<TResult> concatMapInternal<TResult>(Func<T, IFlux<TResult>> selector, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
             await foreach (var innerItem in selector(item).WithCancellation(ct))
                 yield return innerItem;
     }
 
-    async IAsyncEnumerable<TResult> concatMapAwaitInternal<TResult>(Func<T, ValueTask<IStream<TResult>>> selector, [EnumeratorCancellation] CancellationToken ct = default)
+    async IAsyncEnumerable<TResult> concatMapAwaitInternal<TResult>(Func<T, ValueTask<IFlux<TResult>>> selector, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
         {
@@ -504,15 +504,15 @@ class SingleImplementation<T> : ISingle<T>
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector)
+    public IFlux<TResult> FlatMap<TResult>(Func<T, IFlux<TResult>> selector)
     {
-        return Streamix.Stream.From(concatMapInternal(selector), clock, name);
+        return Flux.From(concatMapInternal(selector), clock, name);
     }
 
     /// <inheritdoc />
-    public IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector)
+    public IFlux<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IFlux<TResult>>> selector)
     {
-        return Streamix.Stream.From(concatMapAwaitInternal(selector), clock, name);
+        return Flux.From(concatMapAwaitInternal(selector), clock, name);
     }
 
     /// <inheritdoc />

@@ -51,7 +51,7 @@ public class ResourceSafetyTests
         var s2 = new DisposableSource(100);
 
         var cts = new CancellationTokenSource();
-        var merged = Stream.Merge(Stream.From((IAsyncEnumerable<int>)s1), Stream.From((IAsyncEnumerable<int>)s2));
+        var merged = Flux.Merge(Flux.From((IAsyncEnumerable<int>)s1), Flux.From((IAsyncEnumerable<int>)s2));
 
         int count = 0;
         try
@@ -77,7 +77,7 @@ public class ResourceSafetyTests
         var s1 = new DisposableSource(100, throwOnMoveNext: true);
         var s2 = new DisposableSource(100);
 
-        var merged = Stream.Merge(Stream.From((IAsyncEnumerable<int>)s1), Stream.From((IAsyncEnumerable<int>)s2));
+        var merged = Flux.Merge(Flux.From((IAsyncEnumerable<int>)s1), Flux.From((IAsyncEnumerable<int>)s2));
 
         try
         {
@@ -101,7 +101,7 @@ public class ResourceSafetyTests
         var s1 = new DisposableSource(5);
         var s2 = new DisposableSource(100);
 
-        var zipped = Stream.Zip(Stream.From((IAsyncEnumerable<int>)s1), Stream.From((IAsyncEnumerable<int>)s2), (a, b) => a + b);
+        var zipped = Flux.Zip(Flux.From((IAsyncEnumerable<int>)s1), Flux.From((IAsyncEnumerable<int>)s2), (a, b) => a + b);
 
         await foreach (var item in zipped) { }
 
@@ -128,7 +128,7 @@ public class ResourceSafetyTests
         }
 
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 1).ConcatMap(x => Stream.From((IAsyncEnumerable<int>)GetInner()));
+        var stream = Flux.Range(1, 1).ConcatMap(x => Flux.From((IAsyncEnumerable<int>)GetInner()));
 
         var enumerator = stream.GetAsyncEnumerator(cts.Token);
         Assert.That(await enumerator.MoveNextAsync(), Is.True);
@@ -146,7 +146,7 @@ public class ResourceSafetyTests
         var source = new DisposableSource(100);
         var cts = new CancellationTokenSource();
 
-        var buffered = Stream.From((IAsyncEnumerable<int>)source).Buffer(10);
+        var buffered = Flux.From((IAsyncEnumerable<int>)source).Buffer(10);
 
         var enumerator = buffered.GetAsyncEnumerator(cts.Token);
         Assert.That(await enumerator.MoveNextAsync(), Is.True);
@@ -164,7 +164,7 @@ public class ResourceSafetyTests
     public async Task RefCount_DisposesSource_WhenLastSubscriberLeaves()
     {
         var source = new DisposableSource(100);
-        var shared = Stream.From((IAsyncEnumerable<int>)source).Publish().RefCount();
+        var shared = Flux.From((IAsyncEnumerable<int>)source).Publish().RefCount();
 
         async Task ConsumeOne()
         {
@@ -192,7 +192,7 @@ public class ResourceSafetyTests
         var taskCancelled = 0;
 
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .FlatMap(async x =>
             {
                 Interlocked.Increment(ref taskStarted);
@@ -232,7 +232,7 @@ public class ResourceSafetyTests
         var taskCancelled = 0;
 
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .MapOrdered(async x =>
             {
                 Interlocked.Increment(ref taskStarted);
@@ -288,7 +288,7 @@ public class ResourceSafetyTests
     public async Task Using_IDisposable_DisposesOnCompletion()
     {
         var resource = new MockResource();
-        var stream = Stream.Using(() => resource, r => Stream.Range(1, 5));
+        var stream = Flux.Using(() => resource, r => Flux.Range(1, 5));
 
         var result = await stream.ToListAsync();
 
@@ -300,7 +300,7 @@ public class ResourceSafetyTests
     public async Task Using_IDisposable_DisposesOnFailure()
     {
         var resource = new MockResource();
-        var stream = Stream.Using(() => resource, r => Stream.Error<int>(new Exception("Upstream failure")));
+        var stream = Flux.Using(() => resource, r => Flux.Error<int>(new Exception("Upstream failure")));
 
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
         Assert.That(resource.DisposeCount, Is.EqualTo(1));
@@ -311,7 +311,7 @@ public class ResourceSafetyTests
     {
         var resource = new MockResource();
         var cts = new CancellationTokenSource();
-        var stream = Stream.Using(() => resource, r => Stream.Range(1, 100));
+        var stream = Flux.Using(() => resource, r => Flux.Range(1, 100));
 
         var count = 0;
         try
@@ -330,7 +330,7 @@ public class ResourceSafetyTests
     public async Task Using_IAsyncDisposable_DisposesOnCompletion()
     {
         var resource = new MockResource();
-        var stream = Stream.Using(ct => ValueTask.FromResult(resource), r => Stream.Range(1, 5));
+        var stream = Flux.Using(ct => ValueTask.FromResult(resource), r => Flux.Range(1, 5));
 
         var result = await stream.ToListAsync();
 
@@ -342,7 +342,7 @@ public class ResourceSafetyTests
     public async Task Using_IAsyncDisposable_DisposesOnFailure()
     {
         var resource = new MockResource();
-        var stream = Stream.Using(ct => ValueTask.FromResult(resource), r => Stream.Error<int>(new Exception("Upstream failure")));
+        var stream = Flux.Using(ct => ValueTask.FromResult(resource), r => Flux.Error<int>(new Exception("Upstream failure")));
 
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
         Assert.That(resource.DisposeCount, Is.EqualTo(1));
@@ -353,7 +353,7 @@ public class ResourceSafetyTests
     {
         var resource = new MockResource();
         var cts = new CancellationTokenSource();
-        var stream = Stream.Using(ct => ValueTask.FromResult(resource), r => Stream.Range(1, 100));
+        var stream = Flux.Using(ct => ValueTask.FromResult(resource), r => Flux.Range(1, 100));
 
         var count = 0;
         try
@@ -372,7 +372,7 @@ public class ResourceSafetyTests
     public async Task Using_PropagatesDisposalException()
     {
         var resource = new MockResource { ThrowOnDispose = true };
-        var stream = Stream.Using(() => resource, r => Stream.Range(1, 5));
+        var stream = Flux.Using(() => resource, r => Flux.Range(1, 5));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -381,7 +381,7 @@ public class ResourceSafetyTests
     public void Using_DisposalException_ReplacesUpstreamException()
     {
         var resource = new MockResource { ThrowOnDispose = true };
-        var stream = Stream.Using(() => resource, r => Stream.Error<int>(new Exception("Upstream failure")));
+        var stream = Flux.Using(() => resource, r => Flux.Error<int>(new Exception("Upstream failure")));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
 
@@ -392,7 +392,7 @@ public class ResourceSafetyTests
     public void Using_DisposesResource_WhenStreamFactoryThrows()
     {
         var resource = new MockResource();
-        var stream = Stream.Using<MockResource, int>(() => resource, _ => throw new InvalidOperationException("Factory failure"));
+        var stream = Flux.Using<MockResource, int>(() => resource, _ => throw new InvalidOperationException("Factory failure"));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
 
@@ -404,7 +404,7 @@ public class ResourceSafetyTests
     public void Using_IAsyncDisposable_DisposesResource_WhenStreamFactoryThrows()
     {
         var resource = new MockResource();
-        var stream = Stream.Using<MockResource, int>(ct => ValueTask.FromResult(resource), _ => throw new InvalidOperationException("Factory failure"));
+        var stream = Flux.Using<MockResource, int>(ct => ValueTask.FromResult(resource), _ => throw new InvalidOperationException("Factory failure"));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
 
@@ -416,11 +416,11 @@ public class ResourceSafetyTests
     public async Task Using_CreatesFreshResourcePerSubscription()
     {
         var createCount = 0;
-        var stream = Stream.Using(() =>
+        var stream = Flux.Using(() =>
         {
             createCount++;
             return new MockResource();
-        }, r => Stream.Range(1, 3));
+        }, r => Flux.Range(1, 3));
 
         await stream.ToListAsync();
         await stream.ToListAsync();
@@ -434,11 +434,11 @@ public class ResourceSafetyTests
         var resourceDisposed = false;
         var childFinished = false;
 
-        var stream = Stream.Using(
+        var stream = Flux.Using(
             () => new MockResource(),
-            resource => Stream.Create<int>(async emitter =>
+            resource => Flux.Create<int>(async emitter =>
             {
-                await Stream.ScopedAsync(async scope =>
+                await Flux.ScopedAsync(async scope =>
                 {
                     scope.Run(async ct =>
                     {

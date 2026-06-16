@@ -10,7 +10,7 @@ public class TimeAwareTerminalTests
     public async Task FirstAsync_With_Timeout_Returns_Correct_Element()
     {
         var clock = new TestClock();
-        var stream = Stream.From(new[] { 1, 2, 3 }.ToAsyncEnumerable(), clock);
+        var stream = Flux.From(new[] { 1, 2, 3 }.ToAsyncEnumerable(), clock);
 
         var result = await stream.FirstAsync(TimeSpan.FromSeconds(5));
 
@@ -22,12 +22,12 @@ public class TimeAwareTerminalTests
     {
         var clock = new TestClock();
         // A stream that never emits
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await clock.Delay(TimeSpan.FromSeconds(10), emitter.CancellationToken);
         });
         // We need to use Stream.From(..., clock) to ensure it uses our TestClock
-        var streamWithClock = Stream.From(stream, clock);
+        var streamWithClock = Flux.From(stream, clock);
 
         var task = streamWithClock.FirstAsync(TimeSpan.FromSeconds(5));
 
@@ -41,11 +41,11 @@ public class TimeAwareTerminalTests
     public async Task FirstOrDefaultAsync_With_Timeout_Returns_Default_On_Timeout()
     {
         var clock = new TestClock();
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await clock.Delay(TimeSpan.FromSeconds(10), emitter.CancellationToken);
         });
-        var streamWithClock = Stream.From(stream, clock);
+        var streamWithClock = Flux.From(stream, clock);
 
         var task = streamWithClock.FirstOrDefaultAsync(TimeSpan.FromSeconds(5));
 
@@ -61,7 +61,7 @@ public class TimeAwareTerminalTests
     {
         var clock = new TestClock();
 
-        var stream = Stream.Create<long>(async emitter =>
+        var stream = Flux.Create<long>(async emitter =>
         {
             await clock.Delay(TimeSpan.FromSeconds(1), emitter.CancellationToken);
             await emitter.EmitAsync(0);
@@ -72,7 +72,7 @@ public class TimeAwareTerminalTests
             await clock.Delay(TimeSpan.FromSeconds(1), emitter.CancellationToken);
             await emitter.EmitAsync(3);
         });
-        var streamWithClock = Stream.From(stream, clock);
+        var streamWithClock = Flux.From(stream, clock);
 
         var task = streamWithClock.CollectAsync(TimeSpan.FromSeconds(3.5));
 

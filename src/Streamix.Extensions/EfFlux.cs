@@ -6,7 +6,7 @@ namespace Streamix.Extensions;
 /// <summary>
 /// Provides factory methods for creating Streamix streams from Entity Framework queries.
 /// </summary>
-public static class EfStream
+public static class EfFlux
 {
     static async IAsyncEnumerable<T> executeBufferedQuery<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory,
         [EnumeratorCancellation] CancellationToken cancellationToken = default) where T : class
@@ -49,13 +49,13 @@ public static class EfStream
     /// The query must be composed from the same context instance created by <paramref name="dbContextFactory"/> for that
     /// subscription. Query execution uses <c>ToListAsync</c>, so the full result set is materialized before items are emitted.
     /// </remarks>
-    public static IStream<T> From<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory,
+    public static IFlux<T> From<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory,
         string? name = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
 
-        return Stream.From(executeBufferedQuery(query, dbContextFactory), name);
+        return Flux.From(executeBufferedQuery(query, dbContextFactory), name);
     }
 
     /// <summary>
@@ -73,14 +73,14 @@ public static class EfStream
     /// The query must be composed from the same context instance created by <paramref name="dbContextFactory"/> for that
     /// subscription. Query execution uses <c>ToListAsync</c>, so the full result set is materialized before items are emitted.
     /// </remarks>
-    public static IStream<T> From<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory, IClock clock,
+    public static IFlux<T> From<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory, IClock clock,
         string? name = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(clock);
 
-        return Stream.From(executeBufferedQuery(query, dbContextFactory), clock, name);
+        return Flux.From(executeBufferedQuery(query, dbContextFactory), clock, name);
     }
 
     /// <summary>
@@ -97,13 +97,13 @@ public static class EfStream
     /// The query must be composed from the same context instance created by <paramref name="dbContextFactory"/> for that
     /// subscription. Query execution uses <c>AsAsyncEnumerable</c>, so items are emitted as the provider enumerates them.
     /// </remarks>
-    public static IStream<T> FromStreamed<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory,
+    public static IFlux<T> FromStreamed<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory,
         string? name = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
 
-        return Stream.From(executeStreamedQuery(query, dbContextFactory), name);
+        return Flux.From(executeStreamedQuery(query, dbContextFactory), name);
     }
 
     /// <summary>
@@ -121,13 +121,13 @@ public static class EfStream
     /// The query must be composed from the same context instance created by <paramref name="dbContextFactory"/> for that
     /// subscription. Query execution uses <c>AsAsyncEnumerable</c>, so items are emitted as the provider enumerates them.
     /// </remarks>
-    public static IStream<T> FromStreamed<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory, IClock clock,
+    public static IFlux<T> FromStreamed<T>(Func<DbContext, IQueryable<T>> query, Func<DbContext> dbContextFactory, IClock clock,
         string? name = null) where T : class
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(dbContextFactory);
         ArgumentNullException.ThrowIfNull(clock);
 
-        return Stream.From(executeStreamedQuery(query, dbContextFactory), clock, name);
+        return Flux.From(executeStreamedQuery(query, dbContextFactory), clock, name);
     }
 }

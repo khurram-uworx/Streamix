@@ -21,12 +21,12 @@ public class PricesController : ControllerBase
     public IActionResult GetPrices()
     {
         var stream = priceService.GetPriceUpdates().Publish().RefCount();
-        return new StreamResult<decimal>(stream);
+        return new FluxResult<decimal>(stream);
     }
 }
 ```
 
-The `StreamResult<T>` handles:
+The `FluxResult<T>` handles:
 - SSE headers and formatting
 - Backpressure management (respects client slowness)
 - Cancellation (closes cleanly when client disconnects)
@@ -50,7 +50,7 @@ The `StreamResult<T>` handles:
 
 ## More Shapes
 
-`StreamResult<T>` gives you an `IActionResult` wrapper for SSE endpoints, and the package also supports minimal APIs, direct WebSocket streaming, and JSON response streaming.
+`FluxResult<T>` gives you an `IActionResult` wrapper for SSE endpoints, and the package also supports minimal APIs, direct WebSocket streaming, and JSON response streaming.
 
 ## When to Use
 

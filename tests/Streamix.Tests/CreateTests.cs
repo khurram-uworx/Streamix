@@ -89,7 +89,7 @@ public class CreateTests
     [Test]
     public async Task Create_Emits_Items_And_Completes()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             await emitter.EmitAsync(2);
@@ -105,7 +105,7 @@ public class CreateTests
     [Test]
     public async Task Create_Producer_Throws_After_Emit_And_Complete_Should_Not_Affect_Stream()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             emitter.Complete();
@@ -123,7 +123,7 @@ public class CreateTests
         var secondEmitStarted = new TaskCompletionSource<bool>();
         var firstItemConsumed = new TaskCompletionSource<bool>();
 
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
 
@@ -160,7 +160,7 @@ public class CreateTests
     [Test]
     public async Task Create_Propagates_Error_Via_Fail()
     {
-        var stream = Stream.Create<int>(emitter =>
+        var stream = Flux.Create<int>(emitter =>
         {
             emitter.Fail(new InvalidOperationException("Test Error"));
             return Task.CompletedTask;
@@ -173,7 +173,7 @@ public class CreateTests
     [Test]
     public async Task Create_Propagates_Producer_Exception()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await Task.Yield();
             throw new InvalidOperationException("Producer Exception");
@@ -187,7 +187,7 @@ public class CreateTests
     public async Task Create_Respects_Cancellation()
     {
         var producerCancelled = new TaskCompletionSource<bool>();
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             try
             {
@@ -215,7 +215,7 @@ public class CreateTests
     [Test]
     public async Task Create_Terminal_State_Is_Idempotent()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             emitter.Complete();
             emitter.Fail(new Exception("Should be ignored"));
@@ -241,7 +241,7 @@ public class CreateTests
     [Test]
     public async Task Create_ValueTask_Overload_Works()
     {
-        var stream = Stream.Create<int>(async (emitter, ct) =>
+        var stream = Flux.Create<int>(async (emitter, ct) =>
         {
             await emitter.EmitAsync(1);
             await emitter.EmitAsync(2);
@@ -257,7 +257,7 @@ public class CreateTests
     public async Task Create_EmitAsync_Throws_After_Terminal_State()
     {
         Exception? caughtAtEmit = null;
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             emitter.Complete();
             try
@@ -277,7 +277,7 @@ public class CreateTests
     [Test]
     public async Task Create_Producer_Throws_After_Complete_Should_Not_Affect_Stream()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             emitter.Complete();
             throw new InvalidOperationException("Should be ignored");
@@ -291,7 +291,7 @@ public class CreateTests
     [Test]
     public async Task Create_Producer_Throws_After_Fail_Should_Not_Affect_Stream()
     {
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             emitter.Fail(new InvalidOperationException("Original Error"));
             throw new Exception("Secondary error - should be ignored");
@@ -307,7 +307,7 @@ public class CreateTests
         var producerLoopCount = 0;
         var producerFinished = new TaskCompletionSource<bool>();
 
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             try
             {
@@ -339,7 +339,7 @@ public class CreateTests
     public async Task FromEvent_Emits_Items_And_Tears_Down_After_Take_Completes()
     {
         var source = new AsyncEventSource<int>();
-        var stream = Stream.FromEvent<int>(source.Subscribe);
+        var stream = Flux.FromEvent<int>(source.Subscribe);
 
         var subscriberTask = TestSubscriber<int>.SubscribeAsync(stream.Take(2));
         await WaitUntilAsync(() => source.SubscribeCount == 1);
@@ -358,7 +358,7 @@ public class CreateTests
     public async Task FromEvent_Unsubscribes_On_Cancellation()
     {
         var source = new AsyncEventSource<int>();
-        var stream = Stream.FromEvent<int>(source.Subscribe);
+        var stream = Flux.FromEvent<int>(source.Subscribe);
         using var cts = new CancellationTokenSource();
 
         var subscriberTask = TestSubscriber<int>.SubscribeAsync(stream, cts.Token);
@@ -377,7 +377,7 @@ public class CreateTests
     public async Task FromEvent_Creates_Fresh_Subscription_Per_Subscriber()
     {
         var source = new AsyncEventSource<int>();
-        var stream = Stream.FromEvent<int>(source.Subscribe);
+        var stream = Flux.FromEvent<int>(source.Subscribe);
 
         var firstTask = TestSubscriber<int>.SubscribeAsync(stream.Take(1));
         await WaitUntilAsync(() => source.SubscribeCount == 1);
@@ -400,7 +400,7 @@ public class CreateTests
     public async Task FromEvent_Preserves_Backpressure_When_Source_Awaits_Handler()
     {
         var source = new AsyncEventSource<int>();
-        var stream = Stream.FromEvent<int>(source.Subscribe);
+        var stream = Flux.FromEvent<int>(source.Subscribe);
 
         await using var enumerator = stream.GetAsyncEnumerator();
 

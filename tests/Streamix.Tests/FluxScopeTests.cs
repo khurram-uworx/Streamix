@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace Streamix.Tests;
 
 [TestFixture]
-public class StreamScopeTests
+public class FluxScopeTests
 {
     [Test]
     public async Task ScopedAsync_WaitsForAllChildren()
@@ -11,7 +11,7 @@ public class StreamScopeTests
         var task1Finished = false;
         var task2Finished = false;
 
-        await Stream.ScopedAsync(async scope =>
+        await Flux.ScopedAsync(async scope =>
         {
             scope.Run(async ct =>
             {
@@ -37,7 +37,7 @@ public class StreamScopeTests
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.ScopedAsync(async scope =>
+            await Flux.ScopedAsync(async scope =>
             {
                 scope.Run(async ct =>
                 {
@@ -72,7 +72,7 @@ public class StreamScopeTests
         var childCancelled = false;
         using var cts = new CancellationTokenSource();
 
-        var task = Stream.ScopedAsync(async scope =>
+        var task = Flux.ScopedAsync(async scope =>
         {
             scope.Run(async ct =>
             {
@@ -101,7 +101,7 @@ public class StreamScopeTests
     {
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.ScopedAsync(async scope =>
+            await Flux.ScopedAsync(async scope =>
             {
                 scope.Run(async ct =>
                 {
@@ -127,7 +127,7 @@ public class StreamScopeTests
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.ScopedAsync(async scope =>
+            await Flux.ScopedAsync(async scope =>
             {
                 scope.Run(async ct =>
                 {
@@ -151,11 +151,11 @@ public class StreamScopeTests
         var innerChildFinished = false;
         var outerChildFinished = false;
 
-        await Stream.ScopedAsync(async outerScope =>
+        await Flux.ScopedAsync(async outerScope =>
         {
             outerScope.Run(async ct =>
             {
-                await Stream.ScopedAsync(async innerScope =>
+                await Flux.ScopedAsync(async innerScope =>
                 {
                     innerScope.Run(async innerCt =>
                     {

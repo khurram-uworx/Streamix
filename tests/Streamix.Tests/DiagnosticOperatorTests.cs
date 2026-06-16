@@ -17,7 +17,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_DoOnNext_ExecutesForEveryItem()
     {
         var items = new List<int>();
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .DoOnNext(x => items.Add(x))
             .Select(x => x)
             .ToListAsync();
@@ -30,7 +30,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Do_ExecutesForEveryItem()
     {
         var items = new List<int>();
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Do(x => items.Add(x))
             .ToListAsync();
 
@@ -42,7 +42,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Tap_ExecutesForEveryItem()
     {
         var items = new List<int>();
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Tap(x => items.Add(x))
             .ToListAsync();
 
@@ -56,7 +56,7 @@ public class DiagnosticOperatorTests
         var exception = new Exception("Test error");
         Exception? caught = null;
 
-        var stream = Stream.Error<int>(exception)
+        var stream = Flux.Error<int>(exception)
             .DoOnError(ex => caught = ex);
 
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
@@ -67,7 +67,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_DoOnTerminate_ExecutesUponSuccessfulCompletion()
     {
         bool terminated = false;
-        await Stream.Range(1, 3)
+        await Flux.Range(1, 3)
             .DoOnTerminate(() => terminated = true)
             .ToListAsync();
 
@@ -78,7 +78,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_DoOnComplete_ExecutesUponSuccessfulCompletion()
     {
         bool completed = false;
-        await Stream.Range(1, 3)
+        await Flux.Range(1, 3)
             .DoOnComplete(() => completed = true)
             .ToListAsync();
 
@@ -89,7 +89,7 @@ public class DiagnosticOperatorTests
     public void Stream_DoOnComplete_DoesNotExecuteUponError()
     {
         bool completed = false;
-        var stream = Stream.Error<int>(new Exception())
+        var stream = Flux.Error<int>(new Exception())
             .DoOnComplete(() => completed = true);
 
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
@@ -102,7 +102,7 @@ public class DiagnosticOperatorTests
         bool completed = false;
         using var cts = new CancellationTokenSource();
 
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .DoOnComplete(() => completed = true);
 
         try
@@ -123,7 +123,7 @@ public class DiagnosticOperatorTests
     public void Stream_DoOnTerminate_ExecutesUponError()
     {
         bool terminated = false;
-        var stream = Stream.Error<int>(new Exception())
+        var stream = Flux.Error<int>(new Exception())
             .DoOnTerminate(() => terminated = true);
 
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
@@ -244,7 +244,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Log_Action_LogsAllSignals()
     {
         var logs = new List<string>();
-        await Stream.Range(1, 2)
+        await Flux.Range(1, 2)
             .Named("TestStream")
             .LogAction(s => logs.Add(s))
             .DrainAsync();
@@ -258,7 +258,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Log_Action_Prefix_LogsAllSignals()
     {
         var logs = new List<string>();
-        await Stream.Range(1, 2)
+        await Flux.Range(1, 2)
             .LogAction(s => logs.Add(s))
             .DrainAsync();
 
@@ -271,7 +271,7 @@ public class DiagnosticOperatorTests
     public void Stream_Log_Action_LogsError()
     {
         var logs = new List<string>();
-        var stream = Stream.Error<int>(new Exception("Fail"))
+        var stream = Flux.Error<int>(new Exception("Fail"))
             .Named("ErrorStream")
             .LogAction(s => logs.Add(s));
 
@@ -283,7 +283,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Log_ILogger_LogsAllSignals()
     {
         var mockLogger = new Mock<ILogger>();
-        await Stream.Range(1, 1)
+        await Flux.Range(1, 1)
             .Named("LoggerStream")
             .Log(mockLogger.Object)
             .DrainAsync();
@@ -325,7 +325,7 @@ public class DiagnosticOperatorTests
     {
         var output = await CaptureConsoleOutAsync(async () =>
         {
-            await Stream.Range(1, 2)
+            await Flux.Range(1, 2)
                 .Log("PrefixStream")
                 .DrainAsync();
         });
@@ -353,7 +353,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Checkpoint_LogsTimingInformation()
     {
         var logs = new List<string>();
-        await Stream.Range(1, 2)
+        await Flux.Range(1, 2)
             .Checkpoint("TestCheckpoint", s => logs.Add(s))
             .DrainAsync();
 
@@ -366,7 +366,7 @@ public class DiagnosticOperatorTests
     public void Stream_Checkpoint_LogsErrorTiming()
     {
         var logs = new List<string>();
-        var stream = Stream.Error<int>(new Exception("Fail"))
+        var stream = Flux.Error<int>(new Exception("Fail"))
             .Checkpoint("ErrorCheckpoint", s => logs.Add(s));
 
         Assert.ThrowsAsync<Exception>(async () => await stream.DrainAsync());
@@ -405,7 +405,7 @@ public class DiagnosticOperatorTests
     public async Task Stream_Trace_LogsAllLifecycleSignals()
     {
         var logs = new List<string>();
-        await Stream.Range(1, 2)
+        await Flux.Range(1, 2)
             .Named("TraceStream")
             .TraceAction(s => logs.Add(s))
             .DrainAsync();
@@ -424,7 +424,7 @@ public class DiagnosticOperatorTests
     public void Stream_Trace_LogsErrorSignal()
     {
         var logs = new List<string>();
-        var stream = Stream.Error<int>(new Exception("TraceFail"))
+        var stream = Flux.Error<int>(new Exception("TraceFail"))
             .Named("ErrorTrace")
             .TraceAction(s => logs.Add(s));
 
@@ -440,7 +440,7 @@ public class DiagnosticOperatorTests
     {
         var output = await CaptureConsoleOutAsync(async () =>
         {
-            await Stream.Range(1, 1)
+            await Flux.Range(1, 1)
                 .Trace("TracePrefix")
                 .DrainAsync();
         });
@@ -490,7 +490,7 @@ public class DiagnosticOperatorTests
     {
         var mockLogger = new Mock<ILogger>();
 
-        await Stream.Range(1, 1)
+        await Flux.Range(1, 1)
             .Trace(mockLogger.Object, "TraceLoggerPrefix")
             .DrainAsync();
 
@@ -522,7 +522,7 @@ public class DiagnosticOperatorTests
     {
         var logs = new List<string>();
         using var cts = new CancellationTokenSource();
-        var stream = Stream.Interval(TimeSpan.FromMilliseconds(10))
+        var stream = Flux.Interval(TimeSpan.FromMilliseconds(10))
             .TraceAction(s => logs.Add(s));
 
         var task = Task.Run(async () =>
@@ -546,7 +546,7 @@ public class DiagnosticOperatorTests
 #if DEBUG
         var output = await CaptureDebugOutAsync(async () =>
         {
-            await Stream.Range(1, 2)
+            await Flux.Range(1, 2)
                 .Debug("DebugPrefix")
                 .DrainAsync();
         });
@@ -555,7 +555,7 @@ public class DiagnosticOperatorTests
         Assert.That(output, Does.Contain("[DebugPrefix] Next(2)"));
         Assert.That(output, Does.Contain("[DebugPrefix] Completed"));
 #else
-        var result = await Stream.Range(1, 2)
+        var result = await Flux.Range(1, 2)
             .Debug("DebugPrefix")
             .ToListAsync();
 
@@ -657,7 +657,7 @@ public class DiagnosticOperatorTests
     {
         var items = new List<int>();
         Task OnNextAsync(int x) { items.Add(x); return Task.CompletedTask; }
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .DoOnNextAsync(OnNextAsync)
             .ToListAsync();
 
@@ -670,7 +670,7 @@ public class DiagnosticOperatorTests
     {
         var items = new List<int>();
         ValueTask OnNextAsync(int x) { items.Add(x); return ValueTask.CompletedTask; }
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .DoOnNextAsync(OnNextAsync)
             .ToListAsync();
 

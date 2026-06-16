@@ -42,7 +42,7 @@ public class TimeseriesTests
     public async Task MapWithTimestamp_ShouldWork()
     {
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        var source = Stream.From(1, 2, 3);
+        var source = Flux.From(1, 2, 3);
         var result = await source.MapWithTimestamp(x => start.AddMinutes(x)).ToListAsync();
 
         Assert.That(result, Has.Count.EqualTo(3));
@@ -66,7 +66,7 @@ public class TimeseriesTests
             Timestamped.Create(5, start.AddMinutes(21)),
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration);
 
         var windowStreams = await windows.ToListAsync();
@@ -94,7 +94,7 @@ public class TimeseriesTests
             Timestamped.Create(2, start.AddMinutes(10)), // Exclusive for first, inclusive for second
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration);
 
         var windowStreams = await windows.ToListAsync();
@@ -112,7 +112,7 @@ public class TimeseriesTests
     [Test]
     public async Task WindowByTime_Tumbling_ShouldHandleEmptyStream()
     {
-        var source = Stream.Empty<Timestamped<int>>();
+        var source = Flux.Empty<Timestamped<int>>();
         var windows = source.WindowByTime(TimeSpan.FromMinutes(10));
 
         var count = 0;
@@ -130,7 +130,7 @@ public class TimeseriesTests
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var items = new[] { Timestamped.Create(1, start) };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration: TimeSpan.FromMinutes(10));
 
         var windowStreams = await windows.ToListAsync();
@@ -158,7 +158,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(11)),
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, slide);
 
         var windowStreams = await windows.ToListAsync();
@@ -196,7 +196,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(11)),
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, slide);
 
         var windowStreams = await windows.ToListAsync();
@@ -225,7 +225,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(10)), // Start of Window starting at 10
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, slide);
 
         var windowStreams = await windows.ToListAsync();
@@ -257,7 +257,7 @@ public class TimeseriesTests
 
         // Produce 5 items for the same window, with capacity 2 and Fail mode
         var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
-        var source = Stream.From<Timestamped<int>>(items);
+        var source = Flux.From<Timestamped<int>>(items);
         var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.Fail);
 
         var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
@@ -280,7 +280,7 @@ public class TimeseriesTests
 
         // Produce 5 items for the same window, with capacity 2 and DropOldest mode
         var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
-        var source = Stream.From<Timestamped<int>>(items);
+        var source = Flux.From<Timestamped<int>>(items);
         var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.DropOldest);
 
         var windowStreams = await windows.ToListAsync();
@@ -306,7 +306,7 @@ public class TimeseriesTests
 
         // Produce 5 items for the same window, with capacity 2 and DropNewest mode
         var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
-        var source = Stream.From<Timestamped<int>>(items);
+        var source = Flux.From<Timestamped<int>>(items);
         var windows = source.WindowByTime(duration, capacity: 2, mode: ChannelBackpressureMode.DropNewest);
 
         var windowStreams = await windows.ToListAsync();
@@ -332,7 +332,7 @@ public class TimeseriesTests
 
         // Produce 5 items for the same window, with LatestOnly mode (capacity ignored, effective capacity 1)
         var items = Enumerable.Range(1, 5).Select(i => Timestamped.Create(i, start.AddMinutes(1)));
-        var source = Stream.From<Timestamped<int>>(items);
+        var source = Flux.From<Timestamped<int>>(items);
         var windows = source.WindowByTime(duration, mode: ChannelBackpressureMode.LatestOnly);
 
         var windowStreams = await windows.ToListAsync();
@@ -358,7 +358,7 @@ public class TimeseriesTests
         var duration = TimeSpan.FromMinutes(10);
 
         var itemsEmitted = 0;
-        var source = Stream.Create<Timestamped<int>>(async emitter =>
+        var source = Flux.Create<Timestamped<int>>(async emitter =>
         {
             for (int i = 1; i <= 5; i++)
             {
@@ -393,7 +393,7 @@ public class TimeseriesTests
 
         // 20 items, 1 per second
         var items = Enumerable.Range(0, 20).Select(i => Timestamped.Create(i, start.AddSeconds(i))).ToList();
-        var source = Stream.From<Timestamped<int>>(items);
+        var source = Flux.From<Timestamped<int>>(items);
 
         // Many overlapping windows, small capacity
         var windows = source.WindowByTime(duration, slide, capacity: 2);
@@ -424,7 +424,7 @@ public class TimeseriesTests
         var start = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var duration = TimeSpan.FromMinutes(10);
 
-        var source = Stream.From(
+        var source = Flux.From(
             Timestamped.Create(1, start.AddMinutes(1)),
             Timestamped.Create(2, start.AddMinutes(5))
         );
@@ -444,7 +444,7 @@ public class TimeseriesTests
         var duration = TimeSpan.FromMinutes(10);
 
         var tcs = new TaskCompletionSource<bool>();
-        var source = Stream.Create<Timestamped<int>>(async (emitter, ct) =>
+        var source = Flux.Create<Timestamped<int>>(async (emitter, ct) =>
         {
             await emitter.EmitAsync(Timestamped.Create(1, start.AddMinutes(1)));
             try
@@ -491,7 +491,7 @@ public class TimeseriesTests
             Timestamped.Create(5, start.AddMinutes(40)),  // New session 3
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowBySession(gap);
 
         var windowStreams = await windows.ToListAsync();
@@ -521,7 +521,7 @@ public class TimeseriesTests
             Timestamped.Create(4, start.AddMinutes(20)),  // Forward but within gap of original max
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowBySession(gap);
 
         var windowStreams = await windows.ToListAsync();
@@ -549,7 +549,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(50)), // max=50, wm=45. S2 finalized (45 >= 25+10). S3=[50,50]
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowBySession(gap, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -579,7 +579,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(10)), // Bridges S1 and S2 -> S3: [1, 20]
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowBySession(gap, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -608,7 +608,7 @@ public class TimeseriesTests
             Timestamped.Create(3, start.AddMinutes(40)), // Watermark: 35. New session
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowBySession(gap, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();

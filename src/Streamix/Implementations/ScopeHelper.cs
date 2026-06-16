@@ -7,7 +7,7 @@ static class ScopeHelper
 {
     public static async IAsyncEnumerable<T> ReadAllSupervisedAsync<T>(
         ChannelReader<T> reader,
-        StreamScope scope,
+        FluxScope scope,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         while (true)
@@ -34,7 +34,7 @@ static class ScopeHelper
         }
     }
 
-    public static async Task FinalizeScopeAsync(StreamScope scope)
+    public static async Task FinalizeScopeAsync(FluxScope scope)
     {
         try
         {

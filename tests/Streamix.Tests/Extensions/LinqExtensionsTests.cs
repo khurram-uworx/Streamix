@@ -9,7 +9,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Where_Filters_Elements()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x % 2 == 0)
             .ToListAsync();
 
@@ -19,7 +19,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Where_Returns_Empty_When_No_Match()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x > 10)
             .ToListAsync();
 
@@ -29,7 +29,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Where_Returns_All_When_All_Match()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x > 0)
             .ToListAsync();
 
@@ -40,7 +40,7 @@ public class LinqExtensionsTests
     public async Task Where_Works_With_String_Predicate()
     {
         var input = new[] { "apple", "banana", "apricot", "cherry" };
-        var result = await Stream.From(input.ToAsyncEnumerable())
+        var result = await Flux.From(input.ToAsyncEnumerable())
             .Where(x => x.StartsWith("a"))
             .ToListAsync();
 
@@ -50,7 +50,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Where_Chained_Multiple_Times()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .Where(x => x % 2 == 0)
             .Where(x => x > 3)
             .ToListAsync();
@@ -61,7 +61,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Select_Transforms_Elements()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Select(x => x * 10)
             .ToListAsync();
 
@@ -71,7 +71,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Select_Transforms_To_Different_Type()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Select(x => x.ToString())
             .ToListAsync();
 
@@ -82,7 +82,7 @@ public class LinqExtensionsTests
     public async Task Select_With_Complex_Transformation()
     {
         var input = new[] { 1, 2, 3 };
-        var result = await Stream.From(input.ToAsyncEnumerable())
+        var result = await Flux.From(input.ToAsyncEnumerable())
             .Select(x => new { Value = x, Squared = x * x })
             .ToListAsync();
 
@@ -96,7 +96,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Select_Chained_Multiple_Times()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Select(x => x * 2)
             .Select(x => x + 1)
             .ToListAsync();
@@ -107,7 +107,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Where_And_Select_Combined()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x % 2 == 0)
             .Select(x => x * 10)
             .ToListAsync();
@@ -118,8 +118,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectMany_Flattens_Nested_Streams()
     {
-        var result = await Stream.Range(1, 3)
-            .SelectMany(x => Stream.Range(1, x))
+        var result = await Flux.Range(1, 3)
+            .SelectMany(x => Flux.Range(1, x))
             .ToListAsync();
 
         // 1 -> [1], 2 -> [1,2], 3 -> [1,2,3]
@@ -129,8 +129,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectMany_With_Projection()
     {
-        var result = await Stream.Range(1, 2)
-            .SelectMany(x => Stream.Range(1, x).Select(y => $"{x}:{y}"))
+        var result = await Flux.Range(1, 2)
+            .SelectMany(x => Flux.Range(1, x).Select(y => $"{x}:{y}"))
             .ToListAsync();
 
         Assert.That(result, Is.EquivalentTo(new[] { "1:1", "2:1", "2:2" }));
@@ -139,8 +139,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectMany_Returns_Empty_For_Zero_Values()
     {
-        var result = await Stream.Range(1, 3)
-            .SelectMany(x => Stream.Range(1, x))
+        var result = await Flux.Range(1, 3)
+            .SelectMany(x => Flux.Range(1, x))
             .ToListAsync();
 
         Assert.That(result.Count, Is.EqualTo(6)); // 1 + 2 + 3 elements
@@ -149,8 +149,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectMany_With_Concurrency()
     {
-        var result = await Stream.Range(1, 3)
-            .SelectMany(x => Stream.Range(1, x), maxConcurrency: 2)
+        var result = await Flux.Range(1, 3)
+            .SelectMany(x => Flux.Range(1, x), maxConcurrency: 2)
             .ToListAsync();
 
         // Result should have the same number of elements, but order may vary due to concurrency
@@ -164,8 +164,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectMany_Chained()
     {
-        var result = await Stream.Range(1, 2)
-            .SelectMany(x => Stream.Range(1, x))
+        var result = await Flux.Range(1, 2)
+            .SelectMany(x => Flux.Range(1, x))
             .ToListAsync();
 
         Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2 }));
@@ -174,10 +174,10 @@ public class LinqExtensionsTests
     [Test]
     public async Task Complex_Chain_Where_Select_SelectMany()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x % 2 == 1)  // Get odd numbers: 1, 3, 5
             .Select(x => x * 2)      // Transform: 2, 6, 10
-            .SelectMany(x => Stream.Range(1, x))  // Flatten: Range(1,2), Range(1,6), Range(1,10)
+            .SelectMany(x => Flux.Range(1, x))  // Flatten: Range(1,2), Range(1,6), Range(1,10)
             .ToListAsync();
 
         // Result: Range(1,2)=[1,2], Range(1,6)=[1..6], Range(1,10)=[1..10]
@@ -193,7 +193,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Extensions_Work_With_Empty_Stream()
     {
-        var result = await Stream.Empty<int>()
+        var result = await Flux.Empty<int>()
             .Where(x => x > 0)
             .Select(x => x * 2)
             .ToListAsync();
@@ -205,7 +205,7 @@ public class LinqExtensionsTests
     public async Task Extensions_Preserve_Order()
     {
         var input = new[] { "zebra", "apple", "mango", "banana" };
-        var result = await Stream.From(input.ToAsyncEnumerable())
+        var result = await Flux.From(input.ToAsyncEnumerable())
             .Where(x => x.Length > 4)
             .Select(x => x.ToUpper())
             .ToListAsync();
@@ -222,7 +222,7 @@ public class LinqExtensionsTests
         {
             try
             {
-                await foreach (var item in Stream.Range(1, 100)
+                await foreach (var item in Flux.Range(1, 100)
                     .Where(x => x % 2 == 0)
                     .WithCancellation(cts.Token))
                 {
@@ -250,7 +250,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task WhereAsync_Filters_With_ValueTask()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .WhereAsync(x => new ValueTask<bool>(x % 2 == 0))
             .ToListAsync();
 
@@ -260,7 +260,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task WhereAsync_Filters_With_Async_Lambda()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .WhereAsync(async x =>
             {
                 await Task.Delay(1);
@@ -274,7 +274,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task WhereAsync_Chained()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .WhereAsync(x => new ValueTask<bool>(x > 3))
             .WhereAsync(x => new ValueTask<bool>(x < 8))
             .ToListAsync();
@@ -285,7 +285,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectAsync_Transforms_With_ValueTask()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectAsync(x => new ValueTask<int>(x * 10))
             .ToListAsync();
 
@@ -295,7 +295,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectAsync_Transforms_With_Async_Lambda()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectAsync(async x =>
             {
                 await Task.Delay(1);
@@ -309,7 +309,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectAsync_To_Different_Type()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectAsync(x => new ValueTask<string>(x.ToString()))
             .ToListAsync();
 
@@ -319,7 +319,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectAsync_Chained()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectAsync(x => new ValueTask<int>(x * 2))
             .SelectAsync(x => new ValueTask<int>(x + 1))
             .ToListAsync();
@@ -330,8 +330,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectManyAsync_Flattens_With_ValueTask()
     {
-        var result = await Stream.Range(1, 3)
-            .SelectManyAsync(x => new ValueTask<IStream<int>>(Stream.Range(1, x)))
+        var result = await Flux.Range(1, 3)
+            .SelectManyAsync(x => new ValueTask<IFlux<int>>(Flux.Range(1, x)))
             .ToListAsync();
 
         Assert.That(result, Is.EquivalentTo(new[] { 1, 1, 2, 1, 2, 3 }));
@@ -340,11 +340,11 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectManyAsync_Flattens_With_Async_Lambda()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectManyAsync(async x =>
             {
                 await Task.Delay(1);
-                return Stream.Range(1, x);
+                return Flux.Range(1, x);
             })
             .ToListAsync();
 
@@ -354,8 +354,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectManyAsync_With_Concurrency()
     {
-        var result = await Stream.Range(1, 3)
-            .SelectManyAsync(x => new ValueTask<IStream<int>>(Stream.Range(1, x)), maxConcurrency: 2)
+        var result = await Flux.Range(1, 3)
+            .SelectManyAsync(x => new ValueTask<IFlux<int>>(Flux.Range(1, x)), maxConcurrency: 2)
             .ToListAsync();
 
         // Result should have 6 elements (1 + 2 + 3), order may vary due to concurrency
@@ -368,12 +368,12 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectManyAsync_With_Concurrency_Async_Lambda()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .SelectManyAsync(
                 async x =>
                 {
                     await Task.Delay(1);
-                    return Stream.Range(1, x);
+                    return Flux.Range(1, x);
                 },
                 maxConcurrency: 2)
             .ToListAsync();
@@ -390,9 +390,9 @@ public class LinqExtensionsTests
         int maxObservedConcurrency = 0;
         var lockObj = new object();
 
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .SelectManyAsync(
-                x => new ValueTask<IStream<int>>(Stream.Create<int>(async emitter =>
+                x => new ValueTask<IFlux<int>>(Flux.Create<int>(async emitter =>
                 {
                     var currentActive = Interlocked.Increment(ref activeStreams);
 
@@ -422,7 +422,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Combined_Async_And_Sync_Extensions()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .WhereAsync(x => new ValueTask<bool>(x % 2 == 0))  // Keep even: 2, 4, 6, 8, 10
             .Select(x => x * 2)                               // Transform: 4, 8, 12, 16, 20
             .SelectAsync(x => new ValueTask<int>(x + 1))      // Add 1: 5, 9, 13, 17, 21
@@ -436,7 +436,7 @@ public class LinqExtensionsTests
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.Range(1, 5)
+            await Flux.Range(1, 5)
                 .SelectAsync(async x =>
                 {
                     if (x == 3) throw new InvalidOperationException("Test error");
@@ -453,7 +453,7 @@ public class LinqExtensionsTests
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.Range(1, 5)
+            await Flux.Range(1, 5)
                 .WhereAsync(async x =>
                 {
                     if (x == 3) throw new InvalidOperationException("Predicate error");
@@ -470,11 +470,11 @@ public class LinqExtensionsTests
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await Stream.Range(1, 3)
+            await Flux.Range(1, 3)
                 .SelectManyAsync(async x =>
                 {
                     if (x == 2) throw new InvalidOperationException("SelectMany error");
-                    return Stream.Range(1, x);
+                    return Flux.Range(1, x);
                 })
                 .ToListAsync();
         });
@@ -485,7 +485,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task WhereAsync_Empty_Stream()
     {
-        var result = await Stream.Empty<int>()
+        var result = await Flux.Empty<int>()
             .WhereAsync(x => new ValueTask<bool>(x > 0))
             .ToListAsync();
 
@@ -495,7 +495,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectAsync_Empty_Stream()
     {
-        var result = await Stream.Empty<int>()
+        var result = await Flux.Empty<int>()
             .SelectAsync(x => new ValueTask<int>(x * 2))
             .ToListAsync();
 
@@ -505,8 +505,8 @@ public class LinqExtensionsTests
     [Test]
     public async Task SelectManyAsync_Empty_Stream()
     {
-        var result = await Stream.Empty<int>()
-            .SelectManyAsync(x => new ValueTask<IStream<int>>(Stream.Range(1, x)))
+        var result = await Flux.Empty<int>()
+            .SelectManyAsync(x => new ValueTask<IFlux<int>>(Flux.Range(1, x)))
             .ToListAsync();
 
         Assert.That(result, Is.Empty);
@@ -515,7 +515,7 @@ public class LinqExtensionsTests
     [Test]
     public async Task Complex_Async_Chain()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .WhereAsync(x => new ValueTask<bool>(x > 2))           // 3, 4, 5, 6, 7, 8, 9, 10
             .SelectAsync(async x =>
             {
@@ -523,7 +523,7 @@ public class LinqExtensionsTests
                 return x % 2 == 0 ? x : 0;
             })                                                      // 0, 4, 0, 6, 0, 8, 0, 10
             .WhereAsync(x => new ValueTask<bool>(x > 0))           // 4, 6, 8, 10
-            .SelectManyAsync(x => new ValueTask<IStream<int>>(Stream.Range(1, x / 2)))  // range(1,2), range(1,3), range(1,4), range(1,5)
+            .SelectManyAsync(x => new ValueTask<IFlux<int>>(Flux.Range(1, x / 2)))  // range(1,2), range(1,3), range(1,4), range(1,5)
             .ToListAsync();
 
         // range(1,2) = [1,2], range(1,3) = [1,2,3], range(1,4) = [1,2,3,4], range(1,5) = [1,2,3,4,5]
@@ -539,7 +539,7 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_Where_Select()
     {
         var result = await (
-            from x in Stream.Range(1, 10)
+            from x in Flux.Range(1, 10)
             where x % 2 == 0
             select x * 10
         ).ToListAsync();
@@ -551,7 +551,7 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_Multiple_Where_Clauses()
     {
         var result = await (
-            from x in Stream.Range(1, 20)
+            from x in Flux.Range(1, 20)
             where x % 2 == 0
             where x > 5
             select x
@@ -564,8 +564,8 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_SelectMany_TwoFroms()
     {
         var result = await (
-            from x in Stream.Range(1, 3)
-            from y in Stream.Range(1, x)
+            from x in Flux.Range(1, 3)
+            from y in Flux.Range(1, x)
             select (x, y)
         ).ToListAsync();
 
@@ -577,9 +577,9 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_SelectMany_With_Where()
     {
         var result = await (
-            from x in Stream.Range(1, 5)
+            from x in Flux.Range(1, 5)
             where x % 2 == 1
-            from y in Stream.Range(1, x)
+            from y in Flux.Range(1, x)
             select (x, y)
         ).ToListAsync();
 
@@ -595,7 +595,7 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_With_Let()
     {
         var result = await (
-            from x in Stream.Range(1, 10)
+            from x in Flux.Range(1, 10)
             let squared = x * x
             where squared > 25
             select (x, squared)
@@ -610,7 +610,7 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_Complex_Transformation()
     {
         var result = await (
-            from x in Stream.Range(1, 5)
+            from x in Flux.Range(1, 5)
             where x > 1
             let doubled = x * 2
             select new { Original = x, Doubled = doubled, Squared = x * x }
@@ -624,8 +624,8 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_Nested_SelectMany()
     {
         var result = await (
-            from x in Stream.Range(1, 3)
-            from y in Stream.Range(1, 2)
+            from x in Flux.Range(1, 3)
+            from y in Flux.Range(1, 2)
             select x * 10 + y
         ).ToListAsync();
 
@@ -637,13 +637,13 @@ public class LinqExtensionsTests
     {
         // Query syntax
         var queryResult = await (
-            from x in Stream.Range(1, 10)
+            from x in Flux.Range(1, 10)
             where x % 2 == 0
             select x * 10
         ).ToListAsync();
 
         // Fluent syntax
-        var fluentResult = await Stream.Range(1, 10)
+        var fluentResult = await Flux.Range(1, 10)
             .Where(x => x % 2 == 0)
             .Select(x => x * 10)
             .ToListAsync();
@@ -655,9 +655,9 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_Three_From_Clauses()
     {
         var result = await (
-            from x in Stream.Range(1, 2)
-            from y in Stream.Range(1, 2)
-            from z in Stream.Range(1, 2)
+            from x in Flux.Range(1, 2)
+            from y in Flux.Range(1, 2)
+            from z in Flux.Range(1, 2)
             select (x, y, z)
         ).ToListAsync();
 
@@ -672,9 +672,9 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_With_Where_On_Multiple_Levels()
     {
         var result = await (
-            from x in Stream.Range(1, 5)
+            from x in Flux.Range(1, 5)
             where x < 4
-            from y in Stream.Range(1, x)
+            from y in Flux.Range(1, x)
             where y > 0
             select (x, y)
         ).ToListAsync();
@@ -691,7 +691,7 @@ public class LinqExtensionsTests
     public async Task Query_Syntax_With_String_Transformation()
     {
         var result = await (
-            from x in Stream.Range(1, 5)
+            from x in Flux.Range(1, 5)
             where x % 2 == 0
             select $"Number: {x}"
         ).ToListAsync();
@@ -704,14 +704,14 @@ public class LinqExtensionsTests
     {
         // Complex query using both syntaxes
         var queryVersionResult = await (
-            from x in Stream.Range(1, 20)
+            from x in Flux.Range(1, 20)
             where x > 5
             let squared = x * x
             where squared < 200
             select new { Value = x, Squared = squared }
         ).ToListAsync();
 
-        var fluentVersionResult = await Stream.Range(1, 20)
+        var fluentVersionResult = await Flux.Range(1, 20)
             .Where(x => x > 5)
             .Select(x => new { Value = x, Squared = x * x })
             .Where(item => item.Squared < 200)

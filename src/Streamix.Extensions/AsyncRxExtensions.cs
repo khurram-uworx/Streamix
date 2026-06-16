@@ -34,12 +34,12 @@ public static class AsyncRxExtensions
     }
 
     /// <summary>
-    /// Converts an <see cref="IStream{T}"/> to an <see cref="IAsyncObservable{T}"/>.
+    /// Converts an <see cref="IFlux{T}"/> to an <see cref="IAsyncObservable{T}"/>.
     /// </summary>
     /// <typeparam name="T">The type of elements in the stream.</typeparam>
     /// <param name="stream">The source stream.</param>
     /// <returns>An asynchronous observable that emits elements from the stream.</returns>
-    public static IAsyncObservable<T> ToAsyncObservable<T>(this IStream<T> stream)
+    public static IAsyncObservable<T> ToAsyncObservable<T>(this IFlux<T> stream)
     {
         return AsyncObservable.Create<T>(async observer =>
         {
@@ -132,13 +132,13 @@ public static class AsyncRxExtensions
     }
 
     /// <summary>
-    /// Converts an <see cref="IAsyncObservable{T}"/> to an <see cref="IStream{T}"/>.
+    /// Converts an <see cref="IAsyncObservable{T}"/> to an <see cref="IFlux{T}"/>.
     /// </summary>
     /// <typeparam name="T">The type of elements in the observable.</typeparam>
     /// <param name="source">The source asynchronous observable.</param>
     /// <returns>A stream that emits elements from the observable.</returns>
-    public static IStream<T> ToStream<T>(this IAsyncObservable<T> source)
-        => Stream.From(toAsyncEnumerable(source));
+    public static IFlux<T> ToStream<T>(this IAsyncObservable<T> source)
+        => Flux.From(toAsyncEnumerable(source));
 
     /// <summary>
     /// Converts an <see cref="IAsyncObservable{T}"/> to an <see cref="ISingle{T}"/>.

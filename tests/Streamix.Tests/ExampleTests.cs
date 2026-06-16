@@ -69,7 +69,7 @@ public class ExampleTests
     public record Order(int Id, int UserId, string Product);
 
     private ISingle<User> GetUser(int id) => Single.From(new User(id, "User" + id));
-    private IStream<Order> GetOrders(User user) => Stream.From(new List<Order>
+    private IFlux<Order> GetOrders(User user) => Flux.From(new List<Order>
     {
         new Order(1, user.Id, "Product A"),
         new Order(2, user.Id, "Product B")
@@ -87,7 +87,7 @@ public class ExampleTests
         var output = new List<int>();
 
         // Example from README.md
-        await Stream.Range(1, 10)
+        await Flux.Range(1, 10)
             .Filter(x => x % 2 == 0)
             .Map(x => x * 10)
             .ForEachAsync(item => output.Add(item));
@@ -113,7 +113,7 @@ public class ExampleTests
     [Test]
     public async Task Readme_Concurrency_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var output = new List<string>();
 
         // Example from README.md
@@ -129,7 +129,7 @@ public class ExampleTests
     public async Task Readme_HotVsCold_Works()
     {
         // Example from README.md
-        var cold = Stream.Range(1, 3);  // cold by default
+        var cold = Flux.Range(1, 3);  // cold by default
         var hot = cold.Publish().RefCount(); // shared hot stream
 
         var sub1 = new List<int>();
@@ -153,7 +153,7 @@ public class ExampleTests
         var asyncEnumerable = AsyncEnumerable.Range(1, 3);
 
         // From IAsyncEnumerable
-        IStream<int> stream = Stream.From(asyncEnumerable);
+        IFlux<int> stream = Flux.From(asyncEnumerable);
         Assert.That(stream, Is.Not.Null);
 
         // To AsyncRx.NET
@@ -161,7 +161,7 @@ public class ExampleTests
         Assert.That(obs, Is.Not.Null);
 
         // From AsyncRx.NET
-        IStream<int> streamFromObs = obs.ToStream();
+        IFlux<int> streamFromObs = obs.ToStream();
         Assert.That(streamFromObs, Is.Not.Null);
     }
 
@@ -170,7 +170,7 @@ public class ExampleTests
     {
         var output = new List<int>();
 
-        await Stream.Range(1, 3).ToSinkAsync(
+        await Flux.Range(1, 3).ToSinkAsync(
             (item, _) =>
             {
                 output.Add(item);
@@ -183,7 +183,7 @@ public class ExampleTests
     [Test]
     public async Task Readme_Execution_Works()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         // Example from README.md
         var scheduledStream = stream.RunOn(TaskScheduler.Default);
 
@@ -195,11 +195,11 @@ public class ExampleTests
     [Test]
     public async Task Readme_ErrorHandling_Works()
     {
-        var stream = Stream.Range(1, 3).Map(x => x == 2 ? throw new Exception("Boom") : x);
+        var stream = Flux.Range(1, 3).Map(x => x == 2 ? throw new Exception("Boom") : x);
 
         // Example from README.md
         var recovered = stream
-            .OnErrorResume(ex => Stream.Empty<int>());
+            .OnErrorResume(ex => Flux.Empty<int>());
 
         var output = new List<int>();
         await recovered.ForEachAsync(output.Add);
@@ -211,7 +211,7 @@ public class ExampleTests
     {
         var source = new AsyncEventSource<int>();
 
-        var subscriptionTask = Stream.FromEvent<int>(source.Subscribe)
+        var subscriptionTask = Flux.FromEvent<int>(source.Subscribe)
             .Take(2)
             .ToListAsync();
 

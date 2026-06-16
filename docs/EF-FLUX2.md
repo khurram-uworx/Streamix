@@ -1,4 +1,4 @@
-# EF Stream Follow-Up
+# EF Flux Follow-Up
 
 ## Purpose
 

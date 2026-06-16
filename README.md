@@ -11,7 +11,7 @@ Modern .NET gives us `IAsyncEnumerable<T>` and channels, but it still leaves a g
 
 Streamix fills that gap with:
 
-- `Stream<T>` for 0..N values
+- `Flux<T>` for 0..N values
 - `Single<T>` for 0..1 values
 - declarative operators for mapping, filtering, flattening, timing, retries, and recovery
 - `DoOnNextAsync`, `OfType<T,TResult>`, `Cast<T,TResult>`, and `IAsyncEnumerable`-backed `FlatMap`
@@ -27,7 +27,7 @@ The default mental model is simple:
 ## Quick Taste
 
 ```csharp
-await Stream.Range(1, 10)
+await Flux.Range(1, 10)
     .Named("MyStream")
     .Log()
     .Filter(x => x % 2 == 0)
@@ -38,14 +38,14 @@ await Stream.Range(1, 10)
 ```csharp
 var products =
     GetUser(id)                       // Single<User>
-    .FlatMap(user => GetOrders(user)) // Stream<Order>
-    .Map(o => o.Product);             // Stream<string>
+    .FlatMap(user => GetOrders(user)) // Flux<Order>
+    .Map(o => o.Product);             // Flux<string>
 ```
 
 Streamix provides several operators to help you observe and debug your reactive pipelines.
 
 ```csharp
-await Stream.Range(1, 100)
+await Flux.Range(1, 100)
     .Named("Orders")
     .Trace()
     .Checkpoint("ProcessStart")
@@ -58,7 +58,7 @@ Streamix supports both fluent and query comprehension syntax.
 
 ```csharp
 var result = await (
-    from x in Stream.Range(1, 10)
+    from x in Flux.Range(1, 10)
     where x % 2 == 0
     select x * 10
 ).ToListAsync();
@@ -87,10 +87,10 @@ await stateStream
     .ForEachAsync(Console.WriteLine);
 ```
 
-Streamix provides a first-class structured concurrency model via `Stream.ScopedAsync`. It ensures that concurrent tasks have well-defined lifetimes, clear parent-child relationships, and predictable fail-fast semantics.
+Streamix provides a first-class structured concurrency model via `Flux.ScopedAsync`. It ensures that concurrent tasks have well-defined lifetimes, clear parent-child relationships, and predictable fail-fast semantics.
 
 ```csharp
-await Stream.ScopedAsync(async scope =>
+await Flux.ScopedAsync(async scope =>
 {
     scope.Run(async ct =>
     {

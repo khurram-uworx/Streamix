@@ -6,12 +6,12 @@ using System.Threading.Channels;
 namespace Streamix.Tests;
 
 [TestFixture]
-public class StreamTests
+public class FluxTests
 {
     [Test]
     public async Task Empty_Stream_Is_Empty()
     {
-        IStream<int> stream = Stream.Empty<int>();
+        IFlux<int> stream = Flux.Empty<int>();
 
         int count = 0;
         await foreach (var _ in stream)
@@ -23,7 +23,7 @@ public class StreamTests
     [Test]
     public async Task Range_Stream_Emits_Correct_Values()
     {
-        IStream<int> stream = Stream.Range(1, 5);
+        IFlux<int> stream = Flux.Range(1, 5);
         var result = new List<int>();
         await foreach (var item in stream)
         {
@@ -43,7 +43,7 @@ public class StreamTests
             yield return 30;
         }
 
-        IStream<int> stream = Stream.From(Source());
+        IFlux<int> stream = Flux.From(Source());
         var result = new List<int>();
         await foreach (var item in stream)
         {
@@ -62,7 +62,7 @@ public class StreamTests
             yield return sideEffect;
         }
 
-        IStream<int> stream = Stream.From(Source());
+        IFlux<int> stream = Flux.From(Source());
 
         var result1 = new List<int>();
         await foreach (var item in stream) result1.Add(item);
@@ -79,7 +79,7 @@ public class StreamTests
     public void Range_Throws_When_Cancelled()
     {
         var cts = new CancellationTokenSource();
-        IStream<int> stream = Stream.Range(1, 100);
+        IFlux<int> stream = Flux.Range(1, 100);
 
         cts.Cancel();
 
@@ -94,7 +94,7 @@ public class StreamTests
     [Test]
     public async Task ForEachAsync_Action_Executes_For_All_Items()
     {
-        IStream<int> stream = Stream.Range(1, 5);
+        IFlux<int> stream = Flux.Range(1, 5);
         var result = new List<int>();
         await stream.ForEachAsync(item => result.Add(item));
         Assert.That(result, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
@@ -103,7 +103,7 @@ public class StreamTests
     [Test]
     public async Task ForEachAsync_Func_Executes_For_All_Items()
     {
-        IStream<int> stream = Stream.Range(1, 5);
+        IFlux<int> stream = Flux.Range(1, 5);
         var result = new List<int>();
         await stream.ForEachAsync(async item =>
         {
@@ -122,7 +122,7 @@ public class StreamTests
             throw new InvalidOperationException("Test exception");
         }
 
-        IStream<int> stream = Stream.From(Source());
+        IFlux<int> stream = Flux.From(Source());
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -134,7 +134,7 @@ public class StreamTests
     public void ForEachAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        IStream<int> stream = Stream.Range(1, 10);
+        IFlux<int> stream = Flux.Range(1, 10);
 
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
@@ -153,7 +153,7 @@ public class StreamTests
         await channel.Writer.WriteAsync(2);
         channel.Writer.Complete();
 
-        var stream = Stream.FromChannel(channel);
+        var stream = Flux.FromChannel(channel);
         var result = await stream.ToListAsync();
 
         Assert.That(result, Is.EqualTo(new[] { 1, 2 }));
@@ -165,7 +165,7 @@ public class StreamTests
         var channel = Channel.CreateUnbounded<int>();
         channel.Writer.TryComplete(new InvalidOperationException("Channel Error"));
 
-        var stream = Stream.FromChannel(channel);
+        var stream = Flux.FromChannel(channel);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -175,7 +175,7 @@ public class StreamTests
     {
         var queue = new Queue<int>(new[] { 1, 2, 3 });
 
-        var stream = Stream.FromQueue(queue);
+        var stream = Flux.FromQueue(queue);
         var result = await stream.ToListAsync();
 
         Assert.That(result, Is.EqualTo(new[] { 1, 2, 3 }));
@@ -186,7 +186,7 @@ public class StreamTests
     public async Task FromQueue_Subsequent_Subscription_Sees_Remaining_Queue_State()
     {
         var queue = new Queue<int>(new[] { 10, 20 });
-        var stream = Stream.FromQueue(queue);
+        var stream = Flux.FromQueue(queue);
 
         var first = await stream.Take(1).ToListAsync();
         var second = await stream.ToListAsync();
@@ -200,7 +200,7 @@ public class StreamTests
     public async Task ToChannel_Writes_All_Items()
     {
         var channel = Channel.CreateUnbounded<int>();
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
 
         await stream.ToChannel(channel.Writer);
 
@@ -217,7 +217,7 @@ public class StreamTests
     public async Task ToChannel_Supports_Backpressure()
     {
         var channel = Channel.CreateBounded<int>(1);
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
 
         var toChannelTask = stream.ToChannel(channel.Writer);
 
@@ -243,7 +243,7 @@ public class StreamTests
         }
 
         var channel = Channel.CreateUnbounded<int>();
-        var stream = Stream.From(Source());
+        var stream = Flux.From(Source());
 
         try
         {
@@ -266,7 +266,7 @@ public class StreamTests
         }
 
         var channel = Channel.CreateUnbounded<int>();
-        var stream = Stream.From(Source());
+        var stream = Flux.From(Source());
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.ToChannel(channel.Writer));
@@ -280,7 +280,7 @@ public class StreamTests
     public async Task ToChannel_Does_Not_Complete_Writer_If_Requested()
     {
         var channel = Channel.CreateUnbounded<int>();
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
 
         await stream.ToChannel(channel.Writer, completeWriter: false);
 
@@ -299,7 +299,7 @@ public class StreamTests
         var cts = new CancellationTokenSource();
         var channel = Channel.CreateUnbounded<int>();
 
-        var stream = Stream.Range(1, 100).DoOnNext(x =>
+        var stream = Flux.Range(1, 100).DoOnNext(x =>
         {
             if (x == 5) cts.Cancel();
         });
@@ -311,7 +311,7 @@ public class StreamTests
     [Test]
     public async Task ToChannel_WithModeFail_PropagatesBackpressureException()
     {
-        var reader = Stream.Range(1, 100).ToChannel(1, ChannelBackpressureMode.Fail);
+        var reader = Flux.Range(1, 100).ToChannel(1, ChannelBackpressureMode.Fail);
 
         Assert.That(await reader.ReadAsync(), Is.EqualTo(1));
         Assert.ThrowsAsync<BackpressureException>(async () => await reader.Completion);
@@ -322,7 +322,7 @@ public class StreamTests
     {
         var receivedFirst = new TaskCompletionSource<bool>();
         var producerFinished = new TaskCompletionSource<bool>();
-        var reader = Stream.Create<int>(async emitter =>
+        var reader = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             await receivedFirst.Task;
@@ -347,7 +347,7 @@ public class StreamTests
     [Test]
     public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull()
     {
-        var stream = Stream.Range(1, 100).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
+        var stream = Flux.Range(1, 100).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
 
         var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
         {
@@ -365,7 +365,7 @@ public class StreamTests
     {
         var consumerReceivedFirstTcs = new TaskCompletionSource<bool>();
 
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             await consumerReceivedFirstTcs.Task;
@@ -392,7 +392,7 @@ public class StreamTests
     [Test]
     public async Task RunOnChannel_PreservesOrdering()
     {
-        var results = await Stream.Range(1, 50)
+        var results = await Flux.Range(1, 50)
             .RunOnChannel(capacity: 8, degreeOfParallelism: 4)
             .ToListAsync();
 
@@ -413,7 +413,7 @@ public class StreamTests
         await second.Writer.WriteAsync(4);
         second.Writer.Complete();
 
-        var results = await Stream.MergeChannels(first.Reader, second.Reader).ToListAsync();
+        var results = await Flux.MergeChannels(first.Reader, second.Reader).ToListAsync();
 
         Assert.That(results.OrderBy(x => x), Is.EqualTo(new[] { 1, 2, 3, 4 }));
     }
@@ -423,7 +423,7 @@ public class StreamTests
     {
         var channel = Channel.CreateUnbounded<int>();
 
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .TeeToChannel(channel.Writer, completeWriter: true)
             .ToListAsync();
 
@@ -442,7 +442,7 @@ public class StreamTests
     {
         var channel = Channel.CreateUnbounded<int>();
 
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .TeeToChannel(channel.Writer)
             .ToListAsync();
 
@@ -460,7 +460,7 @@ public class StreamTests
         }
 
         var channel = Channel.CreateUnbounded<int>();
-        var stream = Stream.From(Source()).TeeToChannel(channel.Writer, completeWriter: true);
+        var stream = Flux.From(Source()).TeeToChannel(channel.Writer, completeWriter: true);
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
 
@@ -473,7 +473,7 @@ public class StreamTests
     public async Task From_IEnumerable_Emits_Correct_Values()
     {
         var items = new List<int> { 1, 2, 3, 4, 5 };
-        var stream = Stream.From((IEnumerable<int>)items);
+        var stream = Flux.From((IEnumerable<int>)items);
 
         var result = await stream.ToListAsync();
 
@@ -491,7 +491,7 @@ public class StreamTests
             yield return 2;
         }
 
-        var stream = Stream.From(Source());
+        var stream = Flux.From(Source());
 
         Assert.That(await stream.ToListAsync(), Is.EqualTo(new[] { 1, 2 }));
         Assert.That(await stream.ToListAsync(), Is.EqualTo(new[] { 1, 2 }));
@@ -507,7 +507,7 @@ public class StreamTests
             throw new InvalidOperationException("Enumeration failure");
         }
 
-        var stream = Stream.From(Source());
+        var stream = Flux.From(Source());
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -515,7 +515,7 @@ public class StreamTests
     [Test]
     public async Task From_Params_Array_Emits_Correct_Values()
     {
-        var stream = Stream.From(1, 2, 3);
+        var stream = Flux.From(1, 2, 3);
 
         var result = await stream.ToListAsync();
 
@@ -525,7 +525,7 @@ public class StreamTests
     [Test]
     public async Task From_Params_Array_Reenumerates_Per_Subscription()
     {
-        var stream = Stream.From(1, 2, 3);
+        var stream = Flux.From(1, 2, 3);
 
         Assert.That(await stream.ToListAsync(), Is.EqualTo(new[] { 1, 2, 3 }));
         Assert.That(await stream.ToListAsync(), Is.EqualTo(new[] { 1, 2, 3 }));
@@ -535,7 +535,7 @@ public class StreamTests
     public async Task From_AsyncEnumerable_Factory_Is_Lazy_And_Invoked_Once_Per_Subscriber()
     {
         int factoryInvocations = 0;
-        var stream = Stream.From((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
+        var stream = Flux.From((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
         {
             factoryInvocations++;
             return GetItems();
@@ -563,7 +563,7 @@ public class StreamTests
     public async Task From_AsyncEnumerable_Factory_Respects_Cancellation()
     {
         var factoryCts = new TaskCompletionSource<CancellationToken>();
-        var stream = Stream.From((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
+        var stream = Flux.From((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
         {
             factoryCts.SetResult(ct);
             return GetItems(ct);
@@ -593,14 +593,14 @@ public class StreamTests
     [Test]
     public async Task From_AsyncEnumerable_Factory_Propagates_Exception()
     {
-        var stream = Stream.From<int>((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
+        var stream = Flux.From<int>((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
         {
             throw new InvalidOperationException("Factory error");
         }));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
 
-        var stream2 = Stream.From<int>((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
+        var stream2 = Flux.From<int>((Func<CancellationToken, IAsyncEnumerable<int>>)(ct =>
         {
             return GetItems();
 
@@ -620,7 +620,7 @@ public class StreamTests
     public async Task FromTimer_Emits_Single_Zero_And_Completes()
     {
         var clock = new TestClock();
-        var stream = Stream.FromTimer(TimeSpan.FromSeconds(5), clock);
+        var stream = Flux.FromTimer(TimeSpan.FromSeconds(5), clock);
         var subscriberTask = stream.ToListAsync();
 
         Assert.That(clock.ScheduledDelays.Count, Is.EqualTo(1));
@@ -638,7 +638,7 @@ public class StreamTests
         var clock = new TestClock();
 
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
-            await Stream.FromTimer(TimeSpan.FromSeconds(-1), clock).ToListAsync());
+            await Flux.FromTimer(TimeSpan.FromSeconds(-1), clock).ToListAsync());
     }
 
     [Test]
@@ -647,7 +647,7 @@ public class StreamTests
         var producerSettled = false;
         var tcs = new TaskCompletionSource();
 
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             try
             {
@@ -680,7 +680,7 @@ public class StreamTests
         var workersFinished = 0;
         var tcs = new TaskCompletionSource();
 
-        var stream = Stream.From(1, 2, 3)
+        var stream = Flux.From(1, 2, 3)
             .DoOnNext(i => { if (i == 1) tcs.SetResult(); })
             .RunOnChannel(capacity: 8, degreeOfParallelism: 3)
             .MapAwait(async i =>

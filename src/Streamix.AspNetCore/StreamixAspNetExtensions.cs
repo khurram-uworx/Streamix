@@ -22,7 +22,7 @@ public static class StreamixAspNetExtensions
     /// <param name="stream">The stream to serialize and send.</param>
     /// <param name="response">The HttpResponse to write to.</param>
     /// <param name="ct">Cancellation token.</param>
-    public static async Task ToSseAsync<T>(this IStream<T> stream, HttpResponse response,
+    public static async Task ToSseAsync<T>(this IFlux<T> stream, HttpResponse response,
         CancellationToken ct = default)
     {
         response.ContentType = "text/event-stream";
@@ -43,7 +43,7 @@ public static class StreamixAspNetExtensions
     /// <param name="stream">The stream to serialize and send.</param>
     /// <param name="webSocket">The WebSocket to write to.</param>
     /// <param name="ct">Cancellation token.</param>
-    public static async Task ToWebSocketAsync<T>(this IStream<T> stream, WebSocket webSocket,
+    public static async Task ToWebSocketAsync<T>(this IFlux<T> stream, WebSocket webSocket,
         CancellationToken ct = default)
         => await stream.ToWebSocketAsync(webSocket, serializeToJsonBytes, ct);
 
@@ -54,7 +54,7 @@ public static class StreamixAspNetExtensions
     /// <param name="webSocket">The WebSocket to write to.</param>
     /// <param name="serializer">Function to serialize each item to bytes.</param>
     /// <param name="ct">Cancellation token.</param>
-    public static async Task ToWebSocketAsync<T>(this IStream<T> stream, WebSocket webSocket,
+    public static async Task ToWebSocketAsync<T>(this IFlux<T> stream, WebSocket webSocket,
         Func<T, byte[]> serializer,
         CancellationToken ct = default)
     {
@@ -88,7 +88,7 @@ public static class StreamixAspNetExtensions
     /// <param name="stream">The stream to collect and serialize.</param>
     /// <param name="response">The HttpResponse to write to.</param>
     /// <param name="ct">Cancellation token.</param>
-    public static async Task ToJsonResponseAsync<T>(this IStream<T> stream, HttpResponse response,
+    public static async Task ToJsonResponseAsync<T>(this IFlux<T> stream, HttpResponse response,
         CancellationToken ct = default)
     {
         var list = await stream.ToListAsync(ct);

@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 
 namespace Streamix.Implementations;
 
-sealed class StreamScope : IStreamScope, IAsyncDisposable
+sealed class FluxScope : IStreamScope, IAsyncDisposable
 {
     readonly CancellationToken externalToken;
     readonly CancellationTokenSource cts;
@@ -12,7 +12,7 @@ sealed class StreamScope : IStreamScope, IAsyncDisposable
     Exception? firstException;
     bool disposed;
 
-    public StreamScope(CancellationToken externalToken)
+    public FluxScope(CancellationToken externalToken)
     {
         this.externalToken = externalToken;
         this.cts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
@@ -59,7 +59,7 @@ sealed class StreamScope : IStreamScope, IAsyncDisposable
 
         lock (syncRoot)
         {
-            if (disposed) throw new ObjectDisposedException(nameof(StreamScope));
+            if (disposed) throw new ObjectDisposedException(nameof(FluxScope));
 
             var key = new object();
             var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -97,7 +97,7 @@ sealed class StreamScope : IStreamScope, IAsyncDisposable
 
         lock (syncRoot)
         {
-            if (disposed) throw new ObjectDisposedException(nameof(StreamScope));
+            if (disposed) throw new ObjectDisposedException(nameof(FluxScope));
 
             var key = new object();
             var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);

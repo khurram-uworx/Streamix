@@ -97,7 +97,7 @@ static class ChannelExecution
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var channel = CreateChannel<T>(capacity, mode, singleWriter: true, singleReader: true);
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         try
         {
@@ -148,7 +148,7 @@ static class ChannelExecution
             SingleWriter = degreeOfParallelism == 1
         });
 
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         scope.Run(async ct =>
         {

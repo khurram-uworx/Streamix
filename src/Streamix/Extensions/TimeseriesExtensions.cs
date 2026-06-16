@@ -3,7 +3,7 @@ using System.Threading.Channels;
 namespace Streamix;
 
 /// <summary>
-/// Provides time-series extension methods for <see cref="IStream{T}"/>.
+/// Provides time-series extension methods for <see cref="IFlux{T}"/>.
 /// </summary>
 public static class TimeseriesExtensions
 {
@@ -32,7 +32,7 @@ public static class TimeseriesExtensions
     }
 
     static async Task processingTimeCoordinatorRunAsync<T>(
-        IStream<T> source,
+        IFlux<T> source,
         TimeSpan interval,
         CancellationToken cancellationToken,
         Func<ProcessingTimeSignal<T>, ValueTask<bool>> onSignal)
@@ -121,7 +121,7 @@ public static class TimeseriesExtensions
     /// <param name="source">The source stream.</param>
     /// <param name="timestampSelector">A function to extract the timestamp from each element.</param>
     /// <returns>A stream of timestamped items.</returns>
-    public static IStream<Timestamped<T>> MapWithTimestamp<T>(this IStream<T> source, Func<T, DateTimeOffset> timestampSelector)
+    public static IFlux<Timestamped<T>> MapWithTimestamp<T>(this IFlux<T> source, Func<T, DateTimeOffset> timestampSelector)
     {
         return source.Map(x => Timestamped.Create(x, timestampSelector(x)));
     }
@@ -138,8 +138,8 @@ public static class TimeseriesExtensions
     /// <param name="mode">The backpressure mode for each window.</param>
     /// <param name="outOfOrderness">The maximum out-of-orderness allowed before an event is considered late. If not null, enables watermark-aware behavior.</param>
     /// <returns>A stream of window streams.</returns>
-    public static IStream<IStream<Timestamped<T>>> WindowByTime<T>(
-        this IStream<Timestamped<T>> source,
+    public static IFlux<IFlux<Timestamped<T>>> WindowByTime<T>(
+        this IFlux<Timestamped<T>> source,
         TimeSpan duration,
         TimeSpan? slide = null,
         int capacity = 16,
@@ -150,7 +150,7 @@ public static class TimeseriesExtensions
         if (slide.HasValue && slide.Value <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(slide));
         if (outOfOrderness.HasValue && outOfOrderness.Value < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(outOfOrderness));
 
-        return Stream.Create<IStream<Timestamped<T>>>(async emitter =>
+        return Flux.Create<IFlux<Timestamped<T>>>(async emitter =>
         {
             var ct = emitter.CancellationToken;
 
@@ -193,7 +193,7 @@ public static class TimeseriesExtensions
                             {
                                 channel = ChannelExecution.CreateChannel<Timestamped<T>>(capacity, mode, singleWriter: true);
                                 activeWindows[startTicks] = channel;
-                                await emitter.EmitAsync(Stream.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
+                                await emitter.EmitAsync(Flux.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
                             }
 
                             await ChannelExecution.WriteAsync(channel.Writer, item, mode, ct);
@@ -231,7 +231,7 @@ public static class TimeseriesExtensions
                                 var channel = ChannelExecution.CreateChannel<Timestamped<T>>(capacity, mode, singleWriter: true);
                                 currentWindowChannel = channel;
 
-                                await emitter.EmitAsync(Stream.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
+                                await emitter.EmitAsync(Flux.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
                             }
 
                             await ChannelExecution.WriteAsync(currentWindowChannel.Writer, item, mode, ct);
@@ -317,7 +317,7 @@ public static class TimeseriesExtensions
                         {
                             var channel = ChannelExecution.CreateChannel<Timestamped<T>>(capacity, mode, singleWriter: true);
                             activeWindows[s] = channel;
-                            await emitter.EmitAsync(Stream.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
+                            await emitter.EmitAsync(Flux.From(innerCt => channel.Reader.ReadAllAsync(innerCt)));
                         }
 
                         // Write to all active windows that contain this item
@@ -357,8 +357,8 @@ public static class TimeseriesExtensions
     /// <param name="mode">The backpressure mode for each window.</param>
     /// <param name="outOfOrderness">The maximum out-of-orderness allowed before an event is considered late. If not null, enables watermark-aware behavior and session merging.</param>
     /// <returns>A stream of session window streams.</returns>
-    public static IStream<IStream<Timestamped<T>>> WindowBySession<T>(
-        this IStream<Timestamped<T>> source,
+    public static IFlux<IFlux<Timestamped<T>>> WindowBySession<T>(
+        this IFlux<Timestamped<T>> source,
         TimeSpan gap,
         int capacity = 16,
         ChannelBackpressureMode mode = ChannelBackpressureMode.Wait,
@@ -367,7 +367,7 @@ public static class TimeseriesExtensions
         if (gap <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(gap));
         if (outOfOrderness.HasValue && outOfOrderness.Value < TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(outOfOrderness));
 
-        return Stream.Create<IStream<Timestamped<T>>>(async emitter =>
+        return Flux.Create<IFlux<Timestamped<T>>>(async emitter =>
         {
             var ct = emitter.CancellationToken;
 
@@ -394,7 +394,7 @@ public static class TimeseriesExtensions
                             sessionMaxTicks = itemTicks;
 
                             var channelToEmit = currentSessionChannel;
-                            await emitter.EmitAsync(Stream.From(innerCt => channelToEmit.Reader.ReadAllAsync(innerCt)));
+                            await emitter.EmitAsync(Flux.From(innerCt => channelToEmit.Reader.ReadAllAsync(innerCt)));
                         }
                         else
                         {
@@ -498,7 +498,7 @@ public static class TimeseriesExtensions
                         // Emit in chronological order
                         foreach (var session in sessionsToEmit.OrderBy(s => s.MinTicks))
                         {
-                            await emitter.EmitAsync(Stream.From(session.Items.OrderBy(x => x.Timestamp).AsEnumerable()));
+                            await emitter.EmitAsync(Flux.From(session.Items.OrderBy(x => x.Timestamp).AsEnumerable()));
                         }
                     }
                 }
@@ -509,7 +509,7 @@ public static class TimeseriesExtensions
                     activeSessions.Sort((a, b) => a.MinTicks.CompareTo(b.MinTicks));
                     foreach (var session in activeSessions)
                     {
-                        await emitter.EmitAsync(Stream.From(session.Items.OrderBy(x => x.Timestamp).AsEnumerable()));
+                        await emitter.EmitAsync(Flux.From(session.Items.OrderBy(x => x.Timestamp).AsEnumerable()));
                     }
                     activeSessions.Clear();
                 }
@@ -523,13 +523,13 @@ public static class TimeseriesExtensions
     /// <param name="source">The stream</param>
     /// <param name="interval">The time interval to buffer items.</param>
     /// <param name="maxCount">The maximum number of items per buffer.</param>
-    /// <returns>An <see cref="IStream{T}"/> of <see cref="IList{T}"/>.</returns>
-    public static IStream<IList<T>> BufferByTime<T>(this IStream<T> source, TimeSpan interval, int? maxCount = null)
+    /// <returns>An <see cref="IFlux{T}"/> of <see cref="IList{T}"/>.</returns>
+    public static IFlux<IList<T>> BufferByTime<T>(this IFlux<T> source, TimeSpan interval, int? maxCount = null)
     {
         if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(interval), "Interval must be greater than 0.");
         if (maxCount.HasValue && maxCount.Value <= 0) throw new ArgumentOutOfRangeException(nameof(maxCount), "Max count must be greater than 0.");
 
-        return Stream.Create<IList<T>>(async (emitter, ct) =>
+        return Flux.Create<IList<T>>(async (emitter, ct) =>
         {
             var buffer = new List<T>(maxCount ?? 16);
 
@@ -577,12 +577,12 @@ public static class TimeseriesExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="interval">The sampling interval.</param>
-    /// <returns>A sampled <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> Sample<T>(this IStream<T> source, TimeSpan interval)
+    /// <returns>A sampled <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> Sample<T>(this IFlux<T> source, TimeSpan interval)
     {
         if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(interval), "Interval must be greater than 0.");
 
-        return Stream.Create<T>(async (emitter, ct) =>
+        return Flux.Create<T>(async (emitter, ct) =>
         {
             T? latestItem = default;
             bool hasItem = false;

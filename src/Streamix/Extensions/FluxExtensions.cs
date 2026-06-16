@@ -6,11 +6,11 @@ using System.Threading.Channels;
 namespace Streamix;
 
 /// <summary>
-/// Provides extension methods for <see cref="IStream{T}"/> implementing higher-order operations and convenience methods.
+/// Provides extension methods for <see cref="IFlux{T}"/> implementing higher-order operations and convenience methods.
 /// This follows the composition-based design pattern similar to <see cref="ILogger"/>, where the core interface
 /// is minimal and all higher-level functionality is provided through extension methods.
 /// </summary>
-public static class StreamExtensions
+public static class FluxExtensions
 {
     static async IAsyncEnumerable<TResult> map<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, TResult> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -31,7 +31,7 @@ public static class StreamExtensions
                 yield return innerItem;
     }
 
-    static async IAsyncEnumerable<TResult> concatMapInternal<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, IStream<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    static async IAsyncEnumerable<TResult> concatMapInternal<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, IFlux<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await foreach (var item in enumerable.WithCancellation(cancellationToken))
             await foreach (var innerItem in selector(item).WithCancellation(cancellationToken))
@@ -55,7 +55,7 @@ public static class StreamExtensions
         }
 
         var channel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(maxConcurrency) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
         var semaphore = new SemaphoreSlim(maxConcurrency);
 
         try
@@ -128,7 +128,7 @@ public static class StreamExtensions
         }
 
         var channel = Channel.CreateBounded<Task<TResult>>(new BoundedChannelOptions(maxConcurrency) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
         var semaphore = new SemaphoreSlim(maxConcurrency);
 
         try
@@ -198,7 +198,7 @@ public static class StreamExtensions
         }
 
         var channel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(maxConcurrency) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
         var semaphore = new SemaphoreSlim(maxConcurrency);
 
         try
@@ -264,7 +264,7 @@ public static class StreamExtensions
         }
     }
 
-    static async IAsyncEnumerable<TResult> flatMapOrdered<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, IStream<TResult>> selector, int maxConcurrency, int maxBufferedItemsPerInner, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    static async IAsyncEnumerable<TResult> flatMapOrdered<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, IFlux<TResult>> selector, int maxConcurrency, int maxBufferedItemsPerInner, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (maxConcurrency == 1)
         {
@@ -274,7 +274,7 @@ public static class StreamExtensions
         }
 
         var channel = Channel.CreateBounded<ChannelReader<TResult>>(new BoundedChannelOptions(maxConcurrency) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
         var semaphore = new SemaphoreSlim(maxConcurrency);
 
         try
@@ -373,7 +373,7 @@ public static class StreamExtensions
         }
 
         var channel = Channel.CreateBounded<TResult>(new BoundedChannelOptions(maxConcurrency) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
         var semaphore = new SemaphoreSlim(maxConcurrency);
 
         try
@@ -577,7 +577,7 @@ public static class StreamExtensions
         {
             FullMode = BoundedChannelFullMode.DropOldest
         });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         scope.Run(async ct =>
         {
@@ -611,7 +611,7 @@ public static class StreamExtensions
     static async IAsyncEnumerable<T> onBackpressureError<T>(IAsyncEnumerable<T> enumerable, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var channel = Channel.CreateBounded<T>(1);
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         scope.Run(async ct =>
         {
@@ -649,7 +649,7 @@ public static class StreamExtensions
         {
             FullMode = BoundedChannelFullMode.DropWrite
         });
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         scope.Run(async ct =>
         {
@@ -683,7 +683,7 @@ public static class StreamExtensions
     static async IAsyncEnumerable<T> onBackpressureBuffer<T>(IAsyncEnumerable<T> enumerable, int capacity, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var channel = Channel.CreateBounded<T>(capacity);
-        var scope = new StreamScope(cancellationToken);
+        var scope = new FluxScope(cancellationToken);
 
         scope.Run(async ct =>
         {
@@ -716,10 +716,10 @@ public static class StreamExtensions
         }
     }
 
-    static async IAsyncEnumerable<T> onErrorResume<T>(IAsyncEnumerable<T> enumerable, Func<Exception, IStream<T>> errorHandler, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    static async IAsyncEnumerable<T> onErrorResume<T>(IAsyncEnumerable<T> enumerable, Func<Exception, IFlux<T>> errorHandler, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         IAsyncEnumerator<T>? enumerator = null;
-        IStream<T>? resumeSource = null;
+        IFlux<T>? resumeSource = null;
         try
         {
             try
@@ -1083,9 +1083,9 @@ public static class StreamExtensions
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the transform function on each element of source.</returns>
-    public static IStream<TResult> Map<T, TResult>(this IStream<T> source, Func<T, TResult> selector)
-        => Stream.From(map(source, selector), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the transform function on each element of source.</returns>
+    public static IFlux<TResult> Map<T, TResult>(this IFlux<T> source, Func<T, TResult> selector)
+        => Flux.From(map(source, selector), source.Clock, source.Name);
 
     /// <summary>
     /// Projects each element of a stream into a new form by applying an asynchronous selector concurrently while preserving upstream ordering.
@@ -1097,11 +1097,11 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent selector invocations.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits mapped results in source order.</returns>
-    public static IStream<TResult> MapOrdered<T, TResult>(this IStream<T> source, Func<T, Task<TResult>> selector, int maxConcurrency)
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits mapped results in source order.</returns>
+    public static IFlux<TResult> MapOrdered<T, TResult>(this IFlux<T> source, Func<T, Task<TResult>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(parallelMapTaskOrdered(source, selector, maxConcurrency), source.Clock, source.Name);
+        return Flux.From(parallelMapTaskOrdered(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1112,9 +1112,9 @@ public static class StreamExtensions
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async transform function on each element of source.</returns>
-    public static IStream<TResult> MapAwait<T, TResult>(this IStream<T> source, Func<T, ValueTask<TResult>> selector)
-        => Stream.From(mapAwait(source, selector), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the async transform function on each element of source.</returns>
+    public static IFlux<TResult> MapAwait<T, TResult>(this IFlux<T> source, Func<T, ValueTask<TResult>> selector)
+        => Flux.From(mapAwait(source, selector), source.Clock, source.Name);
 
     /// <summary>
     /// Projects each element of a stream into a new form by applying an asynchronous selector concurrently.
@@ -1126,11 +1126,11 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits mapped results in completion order.</returns>
-    public static IStream<TResult> FlatMap<T, TResult>(this IStream<T> source, Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue)
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits mapped results in completion order.</returns>
+    public static IFlux<TResult> FlatMap<T, TResult>(this IFlux<T> source, Func<T, Task<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(parallelMapTask(source, selector, maxConcurrency), source.Clock, source.Name);
+        return Flux.From(parallelMapTask(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1143,13 +1143,13 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">A transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent inner streams. Defaults to unbounded concurrency.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits items from inner streams in completion order.</returns>
-    public static IStream<TResult> FlatMap<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector, int maxConcurrency = int.MaxValue)
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits items from inner streams in completion order.</returns>
+    public static IFlux<TResult> FlatMap<T, TResult>(this IFlux<T> source, Func<T, IFlux<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
-            ? Stream.From(concatMapInternal(source, selector), source.Clock, source.Name)
-            : Stream.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
+            ? Flux.From(concatMapInternal(source, selector), source.Clock, source.Name)
+            : Flux.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1162,13 +1162,13 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">A transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the one-to-many transform function on each element of the input stream.</returns>
-    public static IStream<TResult> FlatMap<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the one-to-many transform function on each element of the input stream.</returns>
+    public static IFlux<TResult> FlatMap<T, TResult>(this IFlux<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
-            ? Stream.From(flatMap(source, selector), source.Clock, source.Name)
-            : Stream.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
+            ? Flux.From(flatMap(source, selector), source.Clock, source.Name)
+            : Flux.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1181,13 +1181,13 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">A transform function that returns an <see cref="IAsyncEnumerable{TResult}"/> for each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent inner sequences. Defaults to unbounded concurrency.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits items from inner sequences in completion order.</returns>
-    public static IStream<TResult> FlatMap<T, TResult>(this IStream<T> source, Func<T, IAsyncEnumerable<TResult>> selector, int maxConcurrency = int.MaxValue)
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits items from inner sequences in completion order.</returns>
+    public static IFlux<TResult> FlatMap<T, TResult>(this IFlux<T> source, Func<T, IAsyncEnumerable<TResult>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         return maxConcurrency == 1
-            ? Stream.From(concatMapAsyncEnumerable(source, selector), source.Clock, source.Name)
-            : Stream.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
+            ? Flux.From(concatMapAsyncEnumerable(source, selector), source.Clock, source.Name)
+            : Flux.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1201,12 +1201,12 @@ public static class StreamExtensions
     /// <param name="selector">A transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent inner streams. Defaults to unbounded concurrency.</param>
     /// <param name="maxBufferedItemsPerInner">The maximum number of buffered items allowed per inner stream while preserving outer ordering. Defaults to 16.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits inner stream items grouped in original source order.</returns>
-    public static IStream<TResult> FlatMapOrdered<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector, int maxConcurrency = int.MaxValue, int maxBufferedItemsPerInner = 16)
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits inner stream items grouped in original source order.</returns>
+    public static IFlux<TResult> FlatMapOrdered<T, TResult>(this IFlux<T> source, Func<T, IFlux<TResult>> selector, int maxConcurrency = int.MaxValue, int maxBufferedItemsPerInner = 16)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
         if (maxBufferedItemsPerInner <= 0) throw new ArgumentOutOfRangeException(nameof(maxBufferedItemsPerInner), "Max buffered items per inner must be greater than 0.");
-        return Stream.From(flatMapOrdered(source, selector, maxConcurrency, maxBufferedItemsPerInner), source.Clock, source.Name);
+        return Flux.From(flatMapOrdered(source, selector, maxConcurrency, maxBufferedItemsPerInner), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1219,52 +1219,52 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
     /// <param name="maxConcurrency">The maximum number of concurrent operations. Defaults to unbounded concurrency.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async one-to-one transform function on each element of the input stream.</returns>
-    public static IStream<TResult> FlatMapAwait<T, TResult>(this IStream<T> source, Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = int.MaxValue)
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the async one-to-one transform function on each element of the input stream.</returns>
+    public static IFlux<TResult> FlatMapAwait<T, TResult>(this IFlux<T> source, Func<T, ValueTask<ISingle<TResult>>> selector, int maxConcurrency = int.MaxValue)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(flatMapAwaitConcurrent(source, selector, maxConcurrency), source.Clock, source.Name);
+        return Flux.From(flatMapAwaitConcurrent(source, selector, maxConcurrency), source.Clock, source.Name);
     }
 
     /// <summary>
     /// Projects each element of a stream to another stream and concatenates the inner streams sequentially.
     /// Only one inner stream is active at a time, so results are emitted strictly in source order.
-    /// This is equivalent to <see cref="FlatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int)"/> with maxConcurrency of 1.
+    /// This is equivalent to <see cref="FlatMap{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}}, int)"/> with maxConcurrency of 1.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="source">The stream</param>
     /// <param name="selector">A transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that emits items from each inner stream before moving to the next source item.</returns>
-    public static IStream<TResult> ConcatMap<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector)
-        => Stream.From(concatMapInternal(source, selector), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{TResult}"/> that emits items from each inner stream before moving to the next source item.</returns>
+    public static IFlux<TResult> ConcatMap<T, TResult>(this IFlux<T> source, Func<T, IFlux<TResult>> selector)
+        => Flux.From(concatMapInternal(source, selector), source.Clock, source.Name);
 
     /// <summary>
     /// Filters a stream of values based on a predicate.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
-    public static IStream<T> Filter<T>(this IStream<T> source, Func<T, bool> predicate)
-        => Stream.From(filter(source, predicate), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
+    public static IFlux<T> Filter<T>(this IFlux<T> source, Func<T, bool> predicate)
+        => Flux.From(filter(source, predicate), source.Clock, source.Name);
 
     /// <summary>
     /// Filters a stream of values based on an asynchronous predicate.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="predicate">An asynchronous function to test each element for a condition.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
-    public static IStream<T> FilterAsync<T>(this IStream<T> source, Func<T, ValueTask<bool>> predicate)
-        => Stream.From(filterAsync(source, predicate), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
+    public static IFlux<T> FilterAsync<T>(this IFlux<T> source, Func<T, ValueTask<bool>> predicate)
+        => Flux.From(filterAsync(source, predicate), source.Clock, source.Name);
 
     /// <summary>
     /// Retries a stream if it fails, up to a specified number of times.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="retryCount">The number of times to retry.</param>
-    /// <returns>A retrying <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> Retry<T>(this IStream<T> source, int retryCount = 1)
-        => Stream.From(retry(source, source.Clock, retryCount), source.Clock, source.Name);
+    /// <returns>A retrying <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> Retry<T>(this IFlux<T> source, int retryCount = 1)
+        => Flux.From(retry(source, source.Clock, retryCount), source.Clock, source.Name);
 
     /// <summary>
     /// Retries a stream if it fails, up to a specified number of times, with a backoff strategy.
@@ -1272,20 +1272,20 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="retryCount">The number of times to retry.</param>
     /// <param name="backoffStrategy">A function that computes the delay before the next retry attempt based on the attempt number (1-based) and the exception that caused the failure.</param>
-    /// <returns>A retrying <see cref="IStream{T}"/> with backoff.</returns>
-    public static IStream<T> Retry<T>(this IStream<T> source, int retryCount, Func<int, Exception, TimeSpan> backoffStrategy)
-        => Stream.From(retry(source, source.Clock, retryCount, backoffStrategy), source.Clock, source.Name);
+    /// <returns>A retrying <see cref="IFlux{T}"/> with backoff.</returns>
+    public static IFlux<T> Retry<T>(this IFlux<T> source, int retryCount, Func<int, Exception, TimeSpan> backoffStrategy)
+        => Flux.From(retry(source, source.Clock, retryCount, backoffStrategy), source.Clock, source.Name);
 
     /// <summary>
     /// Groups elements of a stream into lists of a specified size.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="count">The maximum size of each buffer.</param>
-    /// <returns>An <see cref="IStream{T}"/> of <see cref="IList{T}"/>.</returns>
-    public static IStream<IList<T>> Buffer<T>(this IStream<T> source, int count)
+    /// <returns>An <see cref="IFlux{T}"/> of <see cref="IList{T}"/>.</returns>
+    public static IFlux<IList<T>> Buffer<T>(this IFlux<T> source, int count)
     {
         if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
-        return Stream.From(buffer(source, count), source.Clock, source.Name);
+        return Flux.From(buffer(source, count), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1293,9 +1293,9 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="interval">The maximum time interval between elements.</param>
-    /// <returns>A timeout-monitored <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> Timeout<T>(this IStream<T> source, TimeSpan interval)
-        => Stream.From(timeout(source, source.Clock, interval), source.Clock, source.Name);
+    /// <returns>A timeout-monitored <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> Timeout<T>(this IFlux<T> source, TimeSpan interval)
+        => Flux.From(timeout(source, source.Clock, interval), source.Clock, source.Name);
 
     /// <summary>
     /// Tracks progress through a specific stage of the pipeline with timing information using a custom logging action.
@@ -1304,8 +1304,8 @@ public static class StreamExtensions
     /// <param name="checkpointName">The name of the checkpoint.</param>
     /// <param name="loggerAction">The action to use for logging.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Checkpoint<T>(this IStream<T> source, string checkpointName, Action<string> loggerAction)
-        => Stream.From(checkpoint(source, source.Clock, checkpointName, loggerAction), source.Clock, source.Name);
+    public static IFlux<T> Checkpoint<T>(this IFlux<T> source, string checkpointName, Action<string> loggerAction)
+        => Flux.From(checkpoint(source, source.Clock, checkpointName, loggerAction), source.Clock, source.Name);
 
     /// <summary>
     /// Provides a comprehensive trace of every stream signal using a custom logging action.
@@ -1314,44 +1314,44 @@ public static class StreamExtensions
     /// <param name="loggerAction">The action to use for logging.</param>
     /// <param name="prefix">Optional prefix. If not provided, the stream name is used.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> TraceAction<T>(this IStream<T> source, Action<string> loggerAction, string? prefix = null)
-        => Stream.From(trace(source, prefix ?? source.Name ?? "", loggerAction), source.Clock, source.Name);
+    public static IFlux<T> TraceAction<T>(this IFlux<T> source, Action<string> loggerAction, string? prefix = null)
+        => Flux.From(trace(source, prefix ?? source.Name ?? "", loggerAction), source.Clock, source.Name);
 
     /// <summary>
     /// Resumes a stream with another stream if an error occurs.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="errorHandler">A function that returns a fallback stream given the exception.</param>
-    /// <returns>A resilient <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> OnErrorResume<T>(this IStream<T> source, Func<Exception, IStream<T>> errorHandler)
-        => Stream.From(onErrorResume(source, errorHandler), source.Clock, source.Name);
+    /// <returns>A resilient <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> OnErrorResume<T>(this IFlux<T> source, Func<Exception, IFlux<T>> errorHandler)
+        => Flux.From(onErrorResume(source, errorHandler), source.Clock, source.Name);
 
     /// <summary>
     /// Resumes a stream with a single constant value if an error occurs.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="value">The value to emit on error.</param>
-    /// <returns>A resilient <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> OnErrorReturn<T>(this IStream<T> source, T value)
-        => OnErrorResume(source, _ => Stream.Just<T>(value).Named(source.Name ?? ""));
+    /// <returns>A resilient <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> OnErrorReturn<T>(this IFlux<T> source, T value)
+        => OnErrorResume(source, _ => Flux.Just<T>(value).Named(source.Name ?? ""));
 
     /// <summary>
     /// Resumes a stream with a value computed from the exception if an error occurs.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="errorHandler">A function that returns the fallback value given the exception.</param>
-    /// <returns>A resilient <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> OnErrorReturn<T>(this IStream<T> source, Func<Exception, T> errorHandler)
-        => OnErrorResume(source, ex => Stream.Just<T>(errorHandler(ex)).Named(source.Name ?? ""));
+    /// <returns>A resilient <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> OnErrorReturn<T>(this IFlux<T> source, Func<Exception, T> errorHandler)
+        => OnErrorResume(source, ex => Flux.Just<T>(errorHandler(ex)).Named(source.Name ?? ""));
 
     /// <summary>
     /// Maps a stream error into another exception.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="mapper">A function to map the exception.</param>
-    /// <returns>An <see cref="IStream{T}"/> with mapped errors.</returns>
-    public static IStream<T> OnErrorMap<T>(this IStream<T> source, Func<Exception, Exception> mapper)
-        => OnErrorResume(source, ex => Stream.Error<T>(mapper(ex)).Named(source.Name ?? ""));
+    /// <returns>An <see cref="IFlux{T}"/> with mapped errors.</returns>
+    public static IFlux<T> OnErrorMap<T>(this IFlux<T> source, Func<Exception, Exception> mapper)
+        => OnErrorResume(source, ex => Flux.Error<T>(mapper(ex)).Named(source.Name ?? ""));
 
     /// <summary>
     /// Executes an action for each element of the stream without modifying it.
@@ -1360,25 +1360,25 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onNext">The action to execute for each element.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnNext<T>(this IStream<T> source, Action<T> onNext)
-        => Stream.From(doOnNext(source, onNext), source.Clock, source.Name);
+    public static IFlux<T> DoOnNext<T>(this IFlux<T> source, Action<T> onNext)
+        => Flux.From(doOnNext(source, onNext), source.Clock, source.Name);
 
     /// <summary>
-    /// Alias for <see cref="DoOnNext{T}(IStream{T}, Action{T})"/>.
+    /// Alias for <see cref="DoOnNext{T}(IFlux{T}, Action{T})"/>.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="onNext">The action to execute for each element.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Do<T>(this IStream<T> source, Action<T> onNext)
+    public static IFlux<T> Do<T>(this IFlux<T> source, Action<T> onNext)
         => source.DoOnNext(onNext);
 
     /// <summary>
-    /// Alias for <see cref="DoOnNext{T}(IStream{T}, Action{T})"/>.
+    /// Alias for <see cref="DoOnNext{T}(IFlux{T}, Action{T})"/>.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="onNext">The action to execute for each element.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Tap<T>(this IStream<T> source, Action<T> onNext)
+    public static IFlux<T> Tap<T>(this IFlux<T> source, Action<T> onNext)
         => source.DoOnNext(onNext);
 
     /// <summary>
@@ -1388,8 +1388,8 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onNext">The asynchronous action to execute for each element.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnNextAsync<T>(this IStream<T> source, Func<T, Task> onNext)
-        => Stream.From(doOnNextAsyncTask(source, onNext), source.Clock, source.Name);
+    public static IFlux<T> DoOnNextAsync<T>(this IFlux<T> source, Func<T, Task> onNext)
+        => Flux.From(doOnNextAsyncTask(source, onNext), source.Clock, source.Name);
 
     /// <summary>
     /// Executes an asynchronous action for each element of the stream without modifying it.
@@ -1398,8 +1398,8 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onNext">The asynchronous action to execute for each element.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnNextAsync<T>(this IStream<T> source, Func<T, ValueTask> onNext)
-        => Stream.From(doOnNextAsyncValueTask(source, onNext), source.Clock, source.Name);
+    public static IFlux<T> DoOnNextAsync<T>(this IFlux<T> source, Func<T, ValueTask> onNext)
+        => Flux.From(doOnNextAsyncValueTask(source, onNext), source.Clock, source.Name);
 
     /// <summary>
     /// Executes an action when the stream fails.
@@ -1408,8 +1408,8 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onError">The action to execute with the exception.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnError<T>(this IStream<T> source, Action<Exception> onError)
-        => Stream.From(doOnError(source, onError), source.Clock, source.Name);
+    public static IFlux<T> DoOnError<T>(this IFlux<T> source, Action<Exception> onError)
+        => Flux.From(doOnError(source, onError), source.Clock, source.Name);
 
     /// <summary>
     /// Executes an action when the stream completes successfully.
@@ -1418,8 +1418,8 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onComplete">The action to execute.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnComplete<T>(this IStream<T> source, Action onComplete)
-        => Stream.From(doOnComplete(source, onComplete), source.Clock, source.Name);
+    public static IFlux<T> DoOnComplete<T>(this IFlux<T> source, Action onComplete)
+        => Flux.From(doOnComplete(source, onComplete), source.Clock, source.Name);
 
     /// <summary>
     /// Executes an action when the stream terminates (either successfully or with an error).
@@ -1428,8 +1428,8 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="onTerminate">The action to execute.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> DoOnTerminate<T>(this IStream<T> source, Action onTerminate)
-        => Stream.From(doOnTerminate(source, onTerminate), source.Clock, source.Name);
+    public static IFlux<T> DoOnTerminate<T>(this IFlux<T> source, Action onTerminate)
+        => Flux.From(doOnTerminate(source, onTerminate), source.Clock, source.Name);
 
     /// <summary>
     /// Mirrors items into a channel writer while preserving the main stream.
@@ -1438,15 +1438,15 @@ public static class StreamExtensions
     /// <param name="writer">The side-channel writer.</param>
     /// <param name="completeWriter">Whether this operator owns writer completion.</param>
     /// <returns>The original stream with side-channel writes applied.</returns>
-    public static IStream<T> TeeToChannel<T>(this IStream<T> source, ChannelWriter<T> writer, bool completeWriter = false)
-        => Stream.From(teeToChannel(source, writer, completeWriter), source.Clock, source.Name);
+    public static IFlux<T> TeeToChannel<T>(this IFlux<T> source, ChannelWriter<T> writer, bool completeWriter = false)
+        => Flux.From(teeToChannel(source, writer, completeWriter), source.Clock, source.Name);
 
     /// <summary>
     /// Shares the source stream among multiple subscribers.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>An <see cref="IConnectableStream{T}"/>.</returns>
-    public static IConnectableStream<T> Publish<T>(this IStream<T> source) => new ConnectableStream<T>(source);
+    public static IConnectableStream<T> Publish<T>(this IFlux<T> source) => new ConnectableStream<T>(source);
 
     /// <summary>
     /// Shares the source stream among multiple subscribers and replays the last <paramref name="bufferSize"/> elements to late subscribers.
@@ -1454,7 +1454,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="bufferSize">The maximum number of elements to replay to late subscribers.</param>
     /// <returns>An <see cref="IConnectableStream{T}"/>.</returns>
-    public static IConnectableStream<T> Replay<T>(this IStream<T> source, int bufferSize)
+    public static IConnectableStream<T> Replay<T>(this IFlux<T> source, int bufferSize)
         => new ConnectableStream<T>(source, bufferSize);
 
     /// <summary>
@@ -1464,7 +1464,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="checkpointName">The name of the checkpoint.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Checkpoint<T>(this IStream<T> source, string checkpointName)
+    public static IFlux<T> Checkpoint<T>(this IFlux<T> source, string checkpointName)
         => source.Checkpoint(checkpointName, s => Console.WriteLine(s));
 
     /// <summary>
@@ -1474,7 +1474,7 @@ public static class StreamExtensions
     /// <param name="logger">The logger to use.</param>
     /// <param name="prefix">Optional prefix. If not provided, the stream name is used.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Trace<T>(this IStream<T> source, ILogger logger, string? prefix = null)
+    public static IFlux<T> Trace<T>(this IFlux<T> source, ILogger logger, string? prefix = null)
         => source.TraceAction(s => logger.LogInformation(s), prefix ?? source.Name ?? "");
 
     /// <summary>
@@ -1483,7 +1483,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="prefix">The prefix to use in traces.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Trace<T>(this IStream<T> source, string prefix)
+    public static IFlux<T> Trace<T>(this IFlux<T> source, string prefix)
         => source.TraceAction(s => Console.WriteLine(s), prefix);
 
     /// <summary>
@@ -1492,7 +1492,7 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Trace<T>(this IStream<T> source) => source.Trace(source.Name ?? "");
+    public static IFlux<T> Trace<T>(this IFlux<T> source) => source.Trace(source.Name ?? "");
 
     /// <summary>
     /// Logs items, errors, and completion of the stream using a custom logging action.
@@ -1501,7 +1501,7 @@ public static class StreamExtensions
     /// <param name="loggerAction">The action to use for logging.</param>
     /// <param name="prefix">Optional prefix. If not provided, the stream name is used.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> LogAction<T>(this IStream<T> source, Action<string> loggerAction, string? prefix = null)
+    public static IFlux<T> LogAction<T>(this IFlux<T> source, Action<string> loggerAction, string? prefix = null)
     {
         prefix = prefix ?? source.Name ?? null;
         var pref = string.IsNullOrEmpty(prefix) ? "" : $"[{prefix}] ";
@@ -1516,7 +1516,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="loggerAction">The action to use for logging.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> LogAction<T>(this IStream<T> source, Action<string> loggerAction)
+    public static IFlux<T> LogAction<T>(this IFlux<T> source, Action<string> loggerAction)
         => LogAction(source, loggerAction, source.Name ?? "");
 
     /// <summary>
@@ -1525,7 +1525,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="prefix">The prefix to use in logs.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Log<T>(this IStream<T> source, string prefix)
+    public static IFlux<T> Log<T>(this IFlux<T> source, string prefix)
         => source.LogAction(s => Console.WriteLine(s), prefix);
 
     /// <summary>
@@ -1534,7 +1534,7 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Log<T>(this IStream<T> source) => Log(source, source.Name ?? "");
+    public static IFlux<T> Log<T>(this IFlux<T> source) => Log(source, source.Name ?? "");
 
     /// <summary>
     /// Logs items, errors, and completion of the stream using an <see cref="ILogger"/>.
@@ -1543,7 +1543,7 @@ public static class StreamExtensions
     /// <param name="logger">The logger to use.</param>
     /// <param name="prefix">Optional prefix. If not provided, the stream name is used.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Log<T>(this IStream<T> source, ILogger logger, string? prefix = null)
+    public static IFlux<T> Log<T>(this IFlux<T> source, ILogger logger, string? prefix = null)
     {
         var p = prefix ?? source.Name ?? "";
         var pref = string.IsNullOrEmpty(p) ? "" : $"[{p}] ";
@@ -1558,7 +1558,7 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Debug<T>(this IStream<T> source) => source.Debug(source.Name ?? "");
+    public static IFlux<T> Debug<T>(this IFlux<T> source) => source.Debug(source.Name ?? "");
 
     /// <summary>
     /// Logs items, errors, and completion of the stream to debug output with a specified prefix.
@@ -1566,7 +1566,7 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="prefix">The prefix to use in logs.</param>
     /// <returns>The same stream.</returns>
-    public static IStream<T> Debug<T>(this IStream<T> source, string prefix)
+    public static IFlux<T> Debug<T>(this IFlux<T> source, string prefix)
     {
         var pref = string.IsNullOrEmpty(prefix) ? "" : $"[{prefix}] ";
         return source.DoOnNext(x => System.Diagnostics.Debug.WriteLine($"{pref}Next({x})"))
@@ -1582,8 +1582,8 @@ public static class StreamExtensions
     /// <param name="capacity">The bounded channel capacity.</param>
     /// <param name="mode">The backpressure policy used when the boundary is full.</param>
     /// <returns>A stream that crosses an explicit channel boundary before continuing downstream.</returns>
-    public static IStream<T> PipeThroughChannel<T>(this IStream<T> source, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
-        => Stream.From(ChannelExecution.PipeThroughChannel(source, capacity, mode), source.Clock, source.Name);
+    public static IFlux<T> PipeThroughChannel<T>(this IFlux<T> source, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
+        => Flux.From(ChannelExecution.PipeThroughChannel(source, capacity, mode), source.Clock, source.Name);
 
     /// <summary>
     /// Keeps only the latest item when downstream is slow.
@@ -1591,8 +1591,8 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>A stream with backpressure latest strategy applied.</returns>
-    public static IStream<T> OnBackpressureLatest<T>(this IStream<T> source)
-        => Stream.From(onBackpressureLatest(source), source.Clock, source.Name);
+    public static IFlux<T> OnBackpressureLatest<T>(this IFlux<T> source)
+        => Flux.From(onBackpressureLatest(source), source.Clock, source.Name);
 
     /// <summary>
     /// Throws a <see cref="BackpressureException"/> when downstream cannot keep pace.
@@ -1600,8 +1600,8 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>A stream with backpressure error strategy applied.</returns>
-    public static IStream<T> OnBackpressureError<T>(this IStream<T> source)
-        => Stream.From(onBackpressureError(source), source.Clock, source.Name);
+    public static IFlux<T> OnBackpressureError<T>(this IFlux<T> source)
+        => Flux.From(onBackpressureError(source), source.Clock, source.Name);
 
     /// <summary>
     /// Drops items when downstream cannot keep pace.
@@ -1609,8 +1609,8 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <returns>A stream with backpressure drop strategy applied.</returns>
-    public static IStream<T> OnBackpressureDrop<T>(this IStream<T> source)
-        => Stream.From(onBackpressureDrop(source), source.Clock, source.Name);
+    public static IFlux<T> OnBackpressureDrop<T>(this IFlux<T> source)
+        => Flux.From(onBackpressureDrop(source), source.Clock, source.Name);
 
     /// <summary>
     /// Buffers items up to <paramref name="capacity"/> when downstream is slow.
@@ -1619,10 +1619,10 @@ public static class StreamExtensions
     /// <param name="source">The stream</param>
     /// <param name="capacity">Maximum number of items to buffer.</param>
     /// <returns>A stream with backpressure buffering strategy applied.</returns>
-    public static IStream<T> OnBackpressureBuffer<T>(this IStream<T> source, int capacity)
+    public static IFlux<T> OnBackpressureBuffer<T>(this IFlux<T> source, int capacity)
     {
         if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity), "Capacity must be greater than 0.");
-        return Stream.From(onBackpressureBuffer(source, capacity), source.Clock, source.Name);
+        return Flux.From(onBackpressureBuffer(source, capacity), source.Clock, source.Name);
     }
 
     /// <summary>
@@ -1632,8 +1632,8 @@ public static class StreamExtensions
     /// <param name="count">The maximum size of each buffer.</param>
     /// <param name="capacity">The bounded channel capacity used by the buffering boundary.</param>
     /// <param name="mode">The backpressure policy used when the boundary is full.</param>
-    /// <returns>An <see cref="IStream{T}"/> of <see cref="IList{T}"/>.</returns>
-    public static IStream<IList<T>> Buffer<T>(this IStream<T> source, int count, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
+    /// <returns>An <see cref="IFlux{T}"/> of <see cref="IList{T}"/>.</returns>
+    public static IFlux<IList<T>> Buffer<T>(this IFlux<T> source, int count, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
     {
         if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
         return PipeThroughChannel(source, capacity, mode).Buffer(count);
@@ -1646,8 +1646,8 @@ public static class StreamExtensions
     /// <param name="count">The maximum size of each window.</param>
     /// <param name="capacity">The bounded channel capacity used by the windowing boundary.</param>
     /// <param name="mode">The backpressure policy used when the boundary is full.</param>
-    /// <returns>An <see cref="IStream{T}"/> of <see cref="IStream{T}"/>.</returns>
-    public static IStream<IStream<T>> Window<T>(this IStream<T> source, int count, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
+    /// <returns>An <see cref="IFlux{T}"/> of <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<IFlux<T>> Window<T>(this IFlux<T> source, int count, int capacity, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
     {
         if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
         return PipeThroughChannel(source, capacity, mode).Window(count);
@@ -1661,8 +1661,8 @@ public static class StreamExtensions
     /// <param name="degreeOfParallelism">The number of workers draining the channel-backed boundary.</param>
     /// <param name="mode">The backpressure policy used when the boundary is full.</param>
     /// <returns>A stream that runs across a channel-backed worker boundary.</returns>
-    public static IStream<T> RunOnChannel<T>(this IStream<T> source, int capacity, int degreeOfParallelism = 1, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
-        => Stream.From(ChannelExecution.RunOnChannel(source, capacity, degreeOfParallelism, mode), source.Clock, source.Name);
+    public static IFlux<T> RunOnChannel<T>(this IFlux<T> source, int capacity, int degreeOfParallelism = 1, ChannelBackpressureMode mode = ChannelBackpressureMode.Wait)
+        => Flux.From(ChannelExecution.RunOnChannel(source, capacity, degreeOfParallelism, mode), source.Clock, source.Name);
 
     /// <summary>
     /// Terminal operation that writes all items of the stream to the specified <see cref="ChannelWriter{T}"/>.
@@ -1673,7 +1673,7 @@ public static class StreamExtensions
     /// <param name="completeWriter">Whether to complete the writer when the stream completes (either successfully or with an error).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when all items have been written to the channel.</returns>
-    public static Task ToChannel<T>(this IStream<T> source, ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default)
+    public static Task ToChannel<T>(this IFlux<T> source, ChannelWriter<T> writer, bool completeWriter = true, CancellationToken cancellationToken = default)
     {
         return SinkHelper.WriteSinkAsync(
             source,
@@ -1687,36 +1687,36 @@ public static class StreamExtensions
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="interval">The time interval to delay each element by.</param>
-    /// <returns>A delayed <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> Delay<T>(this IStream<T> source, TimeSpan interval)
-        => Stream.From(delay(source, source.Clock, interval), source.Clock, source.Name);
+    /// <returns>A delayed <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> Delay<T>(this IFlux<T> source, TimeSpan interval)
+        => Flux.From(delay(source, source.Clock, interval), source.Clock, source.Name);
 
     /// <summary>
     /// Throttles a stream by emitting only the first element in each time interval.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="interval">The time interval to throttle by.</param>
-    /// <returns>A throttled <see cref="IStream{T}"/>.</returns>
-    public static IStream<T> Throttle<T>(this IStream<T> source, TimeSpan interval)
-        => Stream.From(throttle(source, source.Clock, interval), source.Clock, source.Name);
+    /// <returns>A throttled <see cref="IFlux{T}"/>.</returns>
+    public static IFlux<T> Throttle<T>(this IFlux<T> source, TimeSpan interval)
+        => Flux.From(throttle(source, source.Clock, interval), source.Clock, source.Name);
 
     /// <summary>
     /// Returns a specified number of contiguous elements from the start of a stream.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="count">The number of elements to return.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains the specified number of elements from the start of the input stream.</returns>
-    public static IStream<T> Take<T>(this IStream<T> source, int count)
-        => Stream.From(take(source, count), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{T}"/> that contains the specified number of elements from the start of the input stream.</returns>
+    public static IFlux<T> Take<T>(this IFlux<T> source, int count)
+        => Flux.From(take(source, count), source.Clock, source.Name);
 
     /// <summary>
     /// Bypasses a specified number of elements in a stream and then returns the remaining elements.
     /// </summary>
     /// <param name="source">The stream</param>
     /// <param name="count">The number of elements to skip before returning the remaining elements.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains the elements that occur after the specified index in the input stream.</returns>
-    public static IStream<T> Skip<T>(this IStream<T> source, int count)
-        => Stream.From(skip(source, count), source.Clock, source.Name);
+    /// <returns>An <see cref="IFlux{T}"/> that contains the elements that occur after the specified index in the input stream.</returns>
+    public static IFlux<T> Skip<T>(this IFlux<T> source, int count)
+        => Flux.From(skip(source, count), source.Clock, source.Name);
 
     /// <summary>
     /// Terminal operation that executes an action for each element of the stream.
@@ -1725,7 +1725,7 @@ public static class StreamExtensions
     /// <param name="action">The action to execute for each element.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when all elements have been processed.</returns>
-    public static async Task ForEachAsync<T>(this IStream<T> source, Action<T> action, CancellationToken cancellationToken = default)
+    public static async Task ForEachAsync<T>(this IFlux<T> source, Action<T> action, CancellationToken cancellationToken = default)
     {
         await foreach (var item in source.WithCancellation(cancellationToken))
             action(item);
@@ -1738,13 +1738,13 @@ public static class StreamExtensions
     /// <param name="action">The asynchronous action to execute for each element.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when all elements have been processed.</returns>
-    public static async Task ForEachAsync<T>(this IStream<T> source, Func<T, Task> action, CancellationToken cancellationToken = default)
+    public static async Task ForEachAsync<T>(this IFlux<T> source, Func<T, Task> action, CancellationToken cancellationToken = default)
     {
         await foreach (var item in source.WithCancellation(cancellationToken))
             await action(item);
     }
 
-    static async IAsyncEnumerable<TResult> ofTypeIterator<T, TResult>(IStream<T> source, [EnumeratorCancellation] CancellationToken ct = default)
+    static async IAsyncEnumerable<TResult> ofTypeIterator<T, TResult>(IFlux<T> source, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
         {
@@ -1753,7 +1753,7 @@ public static class StreamExtensions
         }
     }
 
-    static async IAsyncEnumerable<TResult> castIterator<T, TResult>(IStream<T> source, [EnumeratorCancellation] CancellationToken ct = default)
+    static async IAsyncEnumerable<TResult> castIterator<T, TResult>(IFlux<T> source, [EnumeratorCancellation] CancellationToken ct = default)
     {
         await foreach (var item in source.WithCancellation(ct))
             yield return (TResult)(object?)item!;
@@ -1766,11 +1766,11 @@ public static class StreamExtensions
     /// <typeparam name="T">The type of elements in the source stream.</typeparam>
     /// <typeparam name="TResult">The type to filter and yield elements of.</typeparam>
     /// <param name="source">The stream.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> containing elements of the source stream that are of type <typeparamref name="TResult"/>.</returns>
-    public static IStream<TResult> OfType<T, TResult>(this IStream<T> source)
+    /// <returns>An <see cref="IFlux{TResult}"/> containing elements of the source stream that are of type <typeparamref name="TResult"/>.</returns>
+    public static IFlux<TResult> OfType<T, TResult>(this IFlux<T> source)
         where TResult : T
     {
-        return Streamix.Stream.From(ofTypeIterator<T, TResult>(source));
+        return Flux.From(ofTypeIterator<T, TResult>(source));
     }
 
     /// <summary>
@@ -1779,11 +1779,11 @@ public static class StreamExtensions
     /// <typeparam name="T">The type of elements in the source stream.</typeparam>
     /// <typeparam name="TResult">The type to cast the elements of the source stream to.</typeparam>
     /// <param name="source">The stream.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> that contains each element of the source stream cast to the specified type.</returns>
+    /// <returns>An <see cref="IFlux{TResult}"/> that contains each element of the source stream cast to the specified type.</returns>
     /// <exception cref="InvalidCastException">An element in the sequence cannot be cast to type <typeparamref name="TResult"/>.</exception>
-    public static IStream<TResult> Cast<T, TResult>(this IStream<T> source)
+    public static IFlux<TResult> Cast<T, TResult>(this IFlux<T> source)
         where TResult : T
     {
-        return Streamix.Stream.From(castIterator<T, TResult>(source));
+        return Flux.From(castIterator<T, TResult>(source));
     }
 }

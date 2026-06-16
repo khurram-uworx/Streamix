@@ -12,7 +12,7 @@ dotnet add package Streamix
 
 ## What You Get
 
-- `Stream<T>` for 0..N values and `Single<T>` for 0..1 values
+- `Flux<T>` for 0..N values and `Single<T>` for 0..1 values
 - Fluent operators for filtering, mapping, flattening, timing, retries, and recovery
 - Explicit concurrency and ordering control
 - Cold streams by default, with hot-stream primitives such as `Publish`, `Replay`, and `RefCount`
@@ -22,7 +22,7 @@ dotnet add package Streamix
 ## Basic Example
 
 ```csharp
-await Stream.Range(1, 10)
+await Flux.Range(1, 10)
     .Filter(x => x % 2 == 0)
     .Map(x => x * 10)
     .ForEachAsync(Console.WriteLine);
@@ -33,8 +33,8 @@ await Stream.Range(1, 10)
 ```csharp
 var products =
     GetUser(id)                       // Single<User>
-    .FlatMap(user => GetOrders(user)) // Stream<Order>
-    .Map(o => o.Product);             // Stream<string>
+    .FlatMap(user => GetOrders(user)) // Flux<Order>
+    .Map(o => o.Product);             // Flux<string>
 ```
 
 Common patterns:
@@ -61,7 +61,7 @@ The core package also includes lightweight DEVX operators for naming and inspect
 - `DoOnNextAsync(Func<T, Task>)` / `DoOnNextAsync(Func<T, ValueTask>)` for async side effects.
 
 ```csharp
-await Stream.Range(1, 10)
+await Flux.Range(1, 10)
     .Named("Orders")
     .Log()
     .Filter(x => x % 2 == 0)

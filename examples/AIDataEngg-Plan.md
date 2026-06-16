@@ -11,8 +11,8 @@ verifiable increment.
 ## How the Pipeline Works (overview)
 
 ```
-source.md ─→ parallel RSS fetch ─→ EfStream.From (buffered, dedup) ─→
-  EfStream.FromStreamed (unprocessed items) ─→ parallel AI classify
+source.md ─→ parallel RSS fetch ─→ EfFlux.From (buffered, dedup) ─→
+  EfFlux.FromStreamed (unprocessed items) ─→ parallel AI classify
     (Retry 3 + OnErrorReturn noise) ─→ ForEachAsync write-back to SQLite
 ```
 
@@ -206,7 +206,7 @@ Implement `RssFetcher` that takes a feed URL and returns an
 ### Constraints
 
 - The method must be an async iterator (`IAsyncEnumerable<RssItem>`) so it
-  integrates naturally with `Stream.From(...)`.
+  integrates naturally with `Flux.From(...)`.
 - Keep the method simple — no caching, no retry (that's Streamix's job).
 
 ### Acceptance criteria
@@ -318,9 +318,9 @@ unprocessed, classify, write results.
      - Create `OpenAIChatClient(endpoint, apiKey)` with the model.
      - Use `IChatClient` as the abstraction.
 
-  4. **Streamix pipeline** (inside `Stream.ScopedAsync`):
+  4. **Streamix pipeline** (inside `Flux.ScopedAsync`):
      ```csharp
-     await Stream.ScopedAsync(async scope =>
+     await Flux.ScopedAsync(async scope =>
      {
          // Stage 1: parallel RSS fetch
          var rssItems = Stream
@@ -333,7 +333,7 @@ unprocessed, classify, write results.
              .DoOnNext(item => InsertItem(item, dbFactory));
 
          // Stage 3: read back unprocessed (streamed)
-         var unprocessed = EfStream
+         var unprocessed = EfFlux
              .FromStreamed<MyEntity>(ctx => ctx.RssItems.Where(r => !r.Processed), dbFactory,
                  name: "read-unprocessed");
 
@@ -365,7 +365,7 @@ unprocessed, classify, write results.
 
 ### Constraints
 
-- "Don't let EF query leak into the pipeline" — use `EfStream.FromStreamed`
+- "Don't let EF query leak into the pipeline" — use `EfFlux.FromStreamed`
   for the read-back stage rather than `ToListAsync` in a helper.
 - `IsNotDuplicate` must hit the DB per item (not cache in memory) since
   items arrive concurrently. This is simple with a `AnyAsync` call but

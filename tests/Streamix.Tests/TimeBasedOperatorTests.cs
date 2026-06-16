@@ -23,8 +23,8 @@ public class TimeBasedOperatorTests
     public async Task Delay_ShouldRespectCancellation()
     {
         var clock = new TestClock();
-        var source = Stream.Range(1, 10);
-        var delayed = Stream.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
+        var source = Flux.Range(1, 10);
+        var delayed = Flux.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<int>.SubscribeAsync(delayed, cts.Token);
@@ -41,8 +41,8 @@ public class TimeBasedOperatorTests
     public async Task Delay_ShouldPostponeEmission()
     {
         var clock = new TestClock();
-        var source = Stream.Range(1, 3);
-        var delayed = Stream.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
+        var source = Flux.Range(1, 3);
+        var delayed = Flux.From<int>(source, clock).Delay(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(delayed, default));
@@ -78,7 +78,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var throttled = Stream.From<int>(source, clock).Throttle(TimeSpan.FromSeconds(1));
+        var throttled = Flux.From<int>(source, clock).Throttle(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(throttled, default));
@@ -114,7 +114,7 @@ public class TimeBasedOperatorTests
     public async Task Interval_ShouldEmitSequentialLongs()
     {
         var clock = new TestClock();
-        var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
+        var interval = Flux.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
 
         var subscriber = new TestSubscriber<long>();
         var task = Task.Run(() => subscriber.RunAsync(interval.Take(3), default));
@@ -141,7 +141,7 @@ public class TimeBasedOperatorTests
     public async Task Interval_WithDueTime_ShouldRespectInitialDelay()
     {
         var clock = new TestClock();
-        var interval = Stream.Interval(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), clock);
+        var interval = Flux.Interval(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), clock);
 
         var subscriber = new TestSubscriber<long>();
         var task = Task.Run(() => subscriber.RunAsync(interval.Take(1), default));
@@ -161,7 +161,7 @@ public class TimeBasedOperatorTests
     public async Task Interval_ShouldNotAccumulateTicks()
     {
         var clock = new TestClock();
-        var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
+        var interval = Flux.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(1), clock);
         var semaphore = new SemaphoreSlim(0);
         var results = new List<long>();
 
@@ -207,7 +207,7 @@ public class TimeBasedOperatorTests
     public async Task Interval_ShouldRespectCancellation()
     {
         var clock = new TestClock();
-        var interval = Stream.Interval(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), clock);
+        var interval = Flux.Interval(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), clock);
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<long>.SubscribeAsync(interval, cts.Token);
@@ -224,7 +224,7 @@ public class TimeBasedOperatorTests
     public async Task Timer_ShouldEmit_Single_Zero_After_DueTime()
     {
         var clock = new TestClock();
-        var timer = Stream.FromTimer(TimeSpan.FromSeconds(2), clock);
+        var timer = Flux.FromTimer(TimeSpan.FromSeconds(2), clock);
 
         var subscriber = new TestSubscriber<long>();
         var task = Task.Run(() => subscriber.RunAsync(timer, default));
@@ -243,7 +243,7 @@ public class TimeBasedOperatorTests
     public async Task Timer_With_Zero_DueTime_ShouldEmit_Immediately()
     {
         var clock = new TestClock();
-        var timer = Stream.FromTimer(TimeSpan.Zero, clock);
+        var timer = Flux.FromTimer(TimeSpan.Zero, clock);
 
         var subscriber = await TestSubscriber<long>.SubscribeAsync(timer);
 
@@ -255,7 +255,7 @@ public class TimeBasedOperatorTests
     public async Task Timer_ShouldRespectCancellation()
     {
         var clock = new TestClock();
-        var timer = Stream.FromTimer(TimeSpan.FromSeconds(1), clock);
+        var timer = Flux.FromTimer(TimeSpan.FromSeconds(1), clock);
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<long>.SubscribeAsync(timer, cts.Token);
@@ -273,7 +273,7 @@ public class TimeBasedOperatorTests
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            var timer = Stream.FromTimer(TimeSpan.FromSeconds(-1));
+            var timer = Flux.FromTimer(TimeSpan.FromSeconds(-1));
             await foreach (var item in timer) { }
         });
     }
@@ -282,7 +282,7 @@ public class TimeBasedOperatorTests
     public async Task Timer_ShouldBe_Cold_Per_Subscription()
     {
         var clock = new TestClock();
-        var timer = Stream.FromTimer(TimeSpan.FromSeconds(1), clock);
+        var timer = Flux.FromTimer(TimeSpan.FromSeconds(1), clock);
 
         var first = new TestSubscriber<long>();
         var firstTask = Task.Run(() => first.RunAsync(timer, default));
@@ -308,7 +308,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var calls = 0;
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(poll.Take(3), default));
@@ -338,7 +338,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         CancellationToken observedToken = default;
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct =>
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct =>
         {
             observedToken = ct;
             return ValueTask.FromResult(42);
@@ -360,7 +360,7 @@ public class TimeBasedOperatorTests
     public async Task Poll_ShouldRespect_Cancellation_While_Waiting()
     {
         var clock = new TestClock();
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(1), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(1), clock);
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<int>.SubscribeAsync(poll, cts.Token);
@@ -378,7 +378,7 @@ public class TimeBasedOperatorTests
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            var poll = Stream.Poll<int>(TimeSpan.Zero, ct => ValueTask.FromResult(1));
+            var poll = Flux.Poll<int>(TimeSpan.Zero, ct => ValueTask.FromResult(1));
             await foreach (var item in poll) { }
         });
     }
@@ -387,7 +387,7 @@ public class TimeBasedOperatorTests
     public void Poll_ShouldPropagate_Poll_Exception()
     {
         var clock = new TestClock();
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromException<int>(new InvalidOperationException("poll failed")), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromException<int>(new InvalidOperationException("poll failed")), clock);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -404,7 +404,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var calls = 0;
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
 
         var first = new TestSubscriber<int>();
         var firstTask = Task.Run(() => first.RunAsync(poll.Take(1), default));
@@ -430,7 +430,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var calls = 0;
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(++calls), clock);
         var semaphore = new SemaphoreSlim(0);
         var results = new List<int>();
 
@@ -471,7 +471,7 @@ public class TimeBasedOperatorTests
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            var interval = Stream.Interval(TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(1));
+            var interval = Flux.Interval(TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(1));
             await foreach (var item in interval) { }
         });
     }
@@ -481,7 +481,7 @@ public class TimeBasedOperatorTests
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.Zero);
+            var interval = Flux.Interval(TimeSpan.Zero, TimeSpan.Zero);
             await foreach (var item in interval) { }
         });
     }
@@ -491,7 +491,7 @@ public class TimeBasedOperatorTests
     {
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
-            var interval = Stream.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
+            var interval = Flux.Interval(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
             await foreach (var item in interval) { }
         });
     }
@@ -499,7 +499,7 @@ public class TimeBasedOperatorTests
     [Test]
     public async Task Never_ShouldNeverEmitOrComplete()
     {
-        var never = Stream.Never<int>();
+        var never = Flux.Never<int>();
         using var cts = new CancellationTokenSource();
 
         var subscriber = new TestSubscriber<int>();
@@ -520,7 +520,7 @@ public class TimeBasedOperatorTests
     public async Task Timer_ShouldEmitAfterDelayAndComplete()
     {
         var clock = new TestClock();
-        var timer = Stream.FromTimer(TimeSpan.FromSeconds(1), clock);
+        var timer = Flux.FromTimer(TimeSpan.FromSeconds(1), clock);
 
         var subscriber = new TestSubscriber<long>();
         var task = Task.Run(() => subscriber.RunAsync(timer, default));
@@ -542,7 +542,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         int counter = 0;
-        var poll = Stream.Poll(TimeSpan.Zero, TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(counter++), clock);
+        var poll = Flux.Poll(TimeSpan.Zero, TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(counter++), clock);
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(poll.Take(3), default));
@@ -569,7 +569,7 @@ public class TimeBasedOperatorTests
     public async Task Poll_ShouldRespectCancellation()
     {
         var clock = new TestClock();
-        var poll = Stream.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(1), clock);
+        var poll = Flux.Poll<int>(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), ct => ValueTask.FromResult(1), clock);
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<int>.SubscribeAsync(poll, cts.Token);
@@ -587,7 +587,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var buffered = Stream.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
+        var buffered = Flux.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<IList<int>>();
         var task = Task.Run(() => subscriber.RunAsync(buffered, default));
@@ -623,7 +623,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var buffered = Stream.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1), maxCount: 2);
+        var buffered = Flux.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1), maxCount: 2);
 
         var subscriber = new TestSubscriber<IList<int>>();
         var task = Task.Run(() => subscriber.RunAsync(buffered, default));
@@ -653,7 +653,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var buffered = Stream.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
+        var buffered = Flux.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<IList<int>>();
         var task = Task.Run(() => subscriber.RunAsync(buffered, default));
@@ -671,12 +671,12 @@ public class TimeBasedOperatorTests
     public async Task BufferByTime_ShouldNotFlushOnSourceFailure()
     {
         var clock = new TestClock();
-        var source = Stream.Create<int>(async emitter =>
+        var source = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             throw new InvalidOperationException("boom");
         });
-        var buffered = Stream.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
+        var buffered = Flux.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
 
         var subscriber = await TestSubscriber<IList<int>>.SubscribeAsync(buffered);
 
@@ -690,7 +690,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var buffered = Stream.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
+        var buffered = Flux.From<int>(source, clock).BufferByTime(TimeSpan.FromSeconds(1));
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<IList<int>>.SubscribeAsync(buffered, cts.Token);
@@ -710,7 +710,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var sampled = Stream.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
+        var sampled = Flux.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(sampled, default));
@@ -753,7 +753,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var sampled = Stream.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
+        var sampled = Flux.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
 
         var subscriber = new TestSubscriber<int>();
         var task = Task.Run(() => subscriber.RunAsync(sampled, default));
@@ -770,12 +770,12 @@ public class TimeBasedOperatorTests
     public async Task Sample_ShouldNotFlushOnSourceFailure()
     {
         var clock = new TestClock();
-        var source = Stream.Create<int>(async emitter =>
+        var source = Flux.Create<int>(async emitter =>
         {
             await emitter.EmitAsync(1);
             throw new InvalidOperationException("boom");
         });
-        var sampled = Stream.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
+        var sampled = Flux.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
 
         var subscriber = await TestSubscriber<int>.SubscribeAsync(sampled);
 
@@ -789,7 +789,7 @@ public class TimeBasedOperatorTests
     {
         var clock = new TestClock();
         var source = new ManualAsyncEnumerable<int>(clock);
-        var sampled = Stream.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
+        var sampled = Flux.From<int>(source, clock).Sample(TimeSpan.FromSeconds(1));
         using var cts = new CancellationTokenSource();
 
         var subscribeTask = TestSubscriber<int>.SubscribeAsync(sampled, cts.Token);

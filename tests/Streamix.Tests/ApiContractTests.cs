@@ -17,17 +17,17 @@ public class ApiContractTests
     [Test]
     public void Stream_Contract_Surface_Area_Exists()
     {
-        var type = typeof(IStream<int>);
+        var type = typeof(IFlux<int>);
 
         // Factory methods on static facade
-        Assert.That(typeof(Stream).GetMethod("Range"), Is.Not.Null);
-        Assert.That(typeof(Stream).GetMethod("Empty"), Is.Not.Null);
-        Assert.That(typeof(Stream).GetMethods().Any(m => m.Name == "From"), Is.True);
-        Assert.That(typeof(Stream).GetMethod("FromEvent"), Is.Not.Null);
-        Assert.That(typeof(Stream).GetMethod("FromTimer", new[] { typeof(TimeSpan) }), Is.Not.Null);
-        Assert.That(typeof(Stream).GetMethods().Any(m => m.Name == "FromQueue"), Is.True);
-        Assert.That(typeof(Stream).GetMethod("Merge"), Is.Not.Null);
-        Assert.That(typeof(Stream).GetMethods().Any(m => m.Name == "Zip"), Is.True);
+        Assert.That(typeof(Flux).GetMethod("Range"), Is.Not.Null);
+        Assert.That(typeof(Flux).GetMethod("Empty"), Is.Not.Null);
+        Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "From"), Is.True);
+        Assert.That(typeof(Flux).GetMethod("FromEvent"), Is.Not.Null);
+        Assert.That(typeof(Flux).GetMethod("FromTimer", new[] { typeof(TimeSpan) }), Is.Not.Null);
+        Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "FromQueue"), Is.True);
+        Assert.That(typeof(Flux).GetMethod("Merge"), Is.Not.Null);
+        Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "Zip"), Is.True);
 
         // Instance methods on IStream
         Assert.That(type.GetMethod("ParallelMap"), Is.Null);

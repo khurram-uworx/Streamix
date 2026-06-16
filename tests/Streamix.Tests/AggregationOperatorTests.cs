@@ -8,10 +8,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Merge_Combines_Multiple_Streams()
     {
-        var s1 = Stream.Range(1, 3); // 1, 2, 3
-        var s2 = Stream.Range(10, 3); // 10, 11, 12
+        var s1 = Flux.Range(1, 3); // 1, 2, 3
+        var s2 = Flux.Range(10, 3); // 10, 11, 12
 
-        var merged = Stream.Merge(s1, s2);
+        var merged = Flux.Merge(s1, s2);
         var result = new List<int>();
         await foreach (var item in merged)
         {
@@ -30,10 +30,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Merge_Handles_Empty_Streams()
     {
-        var s1 = Stream.Empty<int>();
-        var s2 = Stream.Empty<int>();
+        var s1 = Flux.Empty<int>();
+        var s2 = Flux.Empty<int>();
 
-        var merged = Stream.Merge(s1, s2);
+        var merged = Flux.Merge(s1, s2);
         var result = new List<int>();
         await foreach (var item in merged)
         {
@@ -46,10 +46,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Merge_Handles_Mixed_Empty_And_NonEmpty()
     {
-        var s1 = Stream.Range(1, 3);
-        var s2 = Stream.Empty<int>();
+        var s1 = Flux.Range(1, 3);
+        var s2 = Flux.Empty<int>();
 
-        var merged = Stream.Merge(s1, s2);
+        var merged = Flux.Merge(s1, s2);
         var result = new List<int>();
         await foreach (var item in merged)
         {
@@ -69,10 +69,10 @@ public class AggregationOperatorTests
             throw new InvalidOperationException("Faulty stream");
         }
 
-        var s1 = Stream.From(FaultySource());
-        var s2 = Stream.Range(10, 3);
+        var s1 = Flux.From(FaultySource());
+        var s2 = Flux.Range(10, 3);
 
-        var merged = Stream.Merge(s1, s2);
+        var merged = Flux.Merge(s1, s2);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -86,10 +86,10 @@ public class AggregationOperatorTests
     public void Merge_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var s1 = Stream.Range(1, 100);
-        var s2 = Stream.Range(100, 100);
+        var s1 = Flux.Range(1, 100);
+        var s2 = Flux.Range(100, 100);
 
-        var merged = Stream.Merge(s1, s2);
+        var merged = Flux.Merge(s1, s2);
 
         Assert.ThrowsAsync<TaskCanceledException>(async () =>
         {
@@ -103,8 +103,8 @@ public class AggregationOperatorTests
     [Test]
     public async Task MergeWith_Works_As_Instance_Method()
     {
-        var s1 = Stream.Range(1, 2);
-        var s2 = Stream.Range(10, 2);
+        var s1 = Flux.Range(1, 2);
+        var s2 = Flux.Range(10, 2);
 
         var merged = s1.MergeWith(s2);
         var result = new List<int>();
@@ -120,10 +120,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Zip_Combines_Streams_Of_Same_Length()
     {
-        var s1 = Stream.Range(1, 3);
-        var s2 = Stream.Range(10, 3);
+        var s1 = Flux.Range(1, 3);
+        var s2 = Flux.Range(10, 3);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
         var result = new List<int>();
         await foreach (var item in zipped)
         {
@@ -136,10 +136,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Zip_Completes_When_First_Stream_Completes()
     {
-        var s1 = Stream.Range(1, 2);
-        var s2 = Stream.Range(10, 5);
+        var s1 = Flux.Range(1, 2);
+        var s2 = Flux.Range(10, 5);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
         var result = new List<int>();
         await foreach (var item in zipped)
         {
@@ -152,10 +152,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Zip_Completes_When_Second_Stream_Completes()
     {
-        var s1 = Stream.Range(1, 5);
-        var s2 = Stream.Range(10, 2);
+        var s1 = Flux.Range(1, 5);
+        var s2 = Flux.Range(10, 2);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
         var result = new List<int>();
         await foreach (var item in zipped)
         {
@@ -168,10 +168,10 @@ public class AggregationOperatorTests
     [Test]
     public async Task Zip_Handles_Empty_Streams()
     {
-        var s1 = Stream.Empty<int>();
-        var s2 = Stream.Range(1, 5);
+        var s1 = Flux.Empty<int>();
+        var s2 = Flux.Range(1, 5);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
         var result = new List<int>();
         await foreach (var item in zipped)
         {
@@ -190,10 +190,10 @@ public class AggregationOperatorTests
             throw new InvalidOperationException("Faulty stream");
         }
 
-        var s1 = Stream.From(FaultySource());
-        var s2 = Stream.Range(10, 3);
+        var s1 = Flux.From(FaultySource());
+        var s2 = Flux.Range(10, 3);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -207,10 +207,10 @@ public class AggregationOperatorTests
     public void Zip_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var s1 = Stream.Range(1, 100);
-        var s2 = Stream.Range(100, 100);
+        var s1 = Flux.Range(1, 100);
+        var s2 = Flux.Range(100, 100);
 
-        var zipped = Stream.Zip(s1, s2, (a, b) => a + b);
+        var zipped = Flux.Zip(s1, s2, (a, b) => a + b);
 
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
@@ -224,8 +224,8 @@ public class AggregationOperatorTests
     [Test]
     public async Task ZipWith_Works_As_Instance_Method()
     {
-        var s1 = Stream.Range(1, 2);
-        var s2 = Stream.Range(10, 2);
+        var s1 = Flux.Range(1, 2);
+        var s2 = Flux.Range(10, 2);
 
         var zipped = s1.ZipWith(s2, (a, b) => a + b);
         var result = new List<int>();
@@ -240,7 +240,7 @@ public class AggregationOperatorTests
     [Test]
     public async Task SingleAsync_Returns_Element_When_One_Element_Exists()
     {
-        var result = await Stream.Range(1, 1).SingleAsync(); // Just 1
+        var result = await Flux.Range(1, 1).SingleAsync(); // Just 1
         Assert.That(result, Is.EqualTo(1));
     }
 
@@ -248,7 +248,7 @@ public class AggregationOperatorTests
     public void SingleAsync_Throws_When_Empty()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await Stream.Empty<int>().SingleAsync());
+            await Flux.Empty<int>().SingleAsync());
         Assert.That(ex?.Message, Is.EqualTo("Sequence contains no elements."));
     }
 
@@ -256,21 +256,21 @@ public class AggregationOperatorTests
     public void SingleAsync_Throws_When_Multiple_Elements()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await Stream.Range(1, 2).SingleAsync()); // 1, 2
+            await Flux.Range(1, 2).SingleAsync()); // 1, 2
         Assert.That(ex?.Message, Is.EqualTo("Sequence contains more than one element."));
     }
 
     [Test]
     public async Task SingleOrDefaultAsync_Returns_Element_When_One_Element_Exists()
     {
-        var result = await Stream.Range(1, 1).SingleOrDefaultAsync();
+        var result = await Flux.Range(1, 1).SingleOrDefaultAsync();
         Assert.That(result, Is.EqualTo(1));
     }
 
     [Test]
     public async Task SingleOrDefaultAsync_Returns_Default_When_Empty()
     {
-        var result = await Stream.Empty<int>().SingleOrDefaultAsync();
+        var result = await Flux.Empty<int>().SingleOrDefaultAsync();
         Assert.That(result, Is.EqualTo(0));
     }
 
@@ -278,7 +278,7 @@ public class AggregationOperatorTests
     public void SingleOrDefaultAsync_Throws_When_Multiple_Elements()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
-            await Stream.Range(1, 2).SingleOrDefaultAsync());
+            await Flux.Range(1, 2).SingleOrDefaultAsync());
         Assert.That(ex?.Message, Is.EqualTo("Sequence contains more than one element."));
     }
 
@@ -288,6 +288,6 @@ public class AggregationOperatorTests
         var cts = new CancellationTokenSource();
         cts.Cancel();
         Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            await Stream.Range(1, 1).SingleAsync(cts.Token));
+            await Flux.Range(1, 1).SingleAsync(cts.Token));
     }
 }

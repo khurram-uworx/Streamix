@@ -12,7 +12,7 @@ public class TestSubscriber<T>
     public Exception? Error => error;
     public bool Completed => completed;
 
-    public static async Task<TestSubscriber<T>> SubscribeAsync(IStream<T> stream, CancellationToken ct = default)
+    public static async Task<TestSubscriber<T>> SubscribeAsync(IFlux<T> stream, CancellationToken ct = default)
     {
         var subscriber = new TestSubscriber<T>();
         await subscriber.RunAsync(stream, ct);

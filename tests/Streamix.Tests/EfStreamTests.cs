@@ -120,7 +120,7 @@ public class EfStreamTests
     [Test]
     public async Task From_EmitsExpectedEntities()
     {
-        var stream = EfStream.From(
+        var stream = EfFlux.From(
             ctx => ctx.Set<TestEntity>()
                 .Where(x => x.IsActive)
                 .OrderBy(x => x.Id),
@@ -138,7 +138,7 @@ public class EfStreamTests
     public async Task From_Cancellation_ThrowsAndDisposesContext()
     {
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.From(
+        var stream = EfFlux.From(
             ctx => ctx.Set<TestEntity>().OrderBy(x => x.Id),
             createSeededFactory(disposedContextIds));
 
@@ -159,7 +159,7 @@ public class EfStreamTests
     public void From_QueryBuilderFailure_PropagatesAndDisposesContext()
     {
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.From<TestEntity>(
+        var stream = EfFlux.From<TestEntity>(
             _ => throw new InvalidOperationException("query failed"),
             createSeededFactory(disposedContextIds));
 
@@ -173,7 +173,7 @@ public class EfStreamTests
     {
         var queryContextIds = new ConcurrentBag<int>();
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.From(
+        var stream = EfFlux.From(
             ctx =>
             {
                 var typed = (TrackingDbContext)ctx;
@@ -192,7 +192,7 @@ public class EfStreamTests
     [Test]
     public async Task From_ComposesWithMapFilterTakeAndForEachAsync()
     {
-        var stream = EfStream.From(
+        var stream = EfFlux.From(
             ctx => ctx.Set<TestEntity>().OrderBy(x => x.Id),
             createSeededFactory());
 
@@ -220,7 +220,7 @@ public class EfStreamTests
     [Test]
     public async Task FromStreamed_EmitsExpectedEntities()
     {
-        var stream = EfStream.FromStreamed(
+        var stream = EfFlux.FromStreamed(
             ctx => ctx.Set<TestEntity>()
                 .Where(x => x.IsActive)
                 .OrderBy(x => x.Id),
@@ -238,7 +238,7 @@ public class EfStreamTests
     public async Task FromStreamed_CancellationAfterFirstItem_ThrowsAndDisposesContext()
     {
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.FromStreamed(
+        var stream = EfFlux.FromStreamed(
             ctx => ctx.Set<TestEntity>().OrderBy(x => x.Id),
             createSeededFactory(disposedContextIds));
 
@@ -266,7 +266,7 @@ public class EfStreamTests
     public void FromStreamed_QueryBuilderFailure_PropagatesAndDisposesContext()
     {
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.FromStreamed<TestEntity>(
+        var stream = EfFlux.FromStreamed<TestEntity>(
             _ => throw new InvalidOperationException("query failed"),
             createSeededFactory(disposedContextIds));
 
@@ -285,7 +285,7 @@ public class EfStreamTests
             new TestEntity { Id = 2, IsActive = true, Name = "B" }
         };
 
-        var stream = EfStream.FromStreamed(
+        var stream = EfFlux.FromStreamed(
             _ => new InstrumentedAsyncQueryable<TestEntity>(entities, failOnMoveNextCall: 2),
             createSeededFactory(disposedContextIds));
 
@@ -299,7 +299,7 @@ public class EfStreamTests
     {
         var queryContextIds = new ConcurrentBag<int>();
         var disposedContextIds = new ConcurrentBag<int>();
-        var stream = EfStream.FromStreamed(
+        var stream = EfFlux.FromStreamed(
             ctx =>
             {
                 var typed = (TrackingDbContext)ctx;
@@ -319,10 +319,10 @@ public class EfStreamTests
     public async Task BufferedAndStreamed_EmitSameValues_ForSameQuery()
     {
         Func<DbContext> factory = createSeededFactory();
-        var buffered = EfStream.From(
+        var buffered = EfFlux.From(
             ctx => ctx.Set<TestEntity>().Where(x => x.IsActive).OrderBy(x => x.Id),
             factory);
-        var streamed = EfStream.FromStreamed(
+        var streamed = EfFlux.FromStreamed(
             ctx => ctx.Set<TestEntity>().Where(x => x.IsActive).OrderBy(x => x.Id),
             factory);
 
@@ -344,10 +344,10 @@ public class EfStreamTests
             new TestEntity { Id = 3, IsActive = true, Name = "C" }
         };
 
-        var buffered = EfStream.From(
+        var buffered = EfFlux.From(
             _ => new InstrumentedAsyncQueryable<TestEntity>(entities, entity => bufferedEnumeratedIds.Add(entity.Id)),
             createSeededFactory());
-        var streamed = EfStream.FromStreamed(
+        var streamed = EfFlux.FromStreamed(
             _ => new InstrumentedAsyncQueryable<TestEntity>(entities, entity => streamedEnumeratedIds.Add(entity.Id)),
             createSeededFactory());
 

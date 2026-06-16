@@ -19,21 +19,21 @@ public class BatchOperatorTests
     [Test]
     public async Task Buffer_Exact_Division()
     {
-        var result = await Stream.Range(1, 4).Buffer(2).Map(list => string.Join(",", list)).ToListAsync();
+        var result = await Flux.Range(1, 4).Buffer(2).Map(list => string.Join(",", list)).ToListAsync();
         Assert.That(result, Is.EqualTo(new[] { "1,2", "3,4" }));
     }
 
     [Test]
     public async Task Buffer_Trailing_Remainder()
     {
-        var result = await Stream.Range(1, 5).Buffer(2).Map(list => string.Join(",", list)).ToListAsync();
+        var result = await Flux.Range(1, 5).Buffer(2).Map(list => string.Join(",", list)).ToListAsync();
         Assert.That(result, Is.EqualTo(new[] { "1,2", "3,4", "5" }));
     }
 
     [Test]
     public async Task Buffer_Empty_Source()
     {
-        var result = await Stream.Empty<int>().Buffer(2).ToListAsync();
+        var result = await Flux.Empty<int>().Buffer(2).ToListAsync();
         Assert.That(result, Is.Empty);
     }
 
@@ -41,7 +41,7 @@ public class BatchOperatorTests
     public void Buffer_Throws_When_Cancelled()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 10).Buffer(2);
+        var stream = Flux.Range(1, 10).Buffer(2);
 
         cts.Cancel();
 
@@ -54,7 +54,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Buffer_WithChannelBoundary_PreservesBatching()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Buffer(2, capacity: 8, mode: ChannelBackpressureMode.Wait)
             .Map(list => string.Join(",", list))
             .ToListAsync();
@@ -65,7 +65,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Buffer_WithChannelBoundary_Fail_ThrowsBackpressureException()
     {
-        var stream = Stream.Range(1, 100).Buffer(5, capacity: 1, mode: ChannelBackpressureMode.Fail);
+        var stream = Flux.Range(1, 100).Buffer(5, capacity: 1, mode: ChannelBackpressureMode.Fail);
 
         var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
         {
@@ -81,7 +81,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Window_Exact_Division()
     {
-        var windows = await Stream.Range(1, 4).Window(2).ToListAsync();
+        var windows = await Flux.Range(1, 4).Window(2).ToListAsync();
         Assert.That(windows.Count, Is.EqualTo(2));
 
         var w1Task = windows[0].ToListAsync();
@@ -94,7 +94,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Window_Trailing_Remainder()
     {
-        var windows = await Stream.Range(1, 5).Window(2).ToListAsync();
+        var windows = await Flux.Range(1, 5).Window(2).ToListAsync();
         Assert.That(windows.Count, Is.EqualTo(3));
 
         var w1Task = windows[0].ToListAsync();
@@ -109,7 +109,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Window_Empty_Source()
     {
-        var result = await Stream.Empty<int>().Window(2).ToListAsync();
+        var result = await Flux.Empty<int>().Window(2).ToListAsync();
         Assert.That(result, Is.Empty);
     }
 
@@ -117,7 +117,7 @@ public class BatchOperatorTests
     public void Window_Throws_When_Cancelled()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 10).Window(2);
+        var stream = Flux.Range(1, 10).Window(2);
 
         cts.Cancel();
 
@@ -130,7 +130,7 @@ public class BatchOperatorTests
     [Test]
     public async Task Window_WithChannelBoundary_PreservesWindowing()
     {
-        var windows = await Stream.Range(1, 5)
+        var windows = await Flux.Range(1, 5)
             .Window(2, capacity: 8, mode: ChannelBackpressureMode.Wait)
             .ToListAsync();
 

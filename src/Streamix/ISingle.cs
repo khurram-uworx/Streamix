@@ -61,20 +61,20 @@ public interface ISingle<T> : IAsyncEnumerable<T>
     ISingle<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<ISingle<TResult>>> selector);
 
     /// <summary>
-    /// Projects the element of a single-item stream to an <see cref="IStream{TResult}"/> and flattens it.
+    /// Projects the element of a single-item stream to an <see cref="IFlux{TResult}"/> and flattens it.
     /// </summary>
     /// <typeparam name="TResult">The type of elements in the resulting stream.</typeparam>
     /// <param name="selector">A transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the one-to-many transform function on the element of source.</returns>
-    IStream<TResult> FlatMap<TResult>(Func<T, IStream<TResult>> selector);
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the one-to-many transform function on the element of source.</returns>
+    IFlux<TResult> FlatMap<TResult>(Func<T, IFlux<TResult>> selector);
 
     /// <summary>
-    /// Projects the element of a single-item stream to an <see cref="IStream{TResult}"/> using an asynchronous selector and flattens it.
+    /// Projects the element of a single-item stream to an <see cref="IFlux{TResult}"/> using an asynchronous selector and flattens it.
     /// </summary>
     /// <typeparam name="TResult">The type of elements in the resulting stream.</typeparam>
     /// <param name="selector">An asynchronous transform function to apply to the element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async one-to-many transform function on the element of source.</returns>
-    IStream<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IStream<TResult>>> selector);
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the async one-to-many transform function on the element of source.</returns>
+    IFlux<TResult> FlatMapAwait<TResult>(Func<T, ValueTask<IFlux<TResult>>> selector);
 
     /// <summary>
     /// Resumes a single-item stream with another single-item stream if an error occurs.

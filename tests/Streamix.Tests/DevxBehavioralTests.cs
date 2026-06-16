@@ -8,7 +8,7 @@ public class DevxBehavioralTests
     [Test]
     public void Stream_Named_PropagatesToDerivedStream()
     {
-        var stream = Stream.Range(1, 5).Named("Original");
+        var stream = Flux.Range(1, 5).Named("Original");
         var derived = stream.Map(x => x * 2);
 
         Assert.That(derived.Name, Is.EqualTo("Original"));
@@ -27,7 +27,7 @@ public class DevxBehavioralTests
     public void Stream_Named_PropagatesThroughChain()
     {
         var name = "ChainStream";
-        var stream = Stream.Range(1, 5)
+        var stream = Flux.Range(1, 5)
             .Named(name)
             .Filter(x => x % 2 == 0)
             .Map(x => x * 2)
@@ -40,7 +40,7 @@ public class DevxBehavioralTests
     public async Task Stream_Log_DoesNotAlterStreamContent()
     {
         var source = new[] { 1, 2, 3, 4, 5 };
-        var result = await Stream.From(source)
+        var result = await Flux.From(source)
             .Log()
             .ToListAsync();
 
@@ -51,7 +51,7 @@ public class DevxBehavioralTests
     public async Task Stream_Trace_DoesNotAlterStreamContent()
     {
         var source = new[] { 1, 2, 3, 4, 5 };
-        var result = await Stream.From(source)
+        var result = await Flux.From(source)
             .Trace()
             .ToListAsync();
 
@@ -62,7 +62,7 @@ public class DevxBehavioralTests
     public async Task Stream_Checkpoint_DoesNotAlterStreamContent()
     {
         var source = new[] { 1, 2, 3, 4, 5 };
-        var result = await Stream.From(source)
+        var result = await Flux.From(source)
             .Checkpoint("Test")
             .ToListAsync();
 
@@ -73,7 +73,7 @@ public class DevxBehavioralTests
     public async Task Stream_Debug_DoesNotAlterStreamContent()
     {
         var source = new[] { 1, 2, 3, 4, 5 };
-        var result = await Stream.From(source)
+        var result = await Flux.From(source)
             .Debug()
             .ToListAsync();
 
@@ -83,21 +83,21 @@ public class DevxBehavioralTests
     [Test]
     public void Stream_Log_PropagatesError()
     {
-        var stream = Stream.Error<int>(new Exception("Fail")).Log();
+        var stream = Flux.Error<int>(new Exception("Fail")).Log();
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
     }
 
     [Test]
     public void Stream_Trace_PropagatesError()
     {
-        var stream = Stream.Error<int>(new Exception("Fail")).Trace();
+        var stream = Flux.Error<int>(new Exception("Fail")).Trace();
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
     }
 
     [Test]
     public void Stream_Checkpoint_PropagatesError()
     {
-        var stream = Stream.Error<int>(new Exception("Fail")).Checkpoint("Test");
+        var stream = Flux.Error<int>(new Exception("Fail")).Checkpoint("Test");
         Assert.ThrowsAsync<Exception>(async () => await stream.ToListAsync());
     }
 
@@ -105,7 +105,7 @@ public class DevxBehavioralTests
     public async Task Stream_DiagnosticOperators_PropagateCancellation()
     {
         using var cts = new CancellationTokenSource();
-        var stream = Stream.Interval(TimeSpan.FromMilliseconds(10))
+        var stream = Flux.Interval(TimeSpan.FromMilliseconds(10))
             .Log()
             .Trace()
             .Checkpoint("Test")
@@ -165,7 +165,7 @@ public class DevxBehavioralTests
     [Test]
     public void Stream_Named_CanBeOverridden()
     {
-        var stream = Stream.Range(1, 5)
+        var stream = Flux.Range(1, 5)
             .Named("First")
             .Named("Second");
 

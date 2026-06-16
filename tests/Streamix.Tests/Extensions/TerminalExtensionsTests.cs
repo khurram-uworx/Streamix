@@ -52,7 +52,7 @@ public class TerminalExtensionsTests
     public async Task ToHashSetAsync_With_Comparer_Works()
     {
         var input = new[] { "a", "A", "b" };
-        var stream = Stream.From(input.ToAsyncEnumerable());
+        var stream = Flux.From(input.ToAsyncEnumerable());
 
         var set = await stream.ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
 
@@ -65,7 +65,7 @@ public class TerminalExtensionsTests
     public async Task ToDictionaryAsync_Throws_On_Duplicate_Key()
     {
         var input = new[] { 1, 2, 3 };
-        var stream = Stream.From(input.ToAsyncEnumerable());
+        var stream = Flux.From(input.ToAsyncEnumerable());
 
         // Both 1 and 3 map to "odd"
         Assert.ThrowsAsync<ArgumentException>(async () =>
@@ -76,7 +76,7 @@ public class TerminalExtensionsTests
     public async Task ToDictionaryAsync_With_ValueSelector_Throws_On_Duplicate_Key()
     {
         var input = new[] { 1, 2, 3 };
-        var stream = Stream.From(input.ToAsyncEnumerable());
+        var stream = Flux.From(input.ToAsyncEnumerable());
 
         Assert.ThrowsAsync<ArgumentException>(async () =>
             await stream.ToDictionaryAsync(x => x % 2 == 0 ? "even" : "odd", x => x * 10));
@@ -86,7 +86,7 @@ public class TerminalExtensionsTests
     public async Task ToDictionaryAsync_With_Comparer_Works()
     {
         var input = new[] { "a", "b" };
-        var stream = Stream.From(input.ToAsyncEnumerable());
+        var stream = Flux.From(input.ToAsyncEnumerable());
 
         var dict = await stream.ToDictionaryAsync(x => x, StringComparer.OrdinalIgnoreCase);
 
@@ -97,7 +97,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToDictionaryAsync_Empty_Stream_Returns_Empty_Dictionary()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var dict = await stream.ToDictionaryAsync<int, int>(x => x, (IEqualityComparer<int>?)null);
         Assert.That(dict.Count, Is.EqualTo(0));
     }
@@ -105,14 +105,14 @@ public class TerminalExtensionsTests
     [Test]
     public void ToDictionaryAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToDictionaryAsync<int, int>(x => x, (IEqualityComparer<int>?)null));
     }
 
     [Test]
     public void ToDictionaryAsync_Propagates_KeySelector_Exception()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.ToDictionaryAsync<int, int>(x => throw new InvalidOperationException("Selector failure"), (IEqualityComparer<int>?)null));
     }
@@ -121,7 +121,7 @@ public class TerminalExtensionsTests
     public void ToDictionaryAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.ToDictionaryAsync<int, int>(x => x, (IEqualityComparer<int>?)null, cts.Token));
@@ -132,7 +132,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.FirstAsync(x => x > 2);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -140,14 +140,14 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstAsync_With_Predicate_Throws_If_No_Match()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.FirstAsync(x => x > 10));
     }
 
     [Test]
     public async Task FirstOrDefaultAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.FirstOrDefaultAsync(x => x > 2);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -155,7 +155,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstOrDefaultAsync_With_Predicate_Returns_Default_If_No_Match()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.FirstOrDefaultAsync(x => x > 10);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -163,7 +163,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task LastAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.LastAsync(x => x < 4);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -171,7 +171,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task LastOrDefaultAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.LastOrDefaultAsync(x => x < 4);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -179,7 +179,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.SingleAsync(x => x == 3);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -187,14 +187,14 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleAsync_With_Predicate_Throws_If_Multiple_Matches()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.SingleAsync(x => x > 2));
     }
 
     [Test]
     public async Task SingleOrDefaultAsync_With_Predicate_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.SingleOrDefaultAsync(x => x == 3);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -204,7 +204,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtAsync_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ElementAtAsync(2);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -212,21 +212,21 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtAsync_Throws_If_Out_Of_Range()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ElementAtAsync(5));
     }
 
     [Test]
     public async Task ElementAtAsync_Throws_If_Index_Negative()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await stream.ElementAtAsync(-1));
     }
 
     [Test]
     public async Task ElementAtOrDefaultAsync_Returns_Correct_Element()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ElementAtOrDefaultAsync(2);
         Assert.That(result, Is.EqualTo(3));
     }
@@ -234,7 +234,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtOrDefaultAsync_Returns_Default_If_Out_Of_Range()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.ElementAtOrDefaultAsync(5);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -242,7 +242,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ElementAtAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ElementAtAsync(0));
     }
 
@@ -250,7 +250,7 @@ public class TerminalExtensionsTests
     public void ElementAtAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.ElementAtAsync(10, cts.Token));
@@ -259,7 +259,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ElementAtOrDefaultAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ElementAtOrDefaultAsync(0));
     }
 
@@ -267,7 +267,7 @@ public class TerminalExtensionsTests
     public void ElementAtOrDefaultAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.ElementAtOrDefaultAsync(10, cts.Token));
@@ -276,7 +276,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtOrDefaultAsync_Returns_Default_If_Index_Negative()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.ElementAtOrDefaultAsync(-1);
         Assert.That(result, Is.EqualTo(0));
     }
@@ -286,7 +286,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstOrNoneAsync_Returns_Some_If_NotEmpty()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.FirstOrNoneAsync();
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(1));
@@ -295,7 +295,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstOrNoneAsync_With_Predicate_Returns_Some_If_Match()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.FirstOrNoneAsync(x => x > 2);
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(3));
@@ -304,7 +304,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task FirstOrNoneAsync_Returns_None_If_Empty()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var result = await stream.FirstOrNoneAsync();
         Assert.That(result.HasValue, Is.False);
     }
@@ -312,7 +312,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task LastOrNoneAsync_Returns_Some_If_NotEmpty()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.LastOrNoneAsync();
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(3));
@@ -321,7 +321,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task LastOrNoneAsync_With_Predicate_Returns_Some_If_Match()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.LastOrNoneAsync(x => x < 4);
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(3));
@@ -330,7 +330,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task LastOrNoneAsync_Returns_None_If_Empty()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var result = await stream.LastOrNoneAsync();
         Assert.That(result.HasValue, Is.False);
     }
@@ -338,7 +338,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleOrNoneAsync_Returns_Some_If_OneElement()
     {
-        var stream = Stream.Just(1);
+        var stream = Flux.Just(1);
         var result = await stream.SingleOrNoneAsync();
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(1));
@@ -347,7 +347,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleOrNoneAsync_With_Predicate_Returns_Some_If_OneMatch()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.SingleOrNoneAsync(x => x == 3);
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(3));
@@ -356,7 +356,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleOrNoneAsync_Returns_None_If_Empty()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var result = await stream.SingleOrNoneAsync();
         Assert.That(result.HasValue, Is.False);
     }
@@ -364,7 +364,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleOrNoneAsync_Returns_None_If_MoreThanOneElement()
     {
-        var stream = Stream.Range(1, 2);
+        var stream = Flux.Range(1, 2);
         var result = await stream.SingleOrNoneAsync();
         Assert.That(result.HasValue, Is.False);
     }
@@ -372,7 +372,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SingleOrNoneAsync_With_Predicate_Returns_None_If_MoreThanOneMatch()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.SingleOrNoneAsync(x => x > 2);
         Assert.That(result.HasValue, Is.False);
     }
@@ -380,7 +380,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtOrNoneAsync_Returns_Some_If_In_Range()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ElementAtOrNoneAsync(2);
         Assert.That(result.HasValue, Is.True);
         Assert.That(result.Value, Is.EqualTo(3));
@@ -389,7 +389,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ElementAtOrNoneAsync_Returns_None_If_Out_Of_Range()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.ElementAtOrNoneAsync(5);
         Assert.That(result.HasValue, Is.False);
     }
@@ -399,7 +399,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ReduceAsync_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ReduceAsync((acc, x) => acc + x);
         Assert.That(result, Is.EqualTo(15));
     }
@@ -407,7 +407,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ScanLastAsync_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ScanLastAsync(10, (acc, x) => acc + x);
         Assert.That(result, Is.EqualTo(25));
     }
@@ -415,7 +415,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task MaxByAsync_Works()
     {
-        var stream = Stream.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
         var result = await stream.MaxByAsync(x => x.Item1);
         Assert.That(result, Is.EqualTo((3, "c")));
     }
@@ -423,7 +423,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task MinByAsync_Works()
     {
-        var stream = Stream.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
         var result = await stream.MinByAsync(x => x.Item1);
         Assert.That(result, Is.EqualTo((1, "a")));
     }
@@ -431,21 +431,21 @@ public class TerminalExtensionsTests
     [Test]
     public void MaxByAsync_Empty_Stream_Throws_InvalidOperationException()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.MaxByAsync(x => x));
     }
 
     [Test]
     public void MaxByAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.MaxByAsync(x => x));
     }
 
     [Test]
     public void MaxByAsync_Propagates_Selector_Exception()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.MaxByAsync<int, int>(x => throw new InvalidOperationException("Selector failure")));
     }
@@ -454,7 +454,7 @@ public class TerminalExtensionsTests
     public void MaxByAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.MaxByAsync(x => x, cts.Token));
@@ -463,7 +463,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task MaxByAsync_With_Comparer_Works()
     {
-        var stream = Stream.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
         var result = await stream.MaxByAsync(x => x.Item1, Comparer<int>.Create((x, y) => y.CompareTo(x)));
         Assert.That(result, Is.EqualTo((1, "a")));
     }
@@ -471,21 +471,21 @@ public class TerminalExtensionsTests
     [Test]
     public void MinByAsync_Empty_Stream_Throws_InvalidOperationException()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.MinByAsync(x => x));
     }
 
     [Test]
     public void MinByAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.MinByAsync(x => x));
     }
 
     [Test]
     public void MinByAsync_Propagates_Selector_Exception()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.MinByAsync<int, int>(x => throw new InvalidOperationException("Selector failure")));
     }
@@ -494,7 +494,7 @@ public class TerminalExtensionsTests
     public void MinByAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.MinByAsync(x => x, cts.Token));
@@ -503,7 +503,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task MinByAsync_With_Comparer_Works()
     {
-        var stream = Stream.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { (1, "a"), (3, "c"), (2, "b") }.ToAsyncEnumerable());
         var result = await stream.MinByAsync(x => x.Item1, Comparer<int>.Create((x, y) => y.CompareTo(x)));
         Assert.That(result, Is.EqualTo((3, "c")));
     }
@@ -513,7 +513,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToSinkAsync_Writes_All_Items_And_Completes_Sink()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var sink = new RecordingSink<int>();
 
         await stream.ToSinkAsync(sink);
@@ -527,7 +527,7 @@ public class TerminalExtensionsTests
     public void ToSinkAsync_Propagates_Upstream_Error_And_Completes_Sink_With_Error()
     {
         var failure = new InvalidOperationException("upstream");
-        var stream = Stream.Range(1, 2).MergeWith(Stream.Error<int>(failure));
+        var stream = Flux.Range(1, 2).MergeWith(Flux.Error<int>(failure));
         var sink = new RecordingSink<int>();
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToSinkAsync(sink));
@@ -542,7 +542,7 @@ public class TerminalExtensionsTests
     public void ToSinkAsync_Propagates_Sink_Write_Error_And_Completes_Sink_With_Error()
     {
         var failure = new InvalidOperationException("write");
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var sink = new RecordingSink<int>(writeAsync: (item, _) =>
         {
             if (item == 3)
@@ -564,7 +564,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToSinkAsync_LeaveSinkOpen_Does_Not_Complete_Sink()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var sink = new RecordingSink<int>();
 
         await stream.ToSinkAsync(sink, SinkCompletionMode.LeaveSinkOpen);
@@ -580,7 +580,7 @@ public class TerminalExtensionsTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var stream = Stream.Never<int>();
+        var stream = Flux.Never<int>();
         var sink = new RecordingSink<int>();
 
         Assert.CatchAsync<OperationCanceledException>(async () => await stream.ToSinkAsync(sink, cancellationToken: cts.Token));
@@ -593,7 +593,7 @@ public class TerminalExtensionsTests
     public void ToSinkAsync_Propagates_Completion_Error_On_Success()
     {
         var failure = new InvalidOperationException("complete");
-        var stream = Stream.Range(1, 2);
+        var stream = Flux.Range(1, 2);
         var sink = new RecordingSink<int>(completeAsync: (_, _) => ValueTask.FromException(failure));
 
         var exception = Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToSinkAsync(sink));
@@ -607,7 +607,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToSinkAsync_With_Delegate_Writes_All_Items()
     {
-        var stream = Stream.Range(1, 4);
+        var stream = Flux.Range(1, 4);
         var items = new List<int>();
         var completionCount = 0;
 
@@ -630,7 +630,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToSinkAsync_With_Delegate_Awaits_Backpressure_Style_Writes()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var writesStarted = 0;
         var writeTask = stream.ToSinkAsync(async (item, _) =>
@@ -656,7 +656,7 @@ public class TerminalExtensionsTests
     public void ToSinkAsync_With_Delegate_Propagates_Write_Callback_Exception()
     {
         var failure = new InvalidOperationException("write");
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var completionError = default(Exception?);
         var completionCount = 0;
 
@@ -685,7 +685,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToSinkAsync_With_Delegate_LeaveSinkOpen_Skips_Completion_Callback()
     {
-        var stream = Stream.Range(1, 2);
+        var stream = Flux.Range(1, 2);
         var items = new List<int>();
         var completionCount = 0;
 
@@ -709,7 +709,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToChannel_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var reader = stream.ToChannel();
         var list = new List<int>();
         await foreach (var item in reader.ReadAllAsync())
@@ -722,7 +722,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ToEnumerableBlocking_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = stream.ToEnumerableBlocking().ToList();
         Assert.That(result, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
     }
@@ -730,7 +730,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task AsAsyncEnumerable_Works()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         IAsyncEnumerable<int> asyncEnumerable = stream.AsAsyncEnumerable();
         var list = new List<int>();
         await foreach (var item in asyncEnumerable)
@@ -745,7 +745,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ForEachAsync_WithConcurrency_Works()
     {
-        var stream = Stream.Range(1, 10);
+        var stream = Flux.Range(1, 10);
         var processed = new List<int>();
         await stream.ForEachAsync(async x =>
         {
@@ -762,7 +762,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SubscribeAsync_Works()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var items = new List<int>();
         bool completed = false;
 
@@ -778,7 +778,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task SubscribeAsync_HandlesError()
     {
-        var stream = Stream.Error<int>(new Exception("test"));
+        var stream = Flux.Error<int>(new Exception("test"));
         Exception? caught = null;
 
         await stream.SubscribeAsync(
@@ -795,7 +795,7 @@ public class TerminalExtensionsTests
     public async Task DrainAsync_Works()
     {
         var count = 0;
-        var stream = Stream.Range(1, 5).DoOnNext(_ => count++);
+        var stream = Flux.Range(1, 5).DoOnNext(_ => count++);
         await stream.DrainAsync();
         Assert.That(count, Is.EqualTo(5));
     }
@@ -804,7 +804,7 @@ public class TerminalExtensionsTests
     public async Task DrainAsync_Empty_Stream_Works()
     {
         var count = 0;
-        var stream = Stream.Empty<int>().DoOnNext(_ => count++);
+        var stream = Flux.Empty<int>().DoOnNext(_ => count++);
         await stream.DrainAsync();
         Assert.That(count, Is.EqualTo(0));
     }
@@ -812,7 +812,7 @@ public class TerminalExtensionsTests
     [Test]
     public void DrainAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("Upstream failure"));
+        var stream = Flux.Error<int>(new InvalidOperationException("Upstream failure"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.DrainAsync());
     }
 
@@ -820,7 +820,7 @@ public class TerminalExtensionsTests
     public void DrainAsync_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
+        var stream = Flux.Range(1, 100).DoOnNext(x => { if (x == 5) cts.Cancel(); });
 
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await stream.DrainAsync(cts.Token));
@@ -831,7 +831,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ExecuteAsync_Works_Success()
     {
-        var stream = Stream.Range(1, 3);
+        var stream = Flux.Range(1, 3);
         var result = await stream.ExecuteAsync();
 
         Assert.That(result.Items, Is.EqualTo(new[] { 1, 2, 3 }));
@@ -843,7 +843,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ExecuteAsync_Works_Error()
     {
-        var stream = Stream.Range(1, 2).MergeWith(Stream.Error<int>(new Exception("test")));
+        var stream = Flux.Range(1, 2).MergeWith(Flux.Error<int>(new Exception("test")));
         var result = await stream.ExecuteAsync();
 
         Assert.That(result.Items, Is.EquivalentTo(new[] { 1, 2 }));
@@ -856,7 +856,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ContainsAsync_Returns_True_If_Found()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ContainsAsync(3);
         Assert.That(result, Is.True);
     }
@@ -864,7 +864,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ContainsAsync_Returns_False_If_Not_Found()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var result = await stream.ContainsAsync(10);
         Assert.That(result, Is.False);
     }
@@ -872,7 +872,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ContainsAsync_With_Comparer_Works()
     {
-        var stream = Stream.From(new[] { "a", "b", "c" }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { "a", "b", "c" }.ToAsyncEnumerable());
         var result = await stream.ContainsAsync("A", StringComparer.OrdinalIgnoreCase);
         Assert.That(result, Is.True);
     }
@@ -880,7 +880,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ContainsAsync_With_Empty_Stream_Returns_False()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var result = await stream.ContainsAsync(1);
         Assert.That(result, Is.False);
     }
@@ -888,7 +888,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ContainsAsync_Respects_Cancellation()
     {
-        var stream = Stream.Never<int>();
+        var stream = Flux.Never<int>();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -898,7 +898,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ContainsAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("upstream"));
+        var stream = Flux.Error<int>(new InvalidOperationException("upstream"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ContainsAsync(1));
     }
 
@@ -907,7 +907,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToLookupAsync_Basic_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var lookup = await stream.ToLookupAsync(x => x % 2 == 0 ? "even" : "odd");
 
         Assert.That(lookup.Count, Is.EqualTo(2));
@@ -918,7 +918,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToLookupAsync_With_ValueSelector_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var lookup = await stream.ToLookupAsync(x => x % 2 == 0 ? "even" : "odd", x => x * 10);
 
         Assert.That(lookup["even"], Is.EquivalentTo(new[] { 20, 40 }));
@@ -928,7 +928,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToLookupAsync_With_Comparer_Works()
     {
-        var stream = Stream.From(new[] { "a", "b", "A" }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { "a", "b", "A" }.ToAsyncEnumerable());
         var lookup = await stream.ToLookupAsync(x => x, StringComparer.OrdinalIgnoreCase);
 
         Assert.That(lookup.Count, Is.EqualTo(2));
@@ -939,7 +939,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToLookupAsync_With_Empty_Stream_Works()
     {
-        var stream = Stream.Empty<int>();
+        var stream = Flux.Empty<int>();
         var lookup = await stream.ToLookupAsync(x => x);
 
         Assert.That(lookup.Count, Is.EqualTo(0));
@@ -948,7 +948,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task ToLookupAsync_Handles_Null_Keys()
     {
-        var stream = Stream.From(new[] { "a", null, "b" }.ToAsyncEnumerable());
+        var stream = Flux.From(new[] { "a", null, "b" }.ToAsyncEnumerable());
         var lookup = await stream.ToLookupAsync(x => x);
 
         Assert.That(lookup.Count, Is.EqualTo(3));
@@ -958,7 +958,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ToLookupAsync_Respects_Cancellation()
     {
-        var stream = Stream.Never<int>();
+        var stream = Flux.Never<int>();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -968,7 +968,7 @@ public class TerminalExtensionsTests
     [Test]
     public void ToLookupAsync_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("upstream"));
+        var stream = Flux.Error<int>(new InvalidOperationException("upstream"));
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToLookupAsync(x => x));
     }
 
@@ -977,7 +977,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task CountAsync_With_AsyncPredicate_Works()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
 
         var count = await stream.CountAsync(async x =>
         {
@@ -991,7 +991,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task AnyAsync_With_AsyncPredicate_ShortCircuits_On_First_Match()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var predicateCalls = 0;
 
         var result = await stream.AnyAsync(async x =>
@@ -1008,7 +1008,7 @@ public class TerminalExtensionsTests
     [Test]
     public async Task AllAsync_With_AsyncPredicate_ShortCircuits_On_First_Failure()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
         var predicateCalls = 0;
 
         var result = await stream.AllAsync(async x =>
@@ -1025,7 +1025,7 @@ public class TerminalExtensionsTests
     [Test]
     public void CountAsync_With_AsyncPredicate_Respects_Cancellation()
     {
-        var stream = Stream.Never<int>();
+        var stream = Flux.Never<int>();
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -1036,7 +1036,7 @@ public class TerminalExtensionsTests
     [Test]
     public void AnyAsync_With_AsyncPredicate_Propagates_Upstream_Exception()
     {
-        var stream = Stream.Error<int>(new InvalidOperationException("upstream"));
+        var stream = Flux.Error<int>(new InvalidOperationException("upstream"));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.AnyAsync(_ => ValueTask.FromResult(true)));
@@ -1045,7 +1045,7 @@ public class TerminalExtensionsTests
     [Test]
     public void AllAsync_With_AsyncPredicate_Propagates_Predicate_Exception()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await stream.AllAsync<int>(x =>

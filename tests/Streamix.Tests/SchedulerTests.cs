@@ -49,7 +49,7 @@ public class SchedulerTests
             yield return 2;
         }
 
-        var stream = Stream.From(GenerateItems())
+        var stream = Flux.From(GenerateItems())
             .RunOn(scheduler);
 
         await foreach (var item in stream)
@@ -102,7 +102,7 @@ public class SchedulerTests
             yield return 1;
         }
 
-        var stream = Stream.From(GenerateItems())
+        var stream = Flux.From(GenerateItems())
             .RunOn(scheduler);
 
         var task = Task.Run(async () =>

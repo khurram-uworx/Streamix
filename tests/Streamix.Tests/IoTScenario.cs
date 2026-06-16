@@ -42,11 +42,11 @@ public class IoTScenarios
         }
     }
 
-    static IStream<TemperatureReading> createStreamixSensor(string sensorId, int seed, IoTScenarioOptions options)
+    static IFlux<TemperatureReading> createStreamixSensor(string sensorId, int seed, IoTScenarioOptions options)
     {
         var random = new Random(seed);
 
-        return Stream.Interval(TimeSpan.Zero, options.SensorPeriod)
+        return Flux.Interval(TimeSpan.Zero, options.SensorPeriod)
             .Map(_ => createReading(sensorId, random));
     }
 
@@ -210,13 +210,13 @@ public class IoTScenarios
 
         using var cts = new CancellationTokenSource(options.RunDuration);
 
-        var updates = Stream.Merge(sensors)
+        var updates = Flux.Merge(sensors)
             .MapWithTimestamp(r => r.Timestamp)
             .WindowByTime(
                 duration: options.Window,
                 slide: options.SensorPeriod)
             .FlatMap(window =>
-                Stream.From<double>((CancellationToken ct) =>
+                Flux.From<double>((CancellationToken ct) =>
                 {
                     var max = window.Select(ts => ts.Value.Temperature).MaxAsync(cancellationToken: ct);
                     return max;

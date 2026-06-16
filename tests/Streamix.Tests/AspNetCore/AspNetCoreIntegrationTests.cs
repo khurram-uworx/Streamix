@@ -15,7 +15,7 @@ public class AspNetCoreIntegrationTests
     public async Task ToSseAsync_WritesServerSentEventsFormat()
     {
         var items = new[] { 1, 2, 3 };
-        var stream = Stream.From(items);
+        var stream = Flux.From(items);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -46,7 +46,7 @@ public class AspNetCoreIntegrationTests
     public async Task ToSseAsync_SerializesObjectsAsJson()
     {
         var items = new[] { new { Id = 1, Name = "A" }, new { Id = 2, Name = "B" } };
-        var stream = Stream.From(items);
+        var stream = Flux.From(items);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -73,7 +73,7 @@ public class AspNetCoreIntegrationTests
     public async Task StreamResult_ReturnsActionResult()
     {
         var items = new[] { "hello", "world" };
-        var stream = Stream.From(items);
+        var stream = Flux.From(items);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -81,7 +81,7 @@ public class AspNetCoreIntegrationTests
 
         app.MapGet("/result", async (HttpContext ctx) =>
         {
-            var result = new Streamix.AspNetCore.StreamResult<string>(stream);
+            var result = new FluxResult<string>(stream);
             await result.ExecuteResultAsync(new Microsoft.AspNetCore.Mvc.ActionContext { HttpContext = ctx });
         });
 
@@ -102,7 +102,7 @@ public class AspNetCoreIntegrationTests
     public async Task ToJsonResponseAsync_SerializesStreamAsJsonArray()
     {
         var items = new[] { 10, 20, 30 };
-        var stream = Stream.From(items);
+        var stream = Flux.From(items);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -131,7 +131,7 @@ public class AspNetCoreIntegrationTests
     [Test]
     public async Task ToSseAsync_WritesMultipleEvents()
     {
-        var stream = Stream.Range(1, 5);
+        var stream = Flux.Range(1, 5);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();

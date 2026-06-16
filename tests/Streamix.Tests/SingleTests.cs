@@ -89,7 +89,7 @@ public class SingleTests
     public async Task FlatMap_ToStream_Flattens_To_Stream()
     {
         ISingle<int> single = Single.From(3);
-        IStream<int> stream = single.FlatMap(x => Stream.Range(1, x));
+        IFlux<int> stream = single.FlatMap(x => Flux.Range(1, x));
         var result = new List<int>();
         await foreach (var item in stream)
         {
@@ -131,7 +131,7 @@ public class SingleTests
     public async Task Single_To_Stream_Interoperability()
     {
         ISingle<int> single = Single.From(42);
-        IStream<int> stream = Stream.From(single);
+        IFlux<int> stream = Flux.From(single);
         var result = new List<int>();
         await foreach (var item in stream) result.Add(item);
         Assert.That(result, Is.EqualTo(new[] { 42 }));
@@ -165,10 +165,10 @@ public class SingleTests
     public async Task FlatMapAwait_ToStream_Flattens_To_Stream_Asynchronously()
     {
         ISingle<int> single = Single.From(3);
-        IStream<int> stream = single.FlatMapAwait(async x =>
+        IFlux<int> stream = single.FlatMapAwait(async x =>
         {
             await Task.Yield();
-            return Stream.Range(1, x);
+            return Flux.Range(1, x);
         });
         var result = new List<int>();
         await foreach (var item in stream)

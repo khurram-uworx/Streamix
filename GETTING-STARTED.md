@@ -6,19 +6,19 @@ It brings a .NET-idiomatic reactive stream model on top of `IAsyncEnumerable<T>`
 
 ## Why Streamix?
 
-- `Stream<T>` for 0..N values and `Single<T>` for 0..1 values
+- `Flux<T>` for 0..N values and `Single<T>` for 0..1 values
 - Fluent operators for filtering, mapping, flattening, timing, retries, and recovery
 - Explicit concurrency and ordering control
 - Cold streams by default, with hot-stream primitives such as `Publish`, `Replay`, and `RefCount`
 - LINQ/query syntax support for the common sequential surface
 - Interop with `IAsyncEnumerable<T>`, channels, and an optional AsyncRx.NET extensions package
 
-### `Stream<T>`
+### `Flux<T>`
 
 Represents a stream of 0..N values.
 
 ```csharp
-IStream<int> numbers = Stream.Range(1, 10);
+IFlux<int> numbers = Flux.Range(1, 10);
 ```
 
 ### `Single<T>`
@@ -34,7 +34,7 @@ ISingle<User> user = Single.From(GetUser(id));
 ## Hello World
 
 ```csharp
-await Stream.Range(1, 10)
+await Flux.Range(1, 10)
     .Filter(x => x % 2 == 0)
     .Map(x => x * 10)
     .ForEachAsync(Console.WriteLine);
@@ -45,8 +45,8 @@ await Stream.Range(1, 10)
 ```csharp
 var orders =
     GetUser(id)                           // Single<User>
-    .FlatMap(user => GetOrders(user))     // Stream<Order>
-    .Map(o => o.Product);                 // Stream<string>
+    .FlatMap(user => GetOrders(user))     // Flux<Order>
+    .Map(o => o.Product);                 // Flux<string>
 ```
 
 Available patterns include:
@@ -62,24 +62,24 @@ Available patterns include:
 
 ### FlatMap Overload Resolution
 
-When calling `FlatMap` on `IStream<T>`, the compiler selects the overload based on the **return type** of the selector function:
+When calling `FlatMap` on `IFlux<T>`, the compiler selects the overload based on the **return type** of the selector function:
 
 | If the selector returns… | Overload | Semantics |
 |---|---|---|
 | `Task<TResult>` | `FlatMap(Func<T, Task<TResult>>, int)` | Async 1:1, concurrent, unordered |
-| `IStream<TResult>` | `FlatMap(Func<T, IStream<TResult>>, int)` | Async 1:N, concurrent, unordered |
+| `IFlux<TResult>` | `FlatMap(Func<T, IFlux<TResult>>, int)` | Async 1:N, concurrent, unordered |
 | `ISingle<TResult>` | `FlatMap(Func<T, ISingle<TResult>>, int)` | Async 1:1, concurrent, unordered |
 | `IAsyncEnumerable<TResult>` | `FlatMap(Func<T, IAsyncEnumerable<TResult>>, int)` | Async 1:N, concurrent, unordered |
 
-For sequential ordered flattening, use `ConcatMap(Func<T, IStream<TResult>>)`.
-For concurrent ordered flattening, use `FlatMapOrdered(Func<T, IStream<TResult>>, int)`.
+For sequential ordered flattening, use `ConcatMap(Func<T, IFlux<TResult>>)`.
+For concurrent ordered flattening, use `FlatMapOrdered(Func<T, IFlux<TResult>>, int)`.
 
 When calling `FlatMap` on `ISingle<T>`, the overload is determined by:
 
 | If the selector returns… | Overload | Returns |
 |---|---|---|
 | `ISingle<TResult>` | `FlatMap(Func<T, ISingle<TResult>>)` | `ISingle<TResult>` — stays single |
-| `IStream<TResult>` | `FlatMap(Func<T, IStream<TResult>>)` | `IStream<TResult>` — expands to stream |
+| `IFlux<TResult>` | `FlatMap(Func<T, IFlux<TResult>>)` | `IFlux<TResult>` — expands to stream |
 
 ## Concurrency and Backpressure
 
@@ -132,12 +132,12 @@ await stream.OnBackpressureError().ForEachAsync(CriticalProcessAsync);
 
 Streamix implements a structured concurrency model that ensures concurrent operations have well-defined lifetimes and predictable failure/cancellation semantics.
 
-### `Stream.ScopedAsync`
+### `Flux.ScopedAsync`
 
-The primary entry point for structured concurrency is `Stream.ScopedAsync`. It creates a supervision boundary that waits for all spawned tasks to complete before returning.
+The primary entry point for structured concurrency is `Flux.ScopedAsync`. It creates a supervision boundary that waits for all spawned tasks to complete before returning.
 
 ```csharp
-await Stream.ScopedAsync(async scope =>
+await Flux.ScopedAsync(async scope =>
 {
     scope.Run(async ct =>
     {
@@ -167,7 +167,7 @@ The architecture guide includes a concurrency verification matrix that maps thes
 Streams are cold by default: each subscriber re-enumerates the source. `Publish()` turns a cold stream into a connectable shared stream.
 
 ```csharp
-var cold = Stream.Range(1, 3);
+var cold = Flux.Range(1, 3);
 var hot = source.Publish();
 
 using var connection = hot.Connect();
@@ -177,13 +177,13 @@ await hot.ForEachAsync(Console.WriteLine);
 Use `RefCount()` to auto-connect on the first subscriber and disconnect when the last subscriber leaves.
 
 ```csharp
-var shared = Stream.Range(1, 3).Publish().RefCount();
+var shared = Flux.Range(1, 3).Publish().RefCount();
 ```
 
 Use `Replay(...)` to share the source and replay the most recent items to late subscribers.
 
 ```csharp
-var replayed = Stream.Range(1, 3).Replay(2);
+var replayed = Flux.Range(1, 3).Replay(2);
 ```
 
 ## Operators
@@ -207,7 +207,7 @@ var replayed = Stream.Range(1, 3).Replay(2);
 - `DoOnNext`, `Do`, `Tap`, `DoOnNextAsync`, `DoOnError`, `DoOnComplete`, `DoOnTerminate`
 - `MapWithTimestamp` / `WindowByTime`
 
-`IStream<T>` includes `ForEachAsync(...)`, sink output, and channel output. Additional terminal operators are available through extension methods:
+`IFlux<T>` includes `ForEachAsync(...)`, sink output, and channel output. Additional terminal operators are available through extension methods:
 
 - `ToListAsync`, `ToArrayAsync`, `ToHashSetAsync`, `ToDictionaryAsync`, `ToLookupAsync`
 - `FirstAsync` / `LastAsync` (and `OrDefault` variants)
@@ -234,23 +234,23 @@ For now, LINQ is a convenience layer rather than the full concurrency-control su
 
 ```csharp
 var result = await (
-    from x in Stream.Range(1, 10)
+    from x in Flux.Range(1, 10)
     where x % 2 == 0
     select x * 10
 ).ToListAsync();
 
-var fluent = await Stream.Range(1, 10)
+var fluent = await Flux.Range(1, 10)
     .Where(x => x % 2 == 0)
     .Select(x => x * 10)
     .ToListAsync();
 
-var asyncResult = await Stream.Range(1, 10)
+var asyncResult = await Flux.Range(1, 10)
     .WhereAsync(async x => await ValidateAsync(x))
     .SelectAsync(async x => await FetchAsync(x))
     .SelectManyAsync(async x => await GetStream(x), maxConcurrency: 3)
     .ToListAsync();
 
-var ordered = await Stream.Range(1, 10)
+var ordered = await Flux.Range(1, 10)
     .FlatMapOrdered(x => GetStream(x), maxConcurrency: 3)
     .ToListAsync();
 ```
@@ -270,7 +270,7 @@ Streamix provides several operators to help you observe and debug your reactive 
 `Trace()` currently includes `Request(1)` in its output to show each downstream pull from the underlying `IAsyncEnumerable<T>` pipeline. Treat that as part of the current emitted trace shape rather than as hidden implementation noise.
 
 ```csharp
-await Stream.Range(1, 100)
+await Flux.Range(1, 100)
     .Named("Orders")
     .Trace()
     .Checkpoint("ProcessStart")
@@ -284,7 +284,7 @@ await Stream.Range(1, 100)
 When your side effect is async (e.g., writing to a database), `DoOnNextAsync` keeps the pipeline readable without forcing you to embed the side effect inside a `FlatMap` selector:
 
 ```csharp
-await Stream.Range(1, 10)
+await Flux.Range(1, 10)
     .DoOnNextAsync(async item => await db.SaveChangesAsync(item))
     .ForEachAsync(Console.WriteLine);
 ```
@@ -305,7 +305,7 @@ var timestamped = source.MapWithTimestamp(x => x.CreatedAt);
 
 ### `WindowByTime`
 
-Groups elements into tumbling or sliding windows based on their timestamps. Returns a stream of cold, single-consumer streams (`IStream<IStream<Timestamped<T>>>`).
+Groups elements into tumbling or sliding windows based on their timestamps. Returns a stream of cold, single-consumer streams (`IFlux<IFlux<Timestamped<T>>>`).
 
 **Tumbling Window:**
 
@@ -329,12 +329,12 @@ await temperatureStream
 
 ## Creation Operators
 
-### `Stream.Create<T>`
+### `Flux.Create<T>`
 
 For complex sources, callbacks, or event-driven systems.
 
 ```csharp
-var stream = Stream.Create<int>(async emitter =>
+var stream = Flux.Create<int>(async emitter =>
 {
     await emitter.EmitAsync(1);
     if (someCondition)
@@ -347,14 +347,14 @@ var stream = Stream.Create<int>(async emitter =>
 - `EmitAsync` awaits if the downstream consumer is slow.
 - Check `emitter.CancellationToken` to stop producing. `EmitAsync` throws `OperationCanceledException` if the subscriber cancels or if the stream has already reached a terminal state.
 
-### `Stream.FromEvent<T>`
+### `Flux.FromEvent<T>`
 
 For async callback or event sources that can await item delivery and return an `IDisposable` subscription.
 
 ```csharp
 var source = new PriceFeed();
 
-var prices = Stream.FromEvent<decimal>(handler => source.Subscribe(handler));
+var prices = Flux.FromEvent<decimal>(handler => source.Subscribe(handler));
 
 var latest = await prices.Take(2).ToListAsync();
 ```
@@ -363,79 +363,79 @@ var latest = await prices.Take(2).ToListAsync();
 - When the source awaits the handler, `FromEvent(...)` preserves the same backpressure contract as `Create(...)`.
 - Each subscriber gets its own registration. Cancelling or disposing the subscription always disposes the returned registration.
 
-### `Stream.FromTimer`
+### `Flux.FromTimer`
 
 ```csharp
-var stream = Stream.FromTimer(TimeSpan.FromSeconds(5));
+var stream = Flux.FromTimer(TimeSpan.FromSeconds(5));
 ```
 
 Emits a single `0L` after the due time, then completes.
 
-### `Stream.FromChannel<T>`
+### `Flux.FromChannel<T>`
 
 ```csharp
-var stream = Stream.FromChannel(channel.Reader);
+var stream = Flux.FromChannel(channel.Reader);
 ```
 
 Drains the channel asynchronously and completes when the channel is closed.
 
-### `Stream.FromQueue<T>`
+### `Flux.FromQueue<T>`
 
 ```csharp
 var queue = new Queue<int>(new[] { 1, 2, 3 });
-var stream = Stream.FromQueue(queue);
+var stream = Flux.FromQueue(queue);
 ```
 
-`FromQueue(...)` is a finite adapter over `Queue<T>`, not a live async subscription source. It dequeues items in FIFO order and completes when the queue is empty. For live asynchronous queue workloads, prefer `Stream.FromChannel(...)`.
+`FromQueue(...)` is a finite adapter over `Queue<T>`, not a live async subscription source. It dequeues items in FIFO order and completes when the queue is empty. For live asynchronous queue workloads, prefer `Flux.FromChannel(...)`.
 
-### `Stream.Defer<T>` / `Single.Defer<T>`
+### `Flux.Defer<T>` / `Single.Defer<T>`
 
 ```csharp
-var stream = Stream.Defer(() => Stream.From(DateTime.Now.Ticks));
+var stream = Flux.Defer(() => Flux.From(DateTime.Now.Ticks));
 ```
 
 The factory is called once per subscriber.
 
-### `Stream.Generate<TState, T>`
+### `Flux.Generate<TState, T>`
 
 ```csharp
-var stream = Stream.Generate(0, state =>
+var stream = Flux.Generate(0, state =>
     state < 10 ? GenerationResult<int, int>.Emit(state, state + 1)
                : GenerationResult<int, int>.Complete());
 ```
 
-### `Stream.Interval`
+### `Flux.Interval`
 
 ```csharp
-var stream = Stream.Interval(TimeSpan.FromSeconds(1));
+var stream = Flux.Interval(TimeSpan.FromSeconds(1));
 ```
 
 Does not accumulate ticks. If a consumer is slow, the next interval starts only after the consumer is ready.
 
-### `Stream.Never`
+### `Flux.Never`
 
 ```csharp
-var stream = Stream.Never<int>();
+var stream = Flux.Never<int>();
 ```
 
 Never emits and never completes unless the subscriber cancels.
 
-### `Stream.Poll`
+### `Flux.Poll`
 
 ```csharp
-var polled = Stream.Poll(
+var polled = Flux.Poll(
     TimeSpan.FromSeconds(1),
     async ct => await PollOnceAsync(ct));
 ```
 
 Cold by default, passes the subscriber cancellation token into the poll callback, and waits for each poll result before scheduling the next interval.
 
-### `Stream.Using<TResource, T>`
+### `Flux.Using<TResource, T>`
 
 ```csharp
-var stream = Stream.Using(
+var stream = Flux.Using(
     () => new StreamReader("data.txt"),
-    reader => Stream.Create<string>(async emitter =>
+    reader => Flux.Create<string>(async emitter =>
     {
         while (!reader.EndOfStream)
             await emitter.EmitAsync(await reader.ReadLineAsync());
@@ -444,36 +444,36 @@ var stream = Stream.Using(
 
 The resource is guaranteed to be disposed when the stream completes, fails, or the subscription is cancelled. If both the stream and the disposal throw, the disposal exception is propagated.
 
-### `Stream.From` / `Single.From` / `Just`
+### `Flux.From` / `Single.From` / `Just`
 
 Shorthands for values, tasks, and async enumerables. The return type depends on the overload:
 
-**Returns `IStream<T>`:**
+**Returns `IFlux<T>`:**
 
-- `Stream.Just(value)` — single value
-- `Stream.From(IEnumerable<T>)` / `Stream.From(IAsyncEnumerable<T>)` — multi-item source
-- `Stream.Defer(...)` — lazy per-subscription factory
+- `Flux.Just(value)` — single value
+- `Flux.From(IEnumerable<T>)` / `Flux.From(IAsyncEnumerable<T>)` — multi-item source
+- `Flux.Defer(...)` — lazy per-subscription factory
 - `Single.From(IAsyncEnumerable<T>)` — enforces 0..1 cardinality; returns `ISingle<T>`
 
 **Returns `ISingle<T>`:**
 
-- `Stream.From(Task<T>)` / `Stream.From(ValueTask<T>)` — wraps existing, already-started work
-- `Stream.From(Func<Task<T>>)` / `Stream.From(Func<ValueTask<T>>)` — defers creation until subscription
-- `Stream.From(Func<CancellationToken, Task<T>>)` / `Stream.From(Func<CancellationToken, ValueTask<T>>)` — lazy and CT-aware
+- `Flux.From(Task<T>)` / `Flux.From(ValueTask<T>)` — wraps existing, already-started work
+- `Flux.From(Func<Task<T>>)` / `Flux.From(Func<ValueTask<T>>)` — defers creation until subscription
+- `Flux.From(Func<CancellationToken, Task<T>>)` / `Flux.From(Func<CancellationToken, ValueTask<T>>)` — lazy and CT-aware
 - `Single.From(Task<T>)` / `Single.From(ValueTask<T>)` — explicit single factory
 - `Single.Defer(...)` — lazy per-subscription single factory
 
 `ISingle<T>` exposes its own fluent chain: `.Retry()`, `.OnErrorReturn()`, `.Map()`, `.ToTask()`, etc.
 
 ```csharp
-// Returns IStream<T>:
-Stream.Just(42);
-Stream.From(new[] { 1, 2, 3 });
-Stream.From(asyncEnumerable);
+// Returns IFlux<T>:
+Flux.Just(42);
+Flux.From(new[] { 1, 2, 3 });
+Flux.From(asyncEnumerable);
 
 // Returns ISingle<T>:
-Stream.From(Task.FromResult("hello"));
-Stream.From(async ct => await FetchData(ct));
+Flux.From(Task.FromResult("hello"));
+Flux.From(async ct => await FetchData(ct));
 Single.From(async ct => await FetchData(ct));
 ```
 
@@ -482,7 +482,7 @@ Single.From(async ct => await FetchData(ct));
 ### `IAsyncEnumerable<T>`
 
 ```csharp
-IStream<int> stream = Stream.From(asyncEnumerable);
+IFlux<int> stream = Flux.From(asyncEnumerable);
 ISingle<int> single = Single.From(task);
 ```
 
@@ -492,10 +492,10 @@ ISingle<int> single = Single.From(task);
 using System.Threading.Channels;
 
 var channel = Channel.CreateUnbounded<int>();
-IStream<int> fromChannel = Stream.FromChannel(channel);
+IFlux<int> fromChannel = Flux.FromChannel(channel);
 
-await Stream.Range(1, 3).ToChannel(channel.Writer, completeWriter: true);
-ChannelReader<int> reader = Stream.Range(1, 3).ToChannel(capacity: 10);
+await Flux.Range(1, 3).ToChannel(channel.Writer, completeWriter: true);
+ChannelReader<int> reader = Flux.Range(1, 3).ToChannel(capacity: 10);
 ```
 
 Use `FromQueue(...)` when you need to drain an in-memory `Queue<T>` once. Use `FromChannel(...)` when you need a live async queue boundary with completion and backpressure semantics.
@@ -505,13 +505,13 @@ For bounded channel deployment boundaries, Streamix exposes explicit channel-nat
 ```csharp
 using System.Threading.Channels;
 
-var reader = Stream.Range(1, 100)
+var reader = Flux.Range(1, 100)
     .ToChannel(capacity: 32, mode: ChannelBackpressureMode.Wait);
 
-var isolated = Stream.Range(1, 100)
+var isolated = Flux.Range(1, 100)
     .PipeThroughChannel(capacity: 64, mode: ChannelBackpressureMode.Fail);
 
-var workerBoundary = Stream.Range(1, 100)
+var workerBoundary = Flux.Range(1, 100)
     .RunOnChannel(capacity: 64, degreeOfParallelism: 4);
 ```
 
@@ -523,7 +523,7 @@ Channel-native backpressure modes:
 - `LatestOnly`
 - `Fail`
 
-`PipeThroughChannel(...)`, `RunOnChannel(...)`, and `TeeToChannel(...)` all keep `IStream<T>` as the primary composition model. They introduce channel-backed coordination where needed, but they do not switch the library into a channel-first API style.
+`PipeThroughChannel(...)`, `RunOnChannel(...)`, and `TeeToChannel(...)` all keep `IFlux<T>` as the primary composition model. They introduce channel-backed coordination where needed, but they do not switch the library into a channel-first API style.
 
 - `PipeThroughChannel(...)` inserts an explicit channel boundary in the pipeline. Successful completion, failure propagation, and boundary settlement stay tied to the stream's supervision model.
 - `RunOnChannel(...)` adds that same boundary plus a worker-pool relay while preserving source order. The boundary does not complete until in-flight worker work has settled.
@@ -532,14 +532,14 @@ Channel-native backpressure modes:
 Use `TeeToChannel(...)` when you want fan-out into an existing channel without converting the main pipeline into a terminal operation. Use `ToChannel(...)` when the channel itself is the terminal destination.
 
 ```csharp
-var merged = Stream.MergeChannels(reader1, reader2, reader3);
+var merged = Flux.MergeChannels(reader1, reader2, reader3);
 ```
 
 ```csharp
-var batches = Stream.Range(1, 10)
+var batches = Flux.Range(1, 10)
     .Buffer(count: 3, capacity: 16, mode: ChannelBackpressureMode.Wait);
 
-var windows = Stream.Range(1, 10)
+var windows = Flux.Range(1, 10)
     .Window(count: 3, capacity: 16, mode: ChannelBackpressureMode.Fail);
 ```
 
@@ -548,7 +548,7 @@ var windows = Stream.Range(1, 10)
 ```csharp
 var output = new List<int>();
 
-await Stream.Range(1, 3).ToSinkAsync(
+await Flux.Range(1, 3).ToSinkAsync(
     (item, ct) =>
     {
         output.Add(item);
@@ -573,13 +573,13 @@ AsyncRx interop lives in the separate `Streamix.Extensions` project so the core 
 ```csharp
 using Streamix.Extensions;
 
-IStream<int> stream = asyncObservable.ToStream();
+IFlux<int> stream = asyncObservable.ToStream();
 IAsyncObservable<int> observable = stream.ToAsyncObservable();
 ```
 
 The extensions project also supports `ISingle<T>` interop.
 
-### Entity Framework Core (`EfStream`)
+### Entity Framework Core (`EfFlux`)
 
 EF integration also lives in `Streamix.Extensions` so the core `Streamix` package stays free of EF dependencies.
 
@@ -587,7 +587,7 @@ EF integration also lives in `Streamix.Extensions` so the core `Streamix` packag
 using Microsoft.EntityFrameworkCore;
 using Streamix.Extensions;
 
-await EfStream.From(
+await EfFlux.From(
         ctx => ctx.Set<Customer>().Where(c => c.IsActive),
         () => new AppDbContext())
     .Take(100)
@@ -605,7 +605,7 @@ await (() => new AppDbContext()).ToStream(
 Explicit streamed enumeration is also available:
 
 ```csharp
-await EfStream.FromStreamed(
+await EfFlux.FromStreamed(
         ctx => ctx.Set<Customer>().Where(c => c.IsActive),
         () => new AppDbContext())
     .Take(100)
@@ -616,8 +616,8 @@ EF semantics:
 
 - A new `DbContext` is created per subscription when using the factory overloads.
 - Query construction and execution use that same context instance.
-- `EfStream.From(...)` and `ToStream(...)` materialize via `ToListAsync`, then emit each item.
-- `EfStream.FromStreamed(...)` and `ToStreamed(...)` emit items as EF async enumeration advances.
+- `EfFlux.From(...)` and `ToStream(...)` materialize via `ToListAsync`, then emit each item.
+- `EfFlux.FromStreamed(...)` and `ToStreamed(...)` emit items as EF async enumeration advances.
 - Buffered mode pays full per-subscription materialization cost before first emission.
 - Streamed mode can stop earlier under downstream short-circuiting operators such as `Take`, but it keeps the `DbContext` alive for the duration of enumeration.
 - Caller-owned `DbContext` overloads are intentionally not part of the public Streamix EF API.
@@ -645,7 +645,7 @@ using Streamix.AspNetCore;
 app.MapGet("/prices", async (HttpResponse response, CancellationToken ct) =>
 {
     var priceStream = _priceService.GetPriceUpdates().Publish().RefCount();
-    await priceStream.ToSseAsync(response, ct);
+    await priceFlux.ToSseAsync(response, ct);
 });
 ```
 
@@ -654,7 +654,7 @@ app.MapGet("/prices", async (HttpResponse response, CancellationToken ct) =>
 public IActionResult GetPrices()
 {
     var priceStream = priceService.GetPriceUpdates().Publish().RefCount();
-    return new StreamResult<decimal>(priceStream);
+    return new FluxResult<decimal>(priceStream);
 }
 ```
 
@@ -706,7 +706,7 @@ stream.RunOn(TaskScheduler.Default);
 ```csharp
 var recovered = stream
     .Map(...)
-    .OnErrorResume(ex => Stream.Empty<int>());
+    .OnErrorResume(ex => Flux.Empty<int>());
 
 var retried = stream
     .Retry(

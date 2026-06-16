@@ -28,7 +28,7 @@ public class BackpressureTests
     public async Task OnBackpressureBuffer_HappyPath_BuffersItems()
     {
         // Arrange
-        var stream = Stream.Range(1, 10).OnBackpressureBuffer(10);
+        var stream = Flux.Range(1, 10).OnBackpressureBuffer(10);
 
         // Act
         var results = new List<int>();
@@ -47,7 +47,7 @@ public class BackpressureTests
         // Arrange
         // We need a stream that produces items faster than they are consumed.
         // We use a custom producer to control emission and ensure overflow.
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             for (int i = 0; i < 20; i++)
             {
@@ -72,7 +72,7 @@ public class BackpressureTests
     public void OnBackpressureBuffer_InvalidCapacity_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
-        var stream = Stream.Range(1, 10);
+        var stream = Flux.Range(1, 10);
 
         // Act & Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => stream.OnBackpressureBuffer(0));
@@ -83,7 +83,7 @@ public class BackpressureTests
     public async Task OnBackpressureBuffer_Chaining_Works()
     {
         // Arrange
-        var stream = Stream.Range(1, 10)
+        var stream = Flux.Range(1, 10)
             .OnBackpressureBuffer(20)
             .Map(x => x * 2);
 
@@ -102,7 +102,7 @@ public class BackpressureTests
     public async Task OnBackpressureBuffer_ConnectableStream_HappyPath()
     {
         // Arrange
-        var connectable = Stream.Range(1, 10).Publish();
+        var connectable = Flux.Range(1, 10).Publish();
         var stream = connectable.OnBackpressureBuffer(10);
 
         var resultsTask = stream.ToListAsync();
@@ -121,7 +121,7 @@ public class BackpressureTests
         // Arrange
         var consumerReceivedFirstTcs = new TaskCompletionSource<bool>();
 
-        var stream = Stream.Create<int>(async (emitter, ct) =>
+        var stream = Flux.Create<int>(async (emitter, ct) =>
         {
             // Send first item, which should be received by consumer
             await emitter.EmitAsync(1);
@@ -161,7 +161,7 @@ public class BackpressureTests
         // Arrange
         var consumerReceivedFirstTcs = new TaskCompletionSource<bool>();
 
-        var connectable = Stream.Create<int>(async (emitter, ct) =>
+        var connectable = Flux.Create<int>(async (emitter, ct) =>
         {
             // Send first item
             await emitter.EmitAsync(1);
@@ -201,7 +201,7 @@ public class BackpressureTests
     public async Task OnBackpressureDrop_NoDropsWhenProducerIsSlow()
     {
         // Arrange
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             for (int i = 1; i <= 5; i++)
             {
@@ -221,7 +221,7 @@ public class BackpressureTests
     public async Task OnBackpressureDrop_FastProducerSlowConsumer_DropsNewItems()
     {
         // Arrange
-        var stream = Stream.Range(1, 100).OnBackpressureDrop();
+        var stream = Flux.Range(1, 100).OnBackpressureDrop();
 
         // Act
         var results = new List<int>();
@@ -244,7 +244,7 @@ public class BackpressureTests
     public async Task OnBackpressureDrop_ConnectableStream_DropsNewItems()
     {
         // Arrange
-        var connectable = Stream.Range(1, 100).Replay(100);
+        var connectable = Flux.Range(1, 100).Replay(100);
         var stream = connectable.OnBackpressureDrop();
 
         // Act
@@ -263,7 +263,7 @@ public class BackpressureTests
     public async Task OnBackpressureError_ThrowsOnBackpressure()
     {
         // Arrange
-        var stream = Stream.Create<int>(async emitter =>
+        var stream = Flux.Create<int>(async emitter =>
         {
             for (int i = 0; i < 20; i++)
             {
@@ -288,7 +288,7 @@ public class BackpressureTests
     public async Task OnBackpressureError_ConnectableStream_ThrowsOnBackpressure()
     {
         // Arrange
-        var connectable = Stream.Create<int>(async emitter =>
+        var connectable = Flux.Create<int>(async emitter =>
         {
             for (int i = 0; i < 20; i++)
             {
@@ -322,7 +322,7 @@ public class BackpressureTests
         // Arrange
         // The inner Drop() can discard items before the outer Buffer() sees them.
         // This demonstrates that chained strategies compose as nested operators.
-        var stream = Stream.Range(1, 100)
+        var stream = Flux.Range(1, 100)
             .OnBackpressureDrop()
             .OnBackpressureBuffer(100);
 
@@ -343,7 +343,7 @@ public class BackpressureTests
     public async Task BackpressureStrategies_EmptyStream_HandlesCorrectly(string strategy)
     {
         // Arrange
-        var source = Stream.Empty<int>();
+        var source = Flux.Empty<int>();
         var stream = strategy switch
         {
             "Buffer" => source.OnBackpressureBuffer(10),
@@ -368,7 +368,7 @@ public class BackpressureTests
     public async Task BackpressureStrategies_SingleItemStream_HandlesCorrectly(string strategy)
     {
         // Arrange
-        var source = Stream.Just(1);
+        var source = Flux.Just(1);
         var stream = strategy switch
         {
             "Buffer" => source.OnBackpressureBuffer(10),

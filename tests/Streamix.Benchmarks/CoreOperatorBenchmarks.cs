@@ -6,7 +6,7 @@ namespace Streamix.Benchmarks;
 public class CoreOperatorBenchmarks
 {
     const int ItemCount = 1000;
-    IStream<int> source = null!;
+    IFlux<int> source = null!;
 
     async IAsyncEnumerable<int> GetItemsAsync()
     {
@@ -20,7 +20,7 @@ public class CoreOperatorBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        source = Stream.Range(1, ItemCount);
+        source = Flux.Range(1, ItemCount);
     }
 
     [Benchmark(Baseline = true)]
@@ -77,9 +77,9 @@ public class CoreOperatorBenchmarks
     [Benchmark]
     public async Task Merge()
     {
-        var s1 = Stream.Range(1, ItemCount / 2);
-        var s2 = Stream.Range(ItemCount / 2, ItemCount / 2);
-        await Stream.Merge(s1, s2).ForEachAsync(_ => { });
+        var s1 = Flux.Range(1, ItemCount / 2);
+        var s2 = Flux.Range(ItemCount / 2, ItemCount / 2);
+        await Flux.Merge(s1, s2).ForEachAsync(_ => { });
     }
 
     [Benchmark]

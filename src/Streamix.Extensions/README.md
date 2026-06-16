@@ -5,7 +5,7 @@ Optional integrations for Streamix.
 This package hosts integration features that are intentionally isolated from the core `Streamix` package:
 
 - AsyncRx.NET interop via [AsyncRx.NET](https://github.com/dotnet/reactive)
-- Entity Framework Core stream factories via `EfStream`
+- Entity Framework Core stream factories via `EfFlux`
 
 ## Maturity and Dependency Isolation
 
@@ -16,7 +16,7 @@ To prevent destabilizing the core Streamix package and to avoid forcing a depend
 ## Design Decisions
 
 1. **Separate Assembly**: Interop is provided in a separate assembly (`Streamix.Extensions.dll`) so that users only take the dependency if they explicitly need it.
-2. **Extension-Based API**: Methods like `ToAsyncObservable()`, `ToStream()`, and `ToSingle()` are implemented as extension methods to maintain a clean separation from the core `IStream<T>` and `ISingle<T>` interfaces.
+2. **Extension-Based API**: Methods like `ToAsyncObservable()`, `ToStream()`, and `ToSingle()` are implemented as extension methods to maintain a clean separation from the core `IFlux<T>` and `ISingle<T>` interfaces.
 3. **Push-Pull Bridge**: The bridge uses `System.Threading.Channels` for efficient and backpressure-aware conversion between the pull-based `IAsyncEnumerable<T>` used by Streamix and the push-based `IAsyncObservable<T>` used by AsyncRx.NET.
 
 ## Transitive Dependencies
@@ -30,10 +30,10 @@ If you need only core stream operators, reference `Streamix` directly.
 
 ## Entity Framework Integration
 
-Use `EfStream.From(...)` (or the `ToStream(...)` extension on a `DbContext` factory) to execute EF queries as Streamix streams.
+Use `EfFlux.From(...)` (or the `ToStream(...)` extension on a `DbContext` factory) to execute EF queries as Streamix streams.
 
 ```csharp
-await EfStream.From(
+await EfFlux.From(
         ctx => ctx.Set<Customer>().Where(c => c.IsActive),
         () => new AppDbContext())
     .Take(100)
@@ -51,7 +51,7 @@ await (() => new AppDbContext()).ToStream(
 Explicit streamed enumeration is also available:
 
 ```csharp
-await EfStream.FromStreamed(
+await EfFlux.FromStreamed(
         ctx => ctx.Set<Customer>().Where(c => c.IsActive),
         () => new AppDbContext())
     .Take(100)
@@ -61,12 +61,12 @@ await EfStream.FromStreamed(
 Important semantics:
 
 - Query construction and execution use the same `DbContext` instance per subscription.
-- `EfStream.From(...)` and `ToStream(...)` materialize with `ToListAsync` before yielding items downstream.
-- `EfStream.FromStreamed(...)` and `ToStreamed(...)` yield items as EF async enumeration advances.
+- `EfFlux.From(...)` and `ToStream(...)` materialize with `ToListAsync` before yielding items downstream.
+- `EfFlux.FromStreamed(...)` and `ToStreamed(...)` yield items as EF async enumeration advances.
 - `Streamix.Extensions` includes EF Core as a transitive dependency by design.
 - The package currently exposes factory-based overloads only; caller-owned `DbContext` overloads are intentionally not part of the shipped API.
-- Buffered execution remains the default contract on `EfStream.From(...)` and `ToStream(...)`.
-- Streamed execution is available only through the separate explicit opt-in entry points `EfStream.FromStreamed(...)` and `ToStreamed(...)`.
+- Buffered execution remains the default contract on `EfFlux.From(...)` and `ToStream(...)`.
+- Streamed execution is available only through the separate explicit opt-in entry points `EfFlux.FromStreamed(...)` and `ToStreamed(...)`.
 
 ### Buffered vs Streamed Guidance
 
@@ -98,7 +98,7 @@ Streamed EF execution is provider-sensitive. Streamix does not guarantee identic
 
 ## Concurrency Integration
 
-Extension-provided streams such as `EfStream` participate in the same core supervision model as standard streams, ensuring consistent resource safety and cancellation behavior when used with `ScopedAsync` or concurrent operators.
+Extension-provided streams such as `EfFlux` participate in the same core supervision model as standard streams, ensuring consistent resource safety and cancellation behavior when used with `ScopedAsync` or concurrent operators.
 
 ## Learn More
 

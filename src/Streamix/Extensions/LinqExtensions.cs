@@ -4,14 +4,14 @@ using System.Threading.Channels;
 namespace Streamix;
 
 /// <summary>
-/// Provides LINQ-style extension methods for <see cref="IStream{T}"/>.
+/// Provides LINQ-style extension methods for <see cref="IFlux{T}"/>.
 /// These extensions make it easy to work with streams using familiar LINQ patterns.
 /// For now they are a convenience layer and do not expose the full fluent concurrency-control surface.
 /// </summary>
 public static class LinqExtensions
 {
-    static async IAsyncEnumerable<TResult> selectManyAwaitConcurrent<T, TResult>(IStream<T> source,
-        Func<T, ValueTask<IStream<TResult>>> selector,
+    static async IAsyncEnumerable<TResult> selectManyAwaitConcurrent<T, TResult>(IFlux<T> source,
+        Func<T, ValueTask<IFlux<TResult>>> selector,
         int maxConcurrency,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -120,13 +120,13 @@ public static class LinqExtensions
 
     /// <summary>
     /// Filters a stream of values based on a predicate.
-    /// LINQ-style extension for <see cref="StreamExtensions.Filter{T}(IStream{T}, Func{T, bool})"/>.
+    /// LINQ-style extension for <see cref="FluxExtensions.Filter{T}(IFlux{T}, Func{T, bool})"/>.
     /// </summary>
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <param name="source">The stream to filter.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
-    public static IStream<T> Where<T>(this IStream<T> source, Func<T, bool> predicate)
+    /// <returns>An <see cref="IFlux{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
+    public static IFlux<T> Where<T>(this IFlux<T> source, Func<T, bool> predicate)
         => source.Filter(predicate);
 
     /// <summary>
@@ -135,22 +135,22 @@ public static class LinqExtensions
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <param name="source">The stream to filter.</param>
     /// <param name="predicate">An asynchronous function to test each element for a condition.</param>
-    /// <returns>An <see cref="IStream{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
-    public static IStream<T> WhereAsync<T>(this IStream<T> source, Func<T, ValueTask<bool>> predicate)
+    /// <returns>An <see cref="IFlux{T}"/> that contains elements from the input stream that satisfy the condition.</returns>
+    public static IFlux<T> WhereAsync<T>(this IFlux<T> source, Func<T, ValueTask<bool>> predicate)
     {
         return source.FilterAsync(predicate);
     }
 
     /// <summary>
     /// Projects each element of a stream into a new form using a synchronous selector function.
-    /// LINQ-style extension for <see cref="StreamExtensions.Map{T, TResult}(IStream{T}, Func{T, TResult})"/>.
+    /// LINQ-style extension for <see cref="FluxExtensions.Map{T, TResult}(IFlux{T}, Func{T, TResult})"/>.
     /// </summary>
     /// <typeparam name="T">The type of items in the stream.</typeparam>
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="source">The stream to transform.</param>
     /// <param name="selector">A transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the transform function on each element of source.</returns>
-    public static IStream<TResult> Select<T, TResult>(this IStream<T> source, Func<T, TResult> selector)
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the transform function on each element of source.</returns>
+    public static IFlux<TResult> Select<T, TResult>(this IFlux<T> source, Func<T, TResult> selector)
         => source.Map(selector);
 
     /// <summary>
@@ -160,65 +160,65 @@ public static class LinqExtensions
     /// <typeparam name="TResult">The type of the elements in the resulting stream.</typeparam>
     /// <param name="source">The stream to transform.</param>
     /// <param name="selector">An asynchronous transform function to apply to each element.</param>
-    /// <returns>An <see cref="IStream{TResult}"/> whose elements are the result of invoking the async transform function on each element of source.</returns>
-    public static IStream<TResult> SelectAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<TResult>> selector)
+    /// <returns>An <see cref="IFlux{TResult}"/> whose elements are the result of invoking the async transform function on each element of source.</returns>
+    public static IFlux<TResult> SelectAsync<T, TResult>(this IFlux<T> source, Func<T, ValueTask<TResult>> selector)
     {
         return source.MapAwait(selector);
     }
 
     /// <summary>
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, ISingle<TResult>> selector, int maxConcurrency = int.MaxValue)
         => source.FlatMap(selector, maxConcurrency);
 
     /// <summary>
-    /// Projects each element of a stream to an <see cref="IStream{TResult}"/> and flattens the resulting streams into one stream.
+    /// Projects each element of a stream to an <see cref="IFlux{TResult}"/> and flattens the resulting streams into one stream.
     /// Results are emitted concurrently as they complete (unordered).
-    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Use fluent operators such as <see cref="FluxExtensions.ConcatMap{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}})"/> or <see cref="FluxExtensions.FlatMapOrdered{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, IFlux<TResult>> selector)
         => source.FlatMap(selector, maxConcurrency: int.MaxValue);
 
     /// <summary>
-    /// Projects each element of a stream to an <see cref="IStream{TResult}"/> and flattens the resulting streams into one stream with concurrency support (unordered).
-    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Projects each element of a stream to an <see cref="IFlux{TResult}"/> and flattens the resulting streams into one stream with concurrency support (unordered).
+    /// Use fluent operators such as <see cref="FluxExtensions.ConcatMap{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}})"/> or <see cref="FluxExtensions.FlatMapOrdered{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, IStream<TResult>> selector, int maxConcurrency)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, IFlux<TResult>> selector, int maxConcurrency)
         => source.FlatMap(selector, maxConcurrency);
 
     /// <summary>
     /// Projects each element of a stream to an <see cref="ISingle{TResult}"/> and flattens the resulting streams into one stream (unordered concurrent).
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, ISingle<TResult>> selector)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, ISingle<TResult>> selector)
         => source.FlatMap(selector, maxConcurrency: int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream using an asynchronous selector function and flattens the result (unordered concurrent).
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, Task<TResult>> selector)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, Task<TResult>> selector)
         => source.FlatMap(selector, maxConcurrency: int.MaxValue);
 
     /// <summary>
     /// Projects each element of a stream using an asynchronous selector function and flattens the result with concurrency support (unordered).
     /// </summary>
-    public static IStream<TResult> SelectMany<T, TResult>(this IStream<T> source, Func<T, Task<TResult>> selector, int maxConcurrency)
+    public static IFlux<TResult> SelectMany<T, TResult>(this IFlux<T> source, Func<T, Task<TResult>> selector, int maxConcurrency)
         => source.FlatMap(selector, maxConcurrency);
 
     /// <summary>
-    /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IStream{TResult}"/>, and flattens the result concurrently (unordered).
-    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IFlux{TResult}"/>, and flattens the result concurrently (unordered).
+    /// Use fluent operators such as <see cref="FluxExtensions.ConcatMap{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}})"/> or <see cref="FluxExtensions.FlatMapOrdered{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
-    public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector)
-        => Stream.From(selectManyAwaitConcurrent(source, selector, int.MaxValue));
+    public static IFlux<TResult> SelectManyAsync<T, TResult>(this IFlux<T> source, Func<T, ValueTask<IFlux<TResult>>> selector)
+        => Flux.From(selectManyAwaitConcurrent(source, selector, int.MaxValue));
 
     /// <summary>
-    /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IStream{TResult}"/>, and flattens the result with concurrency support (unordered).
-    /// Use fluent operators such as <see cref="StreamExtensions.ConcatMap{T, TResult}(IStream{T}, Func{T, IStream{TResult}})"/> or <see cref="StreamExtensions.FlatMapOrdered{T, TResult}(IStream{T}, Func{T, IStream{TResult}}, int, int)"/> when ordered or sequential flattening is required.
+    /// Projects each element of a stream using an asynchronous selector that returns an <see cref="IFlux{TResult}"/>, and flattens the result with concurrency support (unordered).
+    /// Use fluent operators such as <see cref="FluxExtensions.ConcatMap{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}})"/> or <see cref="FluxExtensions.FlatMapOrdered{T, TResult}(IFlux{T}, Func{T, IFlux{TResult}}, int, int)"/> when ordered or sequential flattening is required.
     /// </summary>
-    public static IStream<TResult> SelectManyAsync<T, TResult>(this IStream<T> source, Func<T, ValueTask<IStream<TResult>>> selector, int maxConcurrency)
+    public static IFlux<TResult> SelectManyAsync<T, TResult>(this IFlux<T> source, Func<T, ValueTask<IFlux<TResult>>> selector, int maxConcurrency)
     {
         if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
-        return Stream.From(selectManyAwaitConcurrent(source, selector, maxConcurrency));
+        return Flux.From(selectManyAwaitConcurrent(source, selector, maxConcurrency));
     }
 
 }

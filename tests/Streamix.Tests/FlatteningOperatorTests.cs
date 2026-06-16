@@ -32,7 +32,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task Stream_FlatMap_WithSingle_Unordered()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .FlatMap(x => Single.From(x * 10))
             .ToListAsync();
 
@@ -42,8 +42,8 @@ public class FlatteningOperatorTests
     [Test]
     public async Task Stream_ConcatMap_Sequential()
     {
-        var result = await Stream.Range(1, 3)
-            .ConcatMap(x => Stream.Range(x * 10, 2))
+        var result = await Flux.Range(1, 3)
+            .ConcatMap(x => Flux.Range(x * 10, 2))
             .ToListAsync();
 
         // 1 -> 10, 11
@@ -55,7 +55,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task Stream_FlatMap_WithTask_Sequential()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .FlatMap(async x =>
             {
                 await Task.Delay(10);
@@ -69,7 +69,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task Stream_FlatMap_WithTask_Concurrent()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .FlatMap(async x =>
             {
                 // Delays are such that they might finish out of order if concurrent
@@ -100,7 +100,7 @@ public class FlatteningOperatorTests
     public async Task Single_FlatMap_ToStream_ReturnsStream()
     {
         var result = await Single.From(1)
-            .FlatMap(x => Stream.Range(x * 10, 3))
+            .FlatMap(x => Flux.Range(x * 10, 3))
             .ToListAsync();
 
         Assert.That(result, Is.EqualTo(new[] { 10, 11, 12 }));
@@ -111,11 +111,11 @@ public class FlatteningOperatorTests
     {
         // Mocking the README example
         Func<int, ISingle<string>> GetUser = id => Single.From($"User{id}");
-        Func<string, IStream<int>> GetOrders = user => Stream.Range(1, 2); // Orders 1, 2
+        Func<string, IFlux<int>> GetOrders = user => Flux.Range(1, 2); // Orders 1, 2
 
         var orders = await GetUser(1)
             .FlatMap(user => GetOrders(user))
-            .ConcatMap(o => Stream.From(new[] { o }.ToAsyncEnumerable())) // Using an internal helper or similar
+            .ConcatMap(o => Flux.From(new[] { o }.ToAsyncEnumerable())) // Using an internal helper or similar
             .ToListAsync();
 
         Assert.That(orders, Is.EqualTo(new[] { 1, 2 }));
@@ -124,8 +124,8 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMap_Handles_Empty_Inner()
     {
-        var result = await Stream.Range(1, 3)
-            .ConcatMap(x => x == 2 ? Stream.Empty<int>() : Stream.Range(x, 1))
+        var result = await Flux.Range(1, 3)
+            .ConcatMap(x => x == 2 ? Flux.Empty<int>() : Flux.Range(x, 1))
             .ToListAsync();
 
         // 1 -> [1]
@@ -137,8 +137,8 @@ public class FlatteningOperatorTests
     [Test]
     public void FlatMap_Propagates_Inner_Failure()
     {
-        var stream = Stream.Range(1, 3)
-            .ConcatMap(x => x == 2 ? Stream.From(throwError()) : Stream.Range(x, 1));
+        var stream = Flux.Range(1, 3)
+            .ConcatMap(x => x == 2 ? Flux.From(throwError()) : Flux.Range(x, 1));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -146,8 +146,8 @@ public class FlatteningOperatorTests
     [Test]
     public void FlatMap_Propagates_Outer_Failure()
     {
-        var source = Stream.From(throwErrorAfter(1));
-        var stream = source.ConcatMap(x => Stream.Range(x, 1));
+        var source = Flux.From(throwErrorAfter(1));
+        var stream = source.ConcatMap(x => Flux.Range(x, 1));
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
     }
@@ -156,7 +156,7 @@ public class FlatteningOperatorTests
     public void FlatMap_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).ConcatMap(x => Stream.Range(x, 10));
+        var stream = Flux.Range(1, 100).ConcatMap(x => Flux.Range(x, 10));
 
         cts.Cancel();
 
@@ -169,7 +169,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMapAwait_WithSingle_Unordered()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .FlatMapAwait(async x =>
             {
                 await Task.Yield();
@@ -183,11 +183,11 @@ public class FlatteningOperatorTests
     [Test]
     public async Task SelectManyAsync_Sequential()
     {
-        var result = await Stream.Range(1, 2)
+        var result = await Flux.Range(1, 2)
             .SelectManyAsync(async x =>
             {
                 await Task.Yield();
-                return Stream.Range(x * 10, 2);
+                return Flux.Range(x * 10, 2);
             })
             .ToListAsync();
 
@@ -199,7 +199,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMapAwait_Concurrent()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .FlatMapAwait(async x =>
             {
                 await Task.Delay(100 - (x * 10));
@@ -214,11 +214,11 @@ public class FlatteningOperatorTests
     [Test]
     public async Task SelectManyAsync_Concurrent()
     {
-        var result = await Stream.Range(1, 2)
+        var result = await Flux.Range(1, 2)
             .SelectManyAsync(async x =>
             {
                 await Task.Delay(50);
-                return Stream.Range(x * 10, 2);
+                return Flux.Range(x * 10, 2);
             }, maxConcurrency: 2)
             .ToListAsync();
 
@@ -229,7 +229,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMap_IAsyncEnumerable_Sequential()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .FlatMap(x => new[] { x * 10, x * 10 + 1 }.ToAsyncEnumerable(), maxConcurrency: 1)
             .ToListAsync();
 
@@ -239,7 +239,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMap_IAsyncEnumerable_Concurrent()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .FlatMap(x => new[] { x * 10 }.ToAsyncEnumerable(), maxConcurrency: 5)
             .ToListAsync();
 
@@ -250,7 +250,7 @@ public class FlatteningOperatorTests
     [Test]
     public async Task FlatMap_IAsyncEnumerable_Handles_Empty_Inner()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .FlatMap(x => x == 2 ? AsyncEnumerable.Empty<int>() : new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1)
             .ToListAsync();
 
@@ -261,13 +261,13 @@ public class FlatteningOperatorTests
     public void FlatMap_IAsyncEnumerable_Throws_On_Zero_Concurrency()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            Stream.Range(1, 3).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 0));
+            Flux.Range(1, 3).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 0));
     }
 
     [Test]
     public void FlatMap_IAsyncEnumerable_Propagates_Error()
     {
-        var stream = Stream.Range(1, 3)
+        var stream = Flux.Range(1, 3)
             .FlatMap(x => x == 2 ? throwError() : new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1);
 
         Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
@@ -277,7 +277,7 @@ public class FlatteningOperatorTests
     public void FlatMap_IAsyncEnumerable_Sequential_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1);
+        var stream = Flux.Range(1, 100).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1);
 
         cts.Cancel();
 

@@ -62,20 +62,20 @@ var systemPrompt = promptTemplate
     .Replace("{signalsText}", signalsText);
 
 Console.WriteLine("Starting pipeline...");
-await Streamix.Stream.ScopedAsync(async scope =>
+await Flux.ScopedAsync(async scope =>
 {
     var ct = scope.CancellationToken;
 
     // Stage 1 & 2: parallel RSS fetch + dedup save
     Console.WriteLine("[Stage 1-2] Fetching and saving new items...");
 
-    await Streamix.Stream.From(feedSources)
-        .FlatMap(source => Streamix.Stream
+    await Flux.From(feedSources)
+        .FlatMap(source => Flux
             .From(RssFetcher.FetchFeedAsync(source.Url, source.Name, ct))
             .OnErrorResume(ex =>
             {
                 Console.WriteLine($"  Error fetching \"{source.Name}\": {ex.Message}");
-                return Streamix.Stream.Empty<RssItem>();
+                return Flux.Empty<RssItem>();
             }), maxConcurrency: 4)
         .Checkpoint("Fetch")
         .FlatMap(async item =>
@@ -93,7 +93,7 @@ await Streamix.Stream.ScopedAsync(async scope =>
     // Stage 3: count unprocessed items for progress
     Console.WriteLine("[Stage 3] Reading unprocessed items...");
 
-    var totalUnprocessed = await EfStream.FromStreamed(
+    var totalUnprocessed = await EfFlux.FromStreamed(
         ctx => ctx.Set<RssItem>().Where(r => !r.Processed),
         () => new RssDbContext(),
         name: "UnprocessedCount")
@@ -112,7 +112,7 @@ await Streamix.Stream.ScopedAsync(async scope =>
     Console.WriteLine("[Stage 4-5] Classifying items...");
 
     var classifiedCount = 0;
-    await EfStream.FromStreamed(
+    await EfFlux.FromStreamed(
         ctx => ctx.Set<RssItem>().Where(r => !r.Processed),
         () => new RssDbContext(),
         name: "Unprocessed")
@@ -120,7 +120,7 @@ await Streamix.Stream.ScopedAsync(async scope =>
         .FlatMap(async item =>
         {
             var attemptCount = 0;
-            var result = await Streamix.Stream
+            var result = await Flux
                 .From(ct2 =>
                 {
                     attemptCount++;

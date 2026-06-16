@@ -10,7 +10,7 @@ public class HotStreamTests
     public async Task ColdStream_ReExecutesForEverySubscriber()
     {
         int executionCount = 0;
-        var cold = Stream.From(GenerateItems());
+        var cold = Flux.From(GenerateItems());
 
         async IAsyncEnumerable<int> GenerateItems()
         {
@@ -35,7 +35,7 @@ public class HotStreamTests
     {
         Console.WriteLine("Starting PublishConnect_SharesExecution");
         int executionCount = 0;
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Publish();
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -85,7 +85,7 @@ public class HotStreamTests
             yield return 2;
         }
 
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var connectable = source.Publish();
         var shared = connectable.RefCount();
 
@@ -122,7 +122,7 @@ public class HotStreamTests
     public async Task LateSubscriber_ReceivesOnlyNewItems()
     {
         var tcs = new TaskCompletionSource();
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Publish();
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -154,7 +154,7 @@ public class HotStreamTests
     [Test]
     public async Task ErrorInSource_PropagatesToAllSubscribers()
     {
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Publish();
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -183,7 +183,7 @@ public class HotStreamTests
     public async Task SlowSubscriber_AppliesBackpressureToSource()
     {
         var sourceItems = new ConcurrentQueue<int>();
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Publish();
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -221,7 +221,7 @@ public class HotStreamTests
     public async Task Replay_LateSubscriber_ReceivesBufferedItems()
     {
         var tcs = new TaskCompletionSource();
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Replay(2);
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -251,7 +251,7 @@ public class HotStreamTests
     [Test]
     public async Task Replay_LateSubscriber_ReceivesCompletion()
     {
-        var source = Stream.From(new[] { 1, 2, 3 }.ToAsyncEnumerable());
+        var source = Flux.From(new[] { 1, 2, 3 }.ToAsyncEnumerable());
         var hot = source.Replay(2);
 
         using (hot.Connect())
@@ -269,7 +269,7 @@ public class HotStreamTests
     [Test]
     public async Task Replay_LateSubscriber_ReceivesError()
     {
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var hot = source.Replay(2);
 
         async IAsyncEnumerable<int> GenerateItems()
@@ -295,7 +295,7 @@ public class HotStreamTests
     public async Task Replay_RefCount_WorksCorrectly()
     {
         int executionCount = 0;
-        var source = Stream.From(GenerateItems());
+        var source = Flux.From(GenerateItems());
         var connectable = source.Replay(2);
         var shared = connectable.RefCount();
 

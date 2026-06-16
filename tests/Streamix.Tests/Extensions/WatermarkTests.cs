@@ -20,7 +20,7 @@ public class WatermarkTests
             Timestamped.Create(3, start.AddMinutes(11)), // This should close the first window [0, 10)
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -49,7 +49,7 @@ public class WatermarkTests
             Timestamped.Create(5, start.AddMinutes(16)), // Watermark = 16 - 5 = 11. [0, 10) closed because 10 <= 11
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -78,7 +78,7 @@ public class WatermarkTests
             Timestamped.Create(5, start.AddMinutes(15)), // Watermark = 15 - 2 = 13. [0, 10) closed.
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -102,7 +102,7 @@ public class WatermarkTests
             Timestamped.Create(1, start.AddMinutes(1)), // Watermark = 1 - 5 = -4
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();
@@ -134,7 +134,7 @@ public class WatermarkTests
             Timestamped.Create(5, start.AddMinutes(8)),  // 8 <= 11, LATE, dropped.
         };
 
-        var source = Stream.From(items);
+        var source = Flux.From(items);
         var windows = source.WindowByTime(duration, slide, outOfOrderness: outOfOrderness);
 
         var windowStreams = await windows.ToListAsync();

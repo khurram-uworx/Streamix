@@ -96,7 +96,7 @@ public class ResilienceOperatorTests
             yield return 1;
             yield return 2;
         }
-        var source = Stream.From(Source());
+        var source = Flux.From(Source());
 
         var retried = source.Retry(1);
         var results = new List<int>();
@@ -120,7 +120,7 @@ public class ResilienceOperatorTests
             throw new InvalidOperationException("Persistent failure");
             yield return 1;
         }
-        var source = Stream.From(Source());
+        var source = Flux.From(Source());
 
         var retried = source.Retry(2);
 
@@ -137,7 +137,7 @@ public class ResilienceOperatorTests
     {
         var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(2));
-        var timeoutStream = Stream.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
+        var timeoutStream = Flux.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
 
         var task = timeoutStream.ForEachAsync(_ => { });
 
@@ -150,7 +150,7 @@ public class ResilienceOperatorTests
     {
         var clock = new TestClock();
         var source = new SlowAsyncEnumerable<int>(clock, TimeSpan.FromSeconds(0.5));
-        var timeoutStream = Stream.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
+        var timeoutStream = Flux.From<int>(source, clock).Timeout(TimeSpan.FromSeconds(1));
         var results = new List<int>();
 
         var task = Task.Run(async () =>
@@ -187,7 +187,7 @@ public class ResilienceOperatorTests
             yield return 42;
         }
 
-        var source = Stream.From(Source(), clock);
+        var source = Flux.From(Source(), clock);
         var backoffStrategyCalls = new List<(int Attempt, Exception Ex)>();
         var retried = source.Retry(2, (attempt, ex) =>
         {
@@ -277,7 +277,7 @@ public class ResilienceOperatorTests
             yield break;
         }
 
-        var source = Stream.From(Source());
+        var source = Flux.From(Source());
         var retried = source.Retry(2, (attempt, ex) => TimeSpan.FromMilliseconds(10));
 
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
@@ -300,7 +300,7 @@ public class ResilienceOperatorTests
         }
 
         var cts = new CancellationTokenSource();
-        var source = Stream.From(Source(), clock);
+        var source = Flux.From(Source(), clock);
         var retried = source.Retry(5, (attempt, ex) => TimeSpan.FromSeconds(10));
 
         var task = Task.Run(async () =>

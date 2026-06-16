@@ -163,7 +163,7 @@ public class SingleFactoryTests
     [Test]
     public async Task StreamFrom_ValueTask_Emits_Item()
     {
-        var stream = Stream.From(ValueTask.FromResult(42));
+        var stream = Flux.From(ValueTask.FromResult(42));
 
         (await TestSubscriber<int>.SubscribeAsync(stream))
             .AssertValues(42)
@@ -174,7 +174,7 @@ public class SingleFactoryTests
     public async Task StreamFrom_FuncValueTask_IsLazy_And_Reinvoked_Per_Subscription()
     {
         var count = 0;
-        var stream = Stream.From(new Func<ValueTask<int>>(async () =>
+        var stream = Flux.From(new Func<ValueTask<int>>(async () =>
         {
             count++;
             await Task.Yield();
@@ -196,7 +196,7 @@ public class SingleFactoryTests
     public async Task StreamFrom_FuncCTValueTask_RespectsCancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.From(new Func<CancellationToken, ValueTask<int>>(async ct =>
+        var stream = Flux.From(new Func<CancellationToken, ValueTask<int>>(async ct =>
         {
             await Task.Delay(1000, ct);
             return 42;
@@ -214,7 +214,7 @@ public class SingleFactoryTests
     [Test]
     public async Task StreamFrom_FuncValueTask_PropagatesException()
     {
-        var stream = Stream.From(new Func<ValueTask<int>>(async () =>
+        var stream = Flux.From(new Func<ValueTask<int>>(async () =>
         {
             await Task.Yield();
             throw new InvalidOperationException("Boom");

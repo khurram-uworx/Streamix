@@ -4,11 +4,11 @@ using System.Threading.Channels;
 namespace Streamix.Implementations;
 
 /// <summary>
-/// Default implementation of <see cref="IStream{T}"/>.
+/// Default implementation of <see cref="IFlux{T}"/>.
 /// This class is sealed to provide a stable API surface and ensure consistent behavior across operator chains.
 /// </summary>
 /// <typeparam name="T">The type of items in the stream.</typeparam>
-class StreamImplementation<T> : IStream<T>
+class FluxImplementation<T> : IFlux<T>
 {
     class Emitter : IStreamEmitter<T>, IDisposable
     {
@@ -79,7 +79,7 @@ class StreamImplementation<T> : IStream<T>
         }
     }
 
-    static async IAsyncEnumerable<T> merge(IStream<T>[] streams, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    static async IAsyncEnumerable<T> merge(IFlux<T>[] streams, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (streams == null || streams.Length == 0) yield break;
 
@@ -119,7 +119,7 @@ class StreamImplementation<T> : IStream<T>
         await channel.Reader.Completion;
     }
 
-    static async IAsyncEnumerable<TResult> zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    static async IAsyncEnumerable<TResult> zip<T1, T2, TResult>(IFlux<T1> first, IFlux<T2> second, Func<T1, T2, TResult> resultSelector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await using var e1 = first.GetAsyncEnumerator(cancellationToken);
         await using var e2 = second.GetAsyncEnumerator(cancellationToken);
@@ -234,9 +234,9 @@ class StreamImplementation<T> : IStream<T>
     /// </summary>
     /// <param name="streams">The streams to merge.</param>
     /// <returns>A merged stream.</returns>
-    public static IStream<T> Merge(params IStream<T>[] streams)
+    public static IFlux<T> Merge(params IFlux<T>[] streams)
     {
-        return Stream.From(merge(streams));
+        return Flux.From(merge(streams));
     }
 
     /// <summary>
@@ -249,9 +249,9 @@ class StreamImplementation<T> : IStream<T>
     /// <param name="second">The second stream.</param>
     /// <param name="resultSelector">The result selector function.</param>
     /// <returns>A zipped stream.</returns>
-    public static IStream<TResult> Zip<T1, T2, TResult>(IStream<T1> first, IStream<T2> second, Func<T1, T2, TResult> resultSelector)
+    public static IFlux<TResult> Zip<T1, T2, TResult>(IFlux<T1> first, IFlux<T2> second, Func<T1, T2, TResult> resultSelector)
     {
-        return Stream.From(zip(first, second, resultSelector));
+        return Flux.From(zip(first, second, resultSelector));
     }
 
     /// <summary>
@@ -259,9 +259,9 @@ class StreamImplementation<T> : IStream<T>
     /// </summary>
     /// <param name="producer">A function that uses the emitter to produce items.</param>
     /// <returns>A stream created from the emitter.</returns>
-    public static IStream<T> Create(Func<IStreamEmitter<T>, Task> producer)
+    public static IFlux<T> Create(Func<IStreamEmitter<T>, Task> producer)
     {
-        return Stream.From(create(producer));
+        return Flux.From(create(producer));
     }
 
     /// <summary>
@@ -269,16 +269,16 @@ class StreamImplementation<T> : IStream<T>
     /// </summary>
     /// <param name="producer">A function that uses the emitter to produce items.</param>
     /// <returns>A stream created from the emitter.</returns>
-    public static IStream<T> Create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer)
+    public static IFlux<T> Create(Func<IStreamEmitter<T>, CancellationToken, ValueTask> producer)
     {
-        return Stream.From(create(producer));
+        return Flux.From(create(producer));
     }
 
     readonly IAsyncEnumerable<T> source;
     readonly IClock clock;
     readonly string? name;
 
-    internal StreamImplementation(IAsyncEnumerable<T> source, IClock? clock = null, string? name = null)
+    internal FluxImplementation(IAsyncEnumerable<T> source, IClock? clock = null, string? name = null)
     {
         this.source = source;
         this.clock = clock ?? SystemClock.Instance;
@@ -291,7 +291,7 @@ class StreamImplementation<T> : IStream<T>
     /// <inheritdoc />
     public string? Name => name;
 
-    async IAsyncEnumerable<IStream<T>> window(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    async IAsyncEnumerable<IFlux<T>> window(int count, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var items = new List<T>(count);
         await foreach (var item in this.WithCancellation(cancellationToken))
@@ -299,14 +299,14 @@ class StreamImplementation<T> : IStream<T>
             items.Add(item);
             if (items.Count == count)
             {
-                yield return Stream.From(toAsyncEnumerable(items));
+                yield return Flux.From(toAsyncEnumerable(items));
                 items = new List<T>(count);
             }
         }
 
         if (items.Count > 0)
         {
-            yield return Stream.From(toAsyncEnumerable(items));
+            yield return Flux.From(toAsyncEnumerable(items));
         }
     }
 
@@ -339,9 +339,9 @@ class StreamImplementation<T> : IStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<T> Named(string name)
+    public IFlux<T> Named(string name)
     {
-        return new StreamImplementation<T>(source, clock, name);
+        return new FluxImplementation<T>(source, clock, name);
     }
 
     /// <inheritdoc />
@@ -351,30 +351,30 @@ class StreamImplementation<T> : IStream<T>
     }
 
     /// <inheritdoc />
-    public IStream<T> MergeWith(params IStream<T>[] others)
+    public IFlux<T> MergeWith(params IFlux<T>[] others)
     {
-        var all = new IStream<T>[others.Length + 1];
+        var all = new IFlux<T>[others.Length + 1];
         all[0] = this;
         others.CopyTo(all, 1);
         return Merge(all).Named(name ?? "");
     }
 
     /// <inheritdoc />
-    public IStream<TResult> ZipWith<TOther, TResult>(IStream<TOther> other, Func<T, TOther, TResult> resultSelector)
+    public IFlux<TResult> ZipWith<TOther, TResult>(IFlux<TOther> other, Func<T, TOther, TResult> resultSelector)
     {
         return Zip(this, other, resultSelector).Named(name ?? "");
     }
 
     /// <inheritdoc />
-    public IStream<IStream<T>> Window(int count)
+    public IFlux<IFlux<T>> Window(int count)
     {
         if (count <= 0) throw new ArgumentOutOfRangeException(nameof(count), "Count must be greater than 0.");
-        return Stream.From(window(count), clock, name);
+        return Flux.From(window(count), clock, name);
     }
 
     /// <inheritdoc />
-    public IStream<T> RunOn(TaskScheduler scheduler)
+    public IFlux<T> RunOn(TaskScheduler scheduler)
     {
-        return Stream.From(runOn(scheduler), clock, name);
+        return Flux.From(runOn(scheduler), clock, name);
     }
 }

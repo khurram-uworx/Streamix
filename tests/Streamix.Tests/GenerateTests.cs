@@ -9,7 +9,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Sync_Finite_Emits_Items_And_Completes()
     {
-        var stream = Stream.Generate<int, int>(0, state =>
+        var stream = Flux.Generate<int, int>(0, state =>
         {
             if (state >= 5) return GenerationResult<int, int>.Complete();
             return GenerationResult<int, int>.Emit(state, state + 1);
@@ -23,7 +23,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Sync_Infinite_Can_Be_Taken()
     {
-        var stream = Stream.Generate<int, int>(0, state =>
+        var stream = Flux.Generate<int, int>(0, state =>
         {
             return GenerationResult<int, int>.Emit(state, state + 1);
         });
@@ -36,7 +36,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Sync_Empty_Completes_Immediately()
     {
-        var stream = Stream.Generate<int, int>(0, state => GenerationResult<int, int>.Complete());
+        var stream = Flux.Generate<int, int>(0, state => GenerationResult<int, int>.Complete());
 
         (await TestSubscriber<int>.SubscribeAsync(stream))
             .AssertValueCount(0)
@@ -46,7 +46,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Sync_Supports_Skip()
     {
-        var stream = Stream.Generate<int, int>(0, state =>
+        var stream = Flux.Generate<int, int>(0, state =>
         {
             if (state >= 10) return GenerationResult<int, int>.Complete();
             if (state % 2 != 0) return GenerationResult<int, int>.Skip(state + 1);
@@ -61,7 +61,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Async_Finite_Emits_Items_And_Completes()
     {
-        var stream = Stream.Generate<int, int>(0, async (state, ct) =>
+        var stream = Flux.Generate<int, int>(0, async (state, ct) =>
         {
             await Task.Yield();
             if (state >= 5) return GenerationResult<int, int>.Complete();
@@ -77,7 +77,7 @@ public class GenerateTests
     public async Task Generate_Async_Respects_Cancellation()
     {
         var generationCount = 0;
-        var stream = Stream.Generate<int, int>(0, async (state, ct) =>
+        var stream = Flux.Generate<int, int>(0, async (state, ct) =>
         {
             generationCount++;
             await Task.Delay(100, ct);
@@ -99,7 +99,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Sync_Propagates_Exception()
     {
-        var stream = Stream.Generate<int, int>(0, state =>
+        var stream = Flux.Generate<int, int>(0, state =>
         {
             if (state == 2) throw new InvalidOperationException("Generation Error");
             return GenerationResult<int, int>.Emit(state, state + 1);
@@ -113,7 +113,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_Async_Propagates_Exception()
     {
-        var stream = Stream.Generate<int, int>(0, async (state, ct) =>
+        var stream = Flux.Generate<int, int>(0, async (state, ct) =>
         {
             await Task.Yield();
             if (state == 2) throw new InvalidOperationException("Async Generation Error");
@@ -128,7 +128,7 @@ public class GenerateTests
     [Test]
     public async Task Generate_RestartsFromInitialStatePerSubscription()
     {
-        var stream = Stream.Generate<int, int>(0, state =>
+        var stream = Flux.Generate<int, int>(0, state =>
         {
             if (state >= 3) return GenerationResult<int, int>.Complete();
             return GenerationResult<int, int>.Emit(state, state + 1);

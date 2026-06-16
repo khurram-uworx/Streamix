@@ -10,7 +10,7 @@ public class StressTests
     {
         const int itemCount = 10000;
         const int maxConcurrency = 100;
-        var source = Stream.Range(1, itemCount);
+        var source = Flux.Range(1, itemCount);
 
         var result = await source
             .FlatMap(async x =>
@@ -30,10 +30,10 @@ public class StressTests
         const int streamCount = 50;
         const int itemsPerStream = 500;
         var streams = Enumerable.Range(0, streamCount)
-            .Select(i => Stream.Range(i * itemsPerStream, itemsPerStream))
+            .Select(i => Flux.Range(i * itemsPerStream, itemsPerStream))
             .ToArray();
 
-        var result = await Stream.Merge(streams).ToListAsync();
+        var result = await Flux.Merge(streams).ToListAsync();
 
         Assert.That(result.Count, Is.EqualTo(streamCount * itemsPerStream));
         Assert.That(result, Is.EquivalentTo(Enumerable.Range(0, streamCount * itemsPerStream)));
@@ -44,7 +44,7 @@ public class StressTests
     {
         const int itemCount = 100000;
         const int bufferSize = 100;
-        var result = await Stream.Range(1, itemCount)
+        var result = await Flux.Range(1, itemCount)
             .Buffer(bufferSize)
             .ToListAsync();
 
@@ -56,7 +56,7 @@ public class StressTests
     public async Task HotStream_RefCount_HighChurn()
     {
         const int itemCount = 1000;
-        var source = Stream.Range(1, itemCount).Delay(TimeSpan.FromMilliseconds(1));
+        var source = Flux.Range(1, itemCount).Delay(TimeSpan.FromMilliseconds(1));
         var shared = source.Publish().RefCount();
 
         async Task SubscribeAndConsume()

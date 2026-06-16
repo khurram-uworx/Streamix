@@ -8,7 +8,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Map_Transforms_Elements()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Map(x => x * 10)
             .ToListAsync();
 
@@ -18,7 +18,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Select_Is_Alias_For_Map()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Select(x => x * 10)
             .ToListAsync();
 
@@ -28,7 +28,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Filter_Filters_Elements()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Filter(x => x % 2 == 0)
             .ToListAsync();
 
@@ -38,7 +38,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task MapAwait_Transforms_Elements_Asynchronously()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .MapAwait(async x =>
             {
                 await Task.Yield();
@@ -52,7 +52,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task FilterAsync_Filters_Elements_Asynchronously()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .FilterAsync(async x =>
             {
                 await Task.Yield();
@@ -66,7 +66,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Where_Is_Alias_For_Filter()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Where(x => x % 2 == 0)
             .ToListAsync();
 
@@ -76,7 +76,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Take_Returns_Specified_Number_Of_Elements()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .Take(3)
             .ToListAsync();
 
@@ -86,7 +86,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Take_Returns_All_Elements_If_Count_Greater_Than_Length()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Take(5)
             .ToListAsync();
 
@@ -96,7 +96,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Skip_Bypasses_Specified_Number_Of_Elements()
     {
-        var result = await Stream.Range(1, 5)
+        var result = await Flux.Range(1, 5)
             .Skip(2)
             .ToListAsync();
 
@@ -106,7 +106,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Skip_Returns_Empty_If_Count_Greater_Than_Length()
     {
-        var result = await Stream.Range(1, 3)
+        var result = await Flux.Range(1, 3)
             .Skip(5)
             .ToListAsync();
 
@@ -116,7 +116,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Chained_Operators_Work_Correctly()
     {
-        var result = await Stream.Range(1, 10)
+        var result = await Flux.Range(1, 10)
             .Filter(x => x % 2 != 0)
             .Map(x => x * 10)
             .Skip(1)
@@ -130,7 +130,7 @@ public class TransformationOperatorTests
     [Test]
     public void Map_Propagates_Exceptions()
     {
-        var stream = Stream.Range(1, 5).Map(x =>
+        var stream = Flux.Range(1, 5).Map(x =>
         {
             if (x == 3) throw new InvalidOperationException("Oops");
             return x;
@@ -142,7 +142,7 @@ public class TransformationOperatorTests
     [Test]
     public void Filter_Propagates_Exceptions()
     {
-        var stream = Stream.Range(1, 5).Filter(x =>
+        var stream = Flux.Range(1, 5).Filter(x =>
         {
             if (x == 3) throw new InvalidOperationException("Oops");
             return true;
@@ -154,7 +154,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Operators_Handle_Empty_Source()
     {
-        var result = await Stream.Empty<int>()
+        var result = await Flux.Empty<int>()
             .Map(x => x * 10)
             .Filter(x => true)
             .Take(5)
@@ -168,7 +168,7 @@ public class TransformationOperatorTests
     public void Take_Respects_Cancellation()
     {
         var cts = new CancellationTokenSource();
-        var stream = Stream.Range(1, 100).Take(50);
+        var stream = Flux.Range(1, 100).Take(50);
 
         cts.Cancel();
 
@@ -181,7 +181,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task OfType_Filters_To_Specified_Type()
     {
-        IStream<object> stream = Stream.From(new object[] { 1, "hello", 2, "world" }.ToAsyncEnumerable());
+        IFlux<object> stream = Flux.From(new object[] { 1, "hello", 2, "world" }.ToAsyncEnumerable());
 
         var result = await stream.OfType<object, int>().ToListAsync();
 
@@ -191,7 +191,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task OfType_Returns_Empty_When_No_Match()
     {
-        IStream<object> stream = Stream.From(new object[] { "hello", "world" }.ToAsyncEnumerable());
+        IFlux<object> stream = Flux.From(new object[] { "hello", "world" }.ToAsyncEnumerable());
 
         var result = await stream.OfType<object, int>().ToListAsync();
 
@@ -201,7 +201,7 @@ public class TransformationOperatorTests
     [Test]
     public async Task Cast_Casts_All_Elements()
     {
-        IStream<object> stream = Stream.From(new object[] { 1, 2, 3 }.ToAsyncEnumerable());
+        IFlux<object> stream = Flux.From(new object[] { 1, 2, 3 }.ToAsyncEnumerable());
 
         var result = await stream.Cast<object, int>().ToListAsync();
 
@@ -211,7 +211,7 @@ public class TransformationOperatorTests
     [Test]
     public void Cast_Throws_On_Invalid_Cast()
     {
-        IStream<object> stream = Stream.From(new object[] { 1, "hello", 3 }.ToAsyncEnumerable());
+        IFlux<object> stream = Flux.From(new object[] { 1, "hello", 3 }.ToAsyncEnumerable());
 
         Assert.ThrowsAsync<InvalidCastException>(async () =>
         {
@@ -222,7 +222,7 @@ public class TransformationOperatorTests
 
 internal static class StreamExtensions
 {
-    public static async Task<List<T>> ToListAsync<T>(this IStream<T> stream, CancellationToken cancellationToken = default)
+    public static async Task<List<T>> ToListAsync<T>(this IFlux<T> stream, CancellationToken cancellationToken = default)
     {
         var list = new List<T>();
         await foreach (var item in stream.WithCancellation(cancellationToken))
