@@ -249,6 +249,22 @@ await Flux.ScopedAsync(async scope =>
 });
 
 Console.WriteLine("Pipeline complete.");
+
+if (!args.Contains("--no-feedback", StringComparer.OrdinalIgnoreCase))
+{
+    Console.WriteLine();
+    Console.WriteLine("Entering interactive feedback loop ('quit' to exit, '--no-feedback' to skip).");
+    var feedback = new UserFeedbackService(() => new RssDbContext(), collection);
+    try
+    {
+        await feedback.RunInteractiveAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Feedback] aborted: {ex.Message}");
+    }
+}
+
 return 0;
 
 // Throws InvalidOperationException carrying ex.Data["HallucinatedSignal"] when the
@@ -305,7 +321,7 @@ static async Task<int> RestoreVectorStateAsync(
     var entries = new List<VectorIndexEntry>(prior.Count);
     foreach (var c in prior)
     {
-        var emb = EmbeddingFromBytes(c.Embedding!);
+        var emb = EmbeddingSerializer.FromBytes(c.Embedding!);
         centroids.AddOrUpdate(c.Signal, emb);
         entries.Add(new VectorIndexEntry
         {
@@ -342,7 +358,7 @@ static async Task PersistAndIndexAsync(
         IsNoise = decision.Result.IsNoise,
         AttemptCount = attemptCount,
         HallucinatedSignal = decision.Result.HallucinatedSignal,
-        Embedding = embedding.IsEmpty ? null : EmbeddingToBytes(embedding),
+        Embedding = embedding.IsEmpty ? null : EmbeddingSerializer.ToBytes(embedding),
     };
     db.Classifications.Add(classified);
     await db.SaveChangesAsync(ct);
@@ -360,20 +376,4 @@ static async Task PersistAndIndexAsync(
     }, cancellationToken: ct);
 
     centroids.AddOrUpdate(decision.Result.Signal, embedding);
-}
-
-static byte[] EmbeddingToBytes(ReadOnlyMemory<float> embedding)
-{
-    if (embedding.IsEmpty) return Array.Empty<byte>();
-    return System.Runtime.InteropServices.MemoryMarshal.AsBytes(embedding.Span).ToArray();
-}
-
-static ReadOnlyMemory<float> EmbeddingFromBytes(byte[] bytes)
-{
-    if (bytes.Length == 0) return ReadOnlyMemory<float>.Empty;
-    if (bytes.Length % sizeof(float) != 0)
-        throw new ArgumentException("Embedding byte length must be a multiple of 4.", nameof(bytes));
-    var floats = new float[bytes.Length / sizeof(float)];
-    Buffer.BlockCopy(bytes, 0, floats, 0, bytes.Length);
-    return floats;
 }
