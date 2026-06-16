@@ -11,6 +11,8 @@ using System.ClientModel;
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
 const string DefaultEmbeddingModel = "nomic-embed-text";
+const int BootstrapThreshold = VectorClassifier.DefaultBootstrapThreshold;
+const string VectorCollectionName = "rss-vectors";
 
 if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
 {
@@ -22,10 +24,7 @@ var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? DefaultModel;
 var embeddingModel = Environment.GetEnvironmentVariable("AI_EMBEDDING_MODEL") ?? DefaultEmbeddingModel;
 var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
 
-{
-    await using var db = new RssDbContext();
-    await db.Database.EnsureCreatedAsync();
-}
+await EnsureSchemaAsync();
 
 var feedSources = File.ReadAllLines("configs/source.md")
     .Where(l => l.TrimStart().StartsWith('-'))
@@ -76,7 +75,6 @@ IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator = openAIClient
     .AsIEmbeddingGenerator();
 
 var embeddingService = new EmbeddingService(embeddingGenerator);
-_ = embeddingService; // wired in PR-6 (Plan2 Task 5); declared here so registration lives near the chat client.
 
 var signalsText = string.Join("\n", signals.Select(s => $"- {s}"));
 var validSignals = signals.ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -86,12 +84,32 @@ var systemPrompt = promptTemplate
     .Replace("{goalText}", goal)
     .Replace("{signalsText}", signalsText);
 
+// Hybrid classification setup: in-memory vector store + centroid tracker, both
+// repopulated from any prior classifications so subsequent runs benefit from
+// cumulative learning even though the store itself is volatile.
+var collection = await VectorStoreProvider.GetOrCreateCollectionAsync(VectorCollectionName);
+var centroids = new CategoryCentroidTracker();
+
+Console.WriteLine("[Stage 0] Restoring vector store + centroids from prior classifications...");
+var restoredCount = await RestoreVectorStateAsync(collection, centroids);
+Console.WriteLine($"  Restored {restoredCount} embeddings");
+
+VectorClassifier.LlmFallbackDelegate llmFallback = (item, ct2) =>
+    ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
+
+var classifier = new VectorClassifier(
+    collection,
+    llmFallback,
+    validSignals,
+    centroids,
+    bootstrapThreshold: BootstrapThreshold);
+
 Console.WriteLine("Starting pipeline...");
 await Flux.ScopedAsync(async scope =>
 {
     var ct = scope.CancellationToken;
 
-    // Stage 1 & 2: parallel RSS fetch + dedup save
+    // Stage 1 & 2: parallel RSS fetch + dedup save (unchanged)
     Console.WriteLine("[Stage 1-2] Fetching and saving new items...");
 
     await Flux.From(feedSources)
@@ -132,62 +150,110 @@ await Flux.ScopedAsync(async scope =>
 
     Console.WriteLine($"  Found {totalUnprocessed} items to classify.");
 
-    // Stage 4 & 5: sequential AI classification (Ollama small models can't handle
-    //               parallel loads) with progress reporting + save results
-    Console.WriteLine("[Stage 4-5] Classifying items...");
+    // Stage 4-5: hybrid embed + classify pipeline.
+    //   - Embedding stage runs at maxConcurrency=4 (Ollama embedding models are
+    //     more parallel-friendly than chat models).
+    //   - Classify stage runs sequentially because the LLM fallback path uses a
+    //     small chat model that can't handle parallel load (existing constraint).
+    long initialClassifiedCount;
+    await using (var dbCount = new RssDbContext())
+    {
+        initialClassifiedCount = await dbCount.Classifications.LongCountAsync(ct);
+    }
+    Console.WriteLine($"[Stage 4-5] Hybrid classification (bootstrap threshold {BootstrapThreshold}, current count {initialClassifiedCount})...");
 
-    var classifiedCount = 0;
+    var processedSoFar = 0;
+    var autoCount = 0;
+    var llmCount = 0;
+    var embedFailures = 0;
+
     await EfFlux.FromStreamed(
         ctx => ctx.Set<RssItem>().Where(r => !r.Processed),
         () => new RssDbContext(),
         name: "Unprocessed")
-        .Checkpoint("Classify")
+        .Checkpoint("Embed")
         .FlatMap(async item =>
         {
+            try
+            {
+                var embedding = await embeddingService.GenerateAsync(item, ct);
+                return (Item: item, Embedding: embedding, Ok: true);
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref embedFailures);
+                Console.WriteLine($"  [EMBED-FAIL] {item.Title}: {ex.Message}");
+                return (Item: item, Embedding: ReadOnlyMemory<float>.Empty, Ok: false);
+            }
+        }, maxConcurrency: 4)
+        .Checkpoint("Classify")
+        .FlatMap(async tuple =>
+        {
+            if (!tuple.Ok)
+            {
+                return new ClassificationDecision(
+                    new ClassificationResult("General", "Embedding failed", IsNoise: true),
+                    ClassificationSource.LlmLowConfidence,
+                    NeighborStats.Empty);
+            }
+
+            var (item, embedding, _) = tuple;
+            var currentCount = (int)(initialClassifiedCount + processedSoFar);
+
             var attemptCount = 0;
-            var result = await Flux
+            var decision = await Flux
                 .From(ct2 =>
                 {
                     attemptCount++;
-                    return ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
+                    return classifier.ClassifyAsync(item, embedding, currentCount, ct2);
                 })
                 .Retry(3)
                 .OnErrorResume(ex =>
                 {
-                    var hallucinated = (string?)ex.Data["HallucinatedSignal"];
-                    return Streamix.Single.Just(new ClassificationResult(
-                        "General",
-                        $"All 3 attempts failed. Last invalid signal: '{hallucinated}'",
-                        true,
-                        hallucinated
-                    ));
+                    var hallucinated = ex.Data["HallucinatedSignal"] as string;
+                    return Streamix.Single.Just(new ClassificationDecision(
+                        new ClassificationResult(
+                            "General",
+                            $"All 3 attempts failed. Last invalid signal: '{hallucinated}'",
+                            IsNoise: true,
+                            HallucinatedSignal: hallucinated),
+                        ClassificationSource.LlmLowConfidence,
+                        NeighborStats.Empty));
                 })
                 .ToTask(ct);
 
-            await using var db = new RssDbContext();
-            db.RssItems.Attach(item);
-            item.Processed = true;
-            db.Classifications.Add(new ClassifiedRssItem
-            {
-                RssItemId = item.Id,
-                Signal = result.Signal,
-                Reasoning = result.Reasoning,
-                IsNoise = result.IsNoise,
-                AttemptCount = attemptCount,
-                HallucinatedSignal = result.HallucinatedSignal
-            });
-            await db.SaveChangesAsync(ct);
+            await PersistAndIndexAsync(item, embedding, decision, attemptCount, collection, centroids, ct);
 
-            classifiedCount++;
-            Console.WriteLine($"  [{classifiedCount}/{totalUnprocessed}] {item.Title} -> {result.Signal}{(result.IsNoise ? " (noise)" : "")}");
-            return result;
+            processedSoFar++;
+            if (decision.WasAutoLabelled) autoCount++; else llmCount++;
+
+            var prefix = decision.WasAutoLabelled ? "[AUTO]" : "[LLM ]";
+            var noiseTag = decision.Result.IsNoise ? " (noise)" : "";
+            Console.WriteLine($"  {prefix} [{processedSoFar}/{totalUnprocessed}] {item.Title} -> {decision.Result.Signal}{noiseTag} ({decision.Source})");
+
+            return decision;
         }, maxConcurrency: 1)
         .DrainAsync(ct);
+
+    // Stage 6: summary
+    Console.WriteLine("[Summary]");
+    Console.WriteLine($"  Auto-labelled (vector): {autoCount}");
+    Console.WriteLine($"  LLM-classified:        {llmCount}");
+    Console.WriteLine($"  Embedding failures:    {embedFailures}");
+    Console.WriteLine($"  Total processed:       {processedSoFar}");
+    if (processedSoFar > 0)
+    {
+        var savings = autoCount * 100.0 / processedSoFar;
+        Console.WriteLine($"  Estimated LLM-call savings: {savings:F1}% ({autoCount} auto / {processedSoFar} total)");
+    }
 });
 
 Console.WriteLine("Pipeline complete.");
 return 0;
 
+// Throws InvalidOperationException carrying ex.Data["HallucinatedSignal"] when the
+// LLM returns a signal not in validSignals; the surrounding retry/OnErrorResume
+// translates that into a final "General" + IsNoise=true after 3 attempts.
 static async Task<ClassificationResult> ClassifyAndValidateAsync(
     IChatClient client, RssItem item, string systemPrompt,
     HashSet<string> validSignals, CancellationToken ct)
@@ -200,4 +266,114 @@ static async Task<ClassificationResult> ClassifyAndValidateAsync(
         throw ex;
     }
     return r;
+}
+
+// If the local SQLite db exists but predates the Embedding column, drop it so
+// EnsureCreatedAsync rebuilds with the current schema. A cleaner alternative
+// would be EF migrations; for an example project, drop-and-recreate is fine.
+static async Task EnsureSchemaAsync()
+{
+    await using var db = new RssDbContext();
+    if (await db.Database.CanConnectAsync())
+    {
+        try
+        {
+            _ = await db.Classifications.Select(c => c.Embedding).Take(1).ToListAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.WriteLine($"[Schema] Detected legacy schema ({ex.GetType().Name}); rebuilding database...");
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+    await db.Database.EnsureCreatedAsync();
+}
+
+static async Task<int> RestoreVectorStateAsync(
+    Microsoft.Extensions.VectorData.VectorStoreCollection<int, VectorIndexEntry> collection,
+    CategoryCentroidTracker centroids)
+{
+    await using var db = new RssDbContext();
+    var prior = await db.Classifications
+        .Where(c => c.Embedding != null && c.Embedding.Length > 0)
+        .Include(c => c.RssItem)
+        .OrderBy(c => c.Id)
+        .ToListAsync();
+
+    if (prior.Count == 0) return 0;
+
+    var entries = new List<VectorIndexEntry>(prior.Count);
+    foreach (var c in prior)
+    {
+        var emb = EmbeddingFromBytes(c.Embedding!);
+        centroids.AddOrUpdate(c.Signal, emb);
+        entries.Add(new VectorIndexEntry
+        {
+            Id = c.Id,
+            RssItemId = c.RssItemId,
+            Signal = c.Signal,
+            Title = c.RssItem.Title,
+            Summary = c.RssItem.Summary,
+            Embedding = emb,
+        });
+    }
+    await collection.UpsertAsync(entries);
+    return entries.Count;
+}
+
+static async Task PersistAndIndexAsync(
+    RssItem item,
+    ReadOnlyMemory<float> embedding,
+    ClassificationDecision decision,
+    int attemptCount,
+    Microsoft.Extensions.VectorData.VectorStoreCollection<int, VectorIndexEntry> collection,
+    CategoryCentroidTracker centroids,
+    CancellationToken ct)
+{
+    await using var db = new RssDbContext();
+    db.RssItems.Attach(item);
+    item.Processed = true;
+
+    var classified = new ClassifiedRssItem
+    {
+        RssItemId = item.Id,
+        Signal = decision.Result.Signal,
+        Reasoning = decision.Result.Reasoning,
+        IsNoise = decision.Result.IsNoise,
+        AttemptCount = attemptCount,
+        HallucinatedSignal = decision.Result.HallucinatedSignal,
+        Embedding = embedding.IsEmpty ? null : EmbeddingToBytes(embedding),
+    };
+    db.Classifications.Add(classified);
+    await db.SaveChangesAsync(ct);
+
+    if (embedding.IsEmpty) return;
+
+    await collection.UpsertAsync(new VectorIndexEntry
+    {
+        Id = classified.Id,
+        RssItemId = item.Id,
+        Signal = decision.Result.Signal,
+        Title = item.Title,
+        Summary = item.Summary,
+        Embedding = embedding,
+    }, cancellationToken: ct);
+
+    centroids.AddOrUpdate(decision.Result.Signal, embedding);
+}
+
+static byte[] EmbeddingToBytes(ReadOnlyMemory<float> embedding)
+{
+    if (embedding.IsEmpty) return Array.Empty<byte>();
+    return System.Runtime.InteropServices.MemoryMarshal.AsBytes(embedding.Span).ToArray();
+}
+
+static ReadOnlyMemory<float> EmbeddingFromBytes(byte[] bytes)
+{
+    if (bytes.Length == 0) return ReadOnlyMemory<float>.Empty;
+    if (bytes.Length % sizeof(float) != 0)
+        throw new ArgumentException("Embedding byte length must be a multiple of 4.", nameof(bytes));
+    var floats = new float[bytes.Length / sizeof(float)];
+    Buffer.BlockCopy(bytes, 0, floats, 0, bytes.Length);
+    return floats;
 }
