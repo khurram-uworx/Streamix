@@ -3,10 +3,10 @@ using AIDataEngg.Models;
 using AIDataEngg.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
-using System.ClientModel;
 using OpenAI;
 using Streamix;
 using Streamix.Extensions;
+using System.ClientModel;
 
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
@@ -130,14 +130,14 @@ await Streamix.Stream.ScopedAsync(async scope =>
                 .OnErrorResume(ex =>
                 {
                     var hallucinated = (string?)ex.Data["HallucinatedSignal"];
-                    return Streamix.Stream.Just(new ClassificationResult(
+                    return Streamix.Single.Just(new ClassificationResult(
                         "General",
                         $"All 3 attempts failed. Last invalid signal: '{hallucinated}'",
                         true,
                         hallucinated
                     ));
                 })
-                .FirstAsync(ct);
+                .ToTask(ct);
 
             await using var db = new RssDbContext();
             db.RssItems.Attach(item);

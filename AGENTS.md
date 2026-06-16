@@ -10,8 +10,8 @@
 - `src/Streamix`: main production library targeting `net10.0`.
 - `src/Streamix.Extensions`: extension operators and helpers layered on the core library.
 - `src/Streamix.AspNetCore`: ASP.NET Core integration package.
-- `src/Streamix.Benchmarks`: benchmark project for performance exploration.
-- `src/Streamix.Tests`: NUnit test project covering library behavior.
+- `tests/Streamix.Benchmarks`: benchmark project for performance exploration.
+- `tests/Streamix.Tests`: NUnit test project covering library behavior.
 - `README.md`: product contract, examples, design principles, and roadmap.
 - `Streamix.slnx`: solution entry point.
 - `.github/workflows/ci.yml`: CI workflow for restore/build/test and coverage upload.
@@ -23,7 +23,7 @@
   - `dotnet build --configuration Release`
   - `dotnet test --configuration Release`
 - During iteration, targeted checks are fine when they meaningfully reduce cycle time:
-  - `dotnet test src/Streamix.Tests/Streamix.Tests.csproj`
+  - `dotnet test tests/Streamix.Tests/Streamix.Tests.csproj`
   - `dotnet test --filter <NameOrCategory>`
 - CI mirrors the root workflow with explicit step chaining:
   - `dotnet restore`
@@ -41,7 +41,7 @@
   - update the README if the user asked to change the contract.
 
 ## Testing instructions
-- For behavior changes, add or update tests in `src/Streamix.Tests`.
+- For behavior changes, add or update tests in `tests/Streamix.Tests`.
 - Treat README examples as candidate executable tests where practical.
 - For stream operators, tests should cover:
   - success behavior
@@ -76,6 +76,8 @@
 - Prefer small, clear public APIs. This repo is early enough that surface area discipline matters more than convenience overloads.
 - Prefer .NET-idiomatic naming and semantics over mechanically copying Reactor or Rx naming.
 - Use `IAsyncEnumerable<T>` as the default mental model unless concurrency or hot-stream behavior specifically requires channels or other machinery.
+- `Stream.From(Task<T>)`, `Stream.From(ValueTask<T>)`, `Stream.From(Func<CT,Task<T>>)`, and their `ValueTask` variants all return `ISingle<T>`, not `IStream<T>`. `ISingle<T> : IAsyncEnumerable<T>`, so `TestSubscriber.SubscribeAsync(ISingle<T>)` works through the `IAsyncEnumerable<T>` parameter.
+- DoOnNextAsync (Task + ValueTask variants), OfType<T,TResult>, Cast<T,TResult>, OnErrorReturn(Func<Exception,T>), and FlatMap(Func<T,IAsyncEnumerable<TResult>>) are implemented and available.
 - Be explicit about cancellation, error propagation, buffering, and ordering semantics in both code and tests.
 - It is fine to keep closely related small types in the same file when that improves locality.
 

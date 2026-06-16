@@ -5,6 +5,9 @@
   <Folder Name="/.github/workflows/">
     <File Path=".github/workflows/ci.yml" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/AIDataEngg/AIDataEngg.csproj" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitattributes" />
@@ -14,10 +17,13 @@
     <File Path="GETTING-STARTED.md" />
     <File Path="README.md" />
   </Folder>
-  <Project Path="src/Streamix.AspNetCore/Streamix.AspNetCore.csproj" />
-  <Project Path="src/Streamix.Benchmarks/Streamix.Benchmarks.csproj" />
-  <Project Path="src/Streamix.Extensions/Streamix.Extensions.csproj" />
-  <Project Path="src/Streamix.Tests/Streamix.Tests.csproj" />
-  <Project Path="src/Streamix/Streamix.csproj" Id="558f25ed-012c-4d4c-bf4d-355e4bdbd492" />
-  <Project Path="examples/AIDataEngg/AIDataEngg.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/Streamix.AspNetCore/Streamix.AspNetCore.csproj" />
+    <Project Path="src/Streamix.Extensions/Streamix.Extensions.csproj" />
+    <Project Path="src/Streamix/Streamix.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Streamix.Benchmarks/Streamix.Benchmarks.csproj" />
+    <Project Path="tests/Streamix.Tests/Streamix.Tests.csproj" />
+  </Folder>
 </Solution>

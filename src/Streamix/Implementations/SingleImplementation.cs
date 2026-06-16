@@ -253,6 +253,24 @@ class SingleImplementation<T> : ISingle<T>
         }
     }
 
+    async IAsyncEnumerable<T> doOnNextAsyncTask(Func<T, Task> onNext, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in source.WithCancellation(ct))
+        {
+            await onNext(item);
+            yield return item;
+        }
+    }
+
+    async IAsyncEnumerable<T> doOnNextAsyncValueTask(Func<T, ValueTask> onNext, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in source.WithCancellation(ct))
+        {
+            await onNext(item);
+            yield return item;
+        }
+    }
+
     async IAsyncEnumerable<T> doOnError(Action<Exception> onError, [EnumeratorCancellation] CancellationToken ct = default)
     {
         IAsyncEnumerator<T>? enumerator = null;
@@ -510,6 +528,12 @@ class SingleImplementation<T> : ISingle<T>
     }
 
     /// <inheritdoc />
+    public ISingle<T> OnErrorReturn(Func<Exception, T> errorHandler)
+    {
+        return OnErrorResume(ex => Single.Just<T>(errorHandler(ex)).Named(name ?? ""));
+    }
+
+    /// <inheritdoc />
     public ISingle<T> OnErrorMap(Func<Exception, Exception> mapper)
     {
         return OnErrorResume(ex => Single.Error<T>(mapper(ex)));
@@ -588,6 +612,18 @@ class SingleImplementation<T> : ISingle<T>
 
     /// <inheritdoc />
     public ISingle<T> Tap(Action<T> onNext) => DoOnNext(onNext);
+
+    /// <inheritdoc />
+    public ISingle<T> DoOnNextAsync(Func<T, Task> onNext)
+    {
+        return new SingleImplementation<T>(doOnNextAsyncTask(onNext), clock, name);
+    }
+
+    /// <inheritdoc />
+    public ISingle<T> DoOnNextAsync(Func<T, ValueTask> onNext)
+    {
+        return new SingleImplementation<T>(doOnNextAsyncValueTask(onNext), clock, name);
+    }
 
     /// <inheritdoc />
     public ISingle<T> DoOnError(Action<Exception> onError)

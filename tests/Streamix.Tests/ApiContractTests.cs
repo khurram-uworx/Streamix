@@ -64,7 +64,7 @@ public class ApiContractTests
         Assert.That(type.GetMethods().Any(m => m.Name == "Select"), Is.True);
         Assert.That(type.GetMethods().Any(m => m.Name == "FlatMap"), Is.True);
         Assert.That(type.GetMethod("OnErrorResume"), Is.Not.Null);
-        Assert.That(type.GetMethod("OnErrorReturn"), Is.Not.Null);
+        Assert.That(type.GetMethods().Any(m => m.Name == "OnErrorReturn"), Is.True);
         Assert.That(type.GetMethod("OnErrorMap"), Is.Not.Null);
         Assert.That(type.GetMethod("RunOn"), Is.Not.Null);
         Assert.That(type.GetMethods().Any(m => m.Name == "ForEachAsync"), Is.True);

@@ -24,9 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Streamix\Streamix.csproj" />
-    <ProjectReference Include="..\Streamix.Extensions\Streamix.Extensions.csproj" />
-    <ProjectReference Include="..\Streamix.AspNetCore\Streamix.AspNetCore.csproj" />
+    <ProjectReference Include="..\..\src\Streamix\Streamix.csproj" />
+    <ProjectReference Include="..\..\src\Streamix.Extensions\Streamix.Extensions.csproj" />
+    <ProjectReference Include="..\..\src\Streamix.AspNetCore\Streamix.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>

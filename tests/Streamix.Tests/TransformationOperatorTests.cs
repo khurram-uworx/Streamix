@@ -177,6 +177,47 @@ public class TransformationOperatorTests
             await foreach (var _ in stream.WithCancellation(cts.Token)) { }
         });
     }
+
+    [Test]
+    public async Task OfType_Filters_To_Specified_Type()
+    {
+        IStream<object> stream = Stream.From(new object[] { 1, "hello", 2, "world" }.ToAsyncEnumerable());
+
+        var result = await stream.OfType<object, int>().ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 1, 2 }));
+    }
+
+    [Test]
+    public async Task OfType_Returns_Empty_When_No_Match()
+    {
+        IStream<object> stream = Stream.From(new object[] { "hello", "world" }.ToAsyncEnumerable());
+
+        var result = await stream.OfType<object, int>().ToListAsync();
+
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    public async Task Cast_Casts_All_Elements()
+    {
+        IStream<object> stream = Stream.From(new object[] { 1, 2, 3 }.ToAsyncEnumerable());
+
+        var result = await stream.Cast<object, int>().ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 1, 2, 3 }));
+    }
+
+    [Test]
+    public void Cast_Throws_On_Invalid_Cast()
+    {
+        IStream<object> stream = Stream.From(new object[] { 1, "hello", 3 }.ToAsyncEnumerable());
+
+        Assert.ThrowsAsync<InvalidCastException>(async () =>
+        {
+            await stream.Cast<object, int>().ToListAsync();
+        });
+    }
 }
 
 internal static class StreamExtensions

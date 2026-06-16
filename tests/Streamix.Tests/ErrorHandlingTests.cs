@@ -161,4 +161,51 @@ public class ErrorHandlingTests
         int result = await single.ToTask();
         Assert.That(result, Is.EqualTo(1));
     }
+
+    [Test]
+    public async Task Single_OnErrorReturn_Func_ReturnsValueFromException()
+    {
+        ISingle<int> single = Single.Error<int>(new InvalidOperationException("Fail"))
+            .OnErrorReturn(ex =>
+            {
+                Assert.That(ex, Is.InstanceOf<InvalidOperationException>());
+                Assert.That(ex.Message, Is.EqualTo("Fail"));
+                return 42;
+            });
+
+        int result = await single.ToTask();
+        Assert.That(result, Is.EqualTo(42));
+    }
+
+    [Test]
+    public async Task Stream_OnErrorReturn_Func_ReturnsValueFromException()
+    {
+        IStream<int> stream = Stream.Error<int>(new InvalidOperationException("Fail"))
+            .OnErrorReturn(ex =>
+            {
+                Assert.That(ex, Is.InstanceOf<InvalidOperationException>());
+                Assert.That(ex.Message, Is.EqualTo("Fail"));
+                return 42;
+            });
+
+        var result = await stream.ToListAsync();
+        Assert.That(result, Is.EqualTo(new[] { 42 }));
+    }
+
+    [Test]
+    public async Task Stream_OnErrorReturn_Func_MidStream_Recovers()
+    {
+        async IAsyncEnumerable<int> FailingSource()
+        {
+            yield return 1;
+            yield return 2;
+            throw new Exception("Boom");
+        }
+
+        IStream<int> stream = Stream.From(FailingSource())
+            .OnErrorReturn(ex => 99);
+
+        var result = await stream.ToListAsync();
+        Assert.That(result, Is.EqualTo(new[] { 1, 2, 99 }));
+    }
 }

@@ -56,8 +56,30 @@ Available patterns include:
 - `MapOrdered` - 1:1 transform, concurrent and ordered
 - `Filter` / `FilterAwait`
 - `FlatMap` / `FlatMapAwait` - 1:1 or 1:N transforms, unordered concurrent by default
+- `FlatMap(Func<T, IAsyncEnumerable<TResult>>, maxConcurrency)` - 1:N flatten from `IAsyncEnumerable<TResult>`, concurrent and unordered
 - `ConcatMap` - 1:N transform, sequential and ordered
 - `FlatMapOrdered` - 1:N transform, concurrent and ordered
+
+### FlatMap Overload Resolution
+
+When calling `FlatMap` on `IStream<T>`, the compiler selects the overload based on the **return type** of the selector function:
+
+| If the selector returns… | Overload | Semantics |
+|---|---|---|
+| `Task<TResult>` | `FlatMap(Func<T, Task<TResult>>, int)` | Async 1:1, concurrent, unordered |
+| `IStream<TResult>` | `FlatMap(Func<T, IStream<TResult>>, int)` | Async 1:N, concurrent, unordered |
+| `ISingle<TResult>` | `FlatMap(Func<T, ISingle<TResult>>, int)` | Async 1:1, concurrent, unordered |
+| `IAsyncEnumerable<TResult>` | `FlatMap(Func<T, IAsyncEnumerable<TResult>>, int)` | Async 1:N, concurrent, unordered |
+
+For sequential ordered flattening, use `ConcatMap(Func<T, IStream<TResult>>)`.
+For concurrent ordered flattening, use `FlatMapOrdered(Func<T, IStream<TResult>>, int)`.
+
+When calling `FlatMap` on `ISingle<T>`, the overload is determined by:
+
+| If the selector returns… | Overload | Returns |
+|---|---|---|
+| `ISingle<TResult>` | `FlatMap(Func<T, ISingle<TResult>>)` | `ISingle<TResult>` — stays single |
+| `IStream<TResult>` | `FlatMap(Func<T, IStream<TResult>>)` | `IStream<TResult>` — expands to stream |
 
 ## Concurrency and Backpressure
 
@@ -168,8 +190,9 @@ var replayed = Stream.Range(1, 3).Replay(2);
 
 - `Map` / `MapAwait` / `MapOrdered`
 - `Filter` / `FilterAwait`
-- `FlatMap` / `FlatMapAwait`
+- `FlatMap` / `FlatMapAwait` / `FlatMap(Func<T, IAsyncEnumerable<TResult>>)`
 - `ConcatMap` / `FlatMapOrdered`
+- `OfType<T, TResult>` / `Cast<T, TResult>`
 - `Generate`
 - `Take` / `Skip`
 - `Merge` / `MergeChannels` / `Zip`
@@ -177,11 +200,11 @@ var replayed = Stream.Range(1, 3).Replay(2);
 - `Never` / `FromTimer` / `Poll`
 - `Throttle` / `Delay`
 - `Retry` / `Retry(..., backoffStrategy)` / `Timeout`
-- `OnErrorResume` / `OnErrorReturn` / `OnErrorMap`
+- `OnErrorResume` / `OnErrorReturn` / `OnErrorReturn(Func<Exception, T>)` / `OnErrorMap`
 - `Publish` / `Replay` / `RefCount`
 - `RunOn`
 - `Named`, `Log`, `Debug`, `Checkpoint`, `Trace`
-- `DoOnNext`, `Do`, `Tap`, `DoOnError`, `DoOnComplete`, `DoOnTerminate`
+- `DoOnNext`, `Do`, `Tap`, `DoOnNextAsync`, `DoOnError`, `DoOnComplete`, `DoOnTerminate`
 - `MapWithTimestamp` / `WindowByTime`
 
 `IStream<T>` includes `ForEachAsync(...)`, sink output, and channel output. Additional terminal operators are available through extension methods:
@@ -255,6 +278,18 @@ await Stream.Range(1, 100)
     .Checkpoint("ProcessEnd")
     .ForEachAsync(Console.WriteLine);
 ```
+
+### Async Side Effects with `DoOnNextAsync`
+
+When your side effect is async (e.g., writing to a database), `DoOnNextAsync` keeps the pipeline readable without forcing you to embed the side effect inside a `FlatMap` selector:
+
+```csharp
+await Stream.Range(1, 10)
+    .DoOnNextAsync(async item => await db.SaveChangesAsync(item))
+    .ForEachAsync(Console.WriteLine);
+```
+
+`DoOnNextAsync` accepts both `Func<T, Task>` and `Func<T, ValueTask>`.
 
 ## Time-based Operators
 
@@ -411,16 +446,32 @@ The resource is guaranteed to be disposed when the stream completes, fails, or t
 
 ### `Stream.From` / `Single.From` / `Just`
 
-Shorthands for values, tasks, and async enumerables.
+Shorthands for values, tasks, and async enumerables. The return type depends on the overload:
 
-- `From(Task<T>)` and `From(ValueTask<T>)` wrap existing, already-started work.
-- `From(Func<Task<T>>)`, `From(Func<ValueTask<T>>)`, and their `CancellationToken` overloads defer creation until subscription.
-- `Stream.Defer(...)` and `Single.Defer(...)` are always lazy and call the factory once per subscriber to create the entire stream instance.
-- `Single.From(IAsyncEnumerable<T>)` strictly enforces 0..1 cardinality and throws `InvalidOperationException` if the source produces more than one item.
+**Returns `IStream<T>`:**
+
+- `Stream.Just(value)` — single value
+- `Stream.From(IEnumerable<T>)` / `Stream.From(IAsyncEnumerable<T>)` — multi-item source
+- `Stream.Defer(...)` — lazy per-subscription factory
+- `Single.From(IAsyncEnumerable<T>)` — enforces 0..1 cardinality; returns `ISingle<T>`
+
+**Returns `ISingle<T>`:**
+
+- `Stream.From(Task<T>)` / `Stream.From(ValueTask<T>)` — wraps existing, already-started work
+- `Stream.From(Func<Task<T>>)` / `Stream.From(Func<ValueTask<T>>)` — defers creation until subscription
+- `Stream.From(Func<CancellationToken, Task<T>>)` / `Stream.From(Func<CancellationToken, ValueTask<T>>)` — lazy and CT-aware
+- `Single.From(Task<T>)` / `Single.From(ValueTask<T>)` — explicit single factory
+- `Single.Defer(...)` — lazy per-subscription single factory
+
+`ISingle<T>` exposes its own fluent chain: `.Retry()`, `.OnErrorReturn()`, `.Map()`, `.ToTask()`, etc.
 
 ```csharp
+// Returns IStream<T>:
 Stream.Just(42);
 Stream.From(new[] { 1, 2, 3 });
+Stream.From(asyncEnumerable);
+
+// Returns ISingle<T>:
 Stream.From(Task.FromResult("hello"));
 Stream.From(async ct => await FetchData(ct));
 Single.From(async ct => await FetchData(ct));
@@ -661,6 +712,10 @@ var retried = stream
     .Retry(
         retryCount: 3,
         backoffStrategy: (attempt, ex) => TimeSpan.FromMilliseconds(attempt * 100));
+
+// Inspect the exception before providing a fallback value:
+var fallback = single
+    .OnErrorReturn(ex => ex is TimeoutException ? -1 : 0);
 ```
 
 ## When to Use

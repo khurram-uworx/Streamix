@@ -308,64 +308,70 @@ public static class Stream
         => From(value);
 
     /// <summary>
-    /// Creates a stream from a <see cref="Task{T}"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a <see cref="Task{T}"/>.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="task">The task to wrap.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(Task<T> task)
-        => From(Single.From(task));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(Task<T> task)
+        => Single.From(task);
 
     /// <summary>
-    /// Creates a stream from a function that returns a <see cref="Task{T}"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="Task{T}"/>.
     /// The function is invoked lazily when the stream is subscribed to.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="taskFactory">The function to invoke.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(Func<Task<T>> taskFactory)
-        => From(Single.From(taskFactory));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(Func<Task<T>> taskFactory)
+        => Single.From(taskFactory);
 
     /// <summary>
-    /// Creates a stream from a function that returns a <see cref="Task{T}"/> and accepts a <see cref="CancellationToken"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="Task{T}"/> and accepts a <see cref="CancellationToken"/>.
     /// The function is invoked lazily when the stream is subscribed to.
     /// The provided <see cref="CancellationToken"/> will be cancelled if the subscriber cancels their subscription.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="taskFactory">The function to invoke.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(Func<CancellationToken, Task<T>> taskFactory)
-        => From(Single.From(taskFactory));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(Func<CancellationToken, Task<T>> taskFactory)
+        => Single.From(taskFactory);
 
     /// <summary>
-    /// Creates a stream from a <see cref="ValueTask{T}"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a <see cref="ValueTask{T}"/>.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="task">The task to wrap.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(ValueTask<T> task)
-        => From(Single.From(task));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(ValueTask<T> task)
+        => Single.From(task);
 
     /// <summary>
-    /// Creates a stream from a function that returns a <see cref="ValueTask{T}"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="ValueTask{T}"/>.
     /// The function is invoked lazily when the stream is subscribed to.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="taskFactory">The function to invoke.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(Func<ValueTask<T>> taskFactory)
-        => From(Single.From(taskFactory));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(Func<ValueTask<T>> taskFactory)
+        => Single.From(taskFactory);
 
     /// <summary>
-    /// Creates a stream from a function that returns a <see cref="ValueTask{T}"/> and accepts a <see cref="CancellationToken"/>.
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="ValueTask{T}"/> and accepts a <see cref="CancellationToken"/>.
     /// The function is invoked lazily when the stream is subscribed to.
     /// The provided <see cref="CancellationToken"/> will be cancelled if the subscriber cancels their subscription.
+    /// Returns a single-item stream since a task produces at most one result.
     /// </summary>
-    /// <typeparam name="T">The type of items in the stream.</typeparam>
+    /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="taskFactory">The function to invoke.</param>
-    /// <returns>A stream that emits the result of the task and then completes.</returns>
-    public static IStream<T> From<T>(Func<CancellationToken, ValueTask<T>> taskFactory)
-        => From(Single.From(taskFactory));
+    /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
+    public static ISingle<T> From<T>(Func<CancellationToken, ValueTask<T>> taskFactory)
+        => Single.From(taskFactory);
 
     /// <summary>
     /// Creates an empty stream.

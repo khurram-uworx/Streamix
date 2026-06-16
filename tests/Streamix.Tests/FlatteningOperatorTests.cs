@@ -225,4 +225,65 @@ public class FlatteningOperatorTests
         Assert.That(result, Has.Count.EqualTo(4));
         Assert.That(result, Is.EquivalentTo(new[] { 10, 11, 20, 21 }));
     }
+
+    [Test]
+    public async Task FlatMap_IAsyncEnumerable_Sequential()
+    {
+        var result = await Stream.Range(1, 3)
+            .FlatMap(x => new[] { x * 10, x * 10 + 1 }.ToAsyncEnumerable(), maxConcurrency: 1)
+            .ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 10, 11, 20, 21, 30, 31 }));
+    }
+
+    [Test]
+    public async Task FlatMap_IAsyncEnumerable_Concurrent()
+    {
+        var result = await Stream.Range(1, 5)
+            .FlatMap(x => new[] { x * 10 }.ToAsyncEnumerable(), maxConcurrency: 5)
+            .ToListAsync();
+
+        Assert.That(result, Has.Count.EqualTo(5));
+        Assert.That(result, Is.EquivalentTo(new[] { 10, 20, 30, 40, 50 }));
+    }
+
+    [Test]
+    public async Task FlatMap_IAsyncEnumerable_Handles_Empty_Inner()
+    {
+        var result = await Stream.Range(1, 3)
+            .FlatMap(x => x == 2 ? AsyncEnumerable.Empty<int>() : new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1)
+            .ToListAsync();
+
+        Assert.That(result, Is.EqualTo(new[] { 1, 3 }));
+    }
+
+    [Test]
+    public void FlatMap_IAsyncEnumerable_Throws_On_Zero_Concurrency()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            Stream.Range(1, 3).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 0));
+    }
+
+    [Test]
+    public void FlatMap_IAsyncEnumerable_Propagates_Error()
+    {
+        var stream = Stream.Range(1, 3)
+            .FlatMap(x => x == 2 ? throwError() : new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1);
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.ToListAsync());
+    }
+
+    [Test]
+    public void FlatMap_IAsyncEnumerable_Sequential_Respects_Cancellation()
+    {
+        var cts = new CancellationTokenSource();
+        var stream = Stream.Range(1, 100).FlatMap(x => new[] { x }.ToAsyncEnumerable(), maxConcurrency: 1);
+
+        cts.Cancel();
+
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var _ in stream.WithCancellation(cts.Token)) { }
+        });
+    }
 }

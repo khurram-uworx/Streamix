@@ -91,6 +91,13 @@ public interface ISingle<T> : IAsyncEnumerable<T>
     ISingle<T> OnErrorReturn(T value);
 
     /// <summary>
+    /// Resumes a single-item stream with a value computed from the exception if an error occurs.
+    /// </summary>
+    /// <param name="errorHandler">A function that returns the fallback value given the exception.</param>
+    /// <returns>A resilient <see cref="ISingle{T}"/>.</returns>
+    ISingle<T> OnErrorReturn(Func<Exception, T> errorHandler);
+
+    /// <summary>
     /// Maps a single-item stream error into another exception.
     /// </summary>
     /// <param name="mapper">A function to map the exception.</param>
@@ -259,6 +266,22 @@ public interface ISingle<T> : IAsyncEnumerable<T>
     /// <param name="onNext">The action to execute for the element.</param>
     /// <returns>The same single-item stream.</returns>
     ISingle<T> Tap(Action<T> onNext);
+
+    /// <summary>
+    /// Executes an asynchronous action for the element of the stream without modifying it.
+    /// This operator does not catch exceptions thrown by the action.
+    /// </summary>
+    /// <param name="onNext">The asynchronous action to execute for the element.</param>
+    /// <returns>The same single-item stream.</returns>
+    ISingle<T> DoOnNextAsync(Func<T, Task> onNext);
+
+    /// <summary>
+    /// Executes an asynchronous action for the element of the stream without modifying it.
+    /// This operator does not catch exceptions thrown by the action.
+    /// </summary>
+    /// <param name="onNext">The asynchronous action to execute for the element.</param>
+    /// <returns>The same single-item stream.</returns>
+    ISingle<T> DoOnNextAsync(Func<T, ValueTask> onNext);
 
     /// <summary>
     /// Executes an action when the single-item stream fails.

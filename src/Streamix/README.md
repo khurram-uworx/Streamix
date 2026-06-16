@@ -58,6 +58,7 @@ The core package also includes lightweight DEVX operators for naming and inspect
 - `Debug()` emits the same signal shape to `System.Diagnostics.Debug`.
 - `Checkpoint(string name)` adds timing markers around a stage.
 - `Trace()` emits lifecycle signals such as `Subscribe`, `Request(1)`, `Next(...)`, `Completed`, `Cancelled`, and `Dispose`.
+- `DoOnNextAsync(Func<T, Task>)` / `DoOnNextAsync(Func<T, ValueTask>)` for async side effects.
 
 ```csharp
 await Stream.Range(1, 10)

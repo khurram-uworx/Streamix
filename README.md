@@ -14,6 +14,7 @@ Streamix fills that gap with:
 - `Stream<T>` for 0..N values
 - `Single<T>` for 0..1 values
 - declarative operators for mapping, filtering, flattening, timing, retries, and recovery
+- `DoOnNextAsync`, `OfType<T,TResult>`, `Cast<T,TResult>`, and `IAsyncEnumerable`-backed `FlatMap`
 - hot-stream primitives such as `Publish`, `Replay`, and `RefCount`
 - interop with `IAsyncEnumerable<T>`, channels, AsyncRx.NET, and ASP.NET Core streaming
 

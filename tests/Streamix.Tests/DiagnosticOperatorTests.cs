@@ -651,4 +651,56 @@ public class DiagnosticOperatorTests
         }
     }
 #endif
+
+    [Test]
+    public async Task Stream_DoOnNextAsync_Task_ExecutesForEveryItem()
+    {
+        var items = new List<int>();
+        Task OnNextAsync(int x) { items.Add(x); return Task.CompletedTask; }
+        var result = await Stream.Range(1, 5)
+            .DoOnNextAsync(OnNextAsync)
+            .ToListAsync();
+
+        Assert.That(items, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
+        Assert.That(result, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
+    }
+
+    [Test]
+    public async Task Stream_DoOnNextAsync_ValueTask_ExecutesForEveryItem()
+    {
+        var items = new List<int>();
+        ValueTask OnNextAsync(int x) { items.Add(x); return ValueTask.CompletedTask; }
+        var result = await Stream.Range(1, 5)
+            .DoOnNextAsync(OnNextAsync)
+            .ToListAsync();
+
+        Assert.That(items, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
+        Assert.That(result, Is.EqualTo(new[] { 1, 2, 3, 4, 5 }));
+    }
+
+    [Test]
+    public async Task Single_DoOnNextAsync_Task_ExecutesForItem()
+    {
+        var item = 0;
+        Task OnNextAsync(int x) { item = x; return Task.CompletedTask; }
+        var result = await Single.From(42)
+            .DoOnNextAsync(OnNextAsync)
+            .ToTask();
+
+        Assert.That(item, Is.EqualTo(42));
+        Assert.That(result, Is.EqualTo(42));
+    }
+
+    [Test]
+    public async Task Single_DoOnNextAsync_ValueTask_ExecutesForItem()
+    {
+        var item = 0;
+        ValueTask OnNextAsync(int x) { item = x; return ValueTask.CompletedTask; }
+        var result = await Single.From(42)
+            .DoOnNextAsync(OnNextAsync)
+            .ToTask();
+
+        Assert.That(item, Is.EqualTo(42));
+        Assert.That(result, Is.EqualTo(42));
+    }
 }

@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Streamix\Streamix.csproj" />
+    <ProjectReference Include="..\..\src\Streamix\Streamix.csproj" />
   </ItemGroup>
 
 </Project>

@@ -9,7 +9,9 @@ Modern .NET has `IAsyncEnumerable<T>` and channels, but Streamix intentionally p
 - `Stream<T>` for 0..N item streams
 - `Single<T>` for 0..1 item streams
 
-`Single.From(...)` supports values, `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` sources.
+`Single.From(...)` supports values, `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` sources. `Stream.From(Task<T>)` and `Stream.From(ValueTask<T>)` also return `ISingle<T>` rather than `IStream<T>`, matching the single-result semantics of a task.
+
+`ISingle<T>` exposes async side-effects (`DoOnNextAsync`), dynamic error recovery (`OnErrorReturn(Func<Exception,T>)`), and configurable retry alongside the `IStream<T>` extension operator set.
 
 The default mental model is:
 

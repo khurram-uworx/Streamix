@@ -38,6 +38,13 @@ public static class StreamExtensions
                 yield return innerItem;
     }
 
+    static async IAsyncEnumerable<TResult> concatMapAsyncEnumerable<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, IAsyncEnumerable<TResult>> selector, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in enumerable.WithCancellation(cancellationToken))
+            await foreach (var innerItem in selector(item).WithCancellation(cancellationToken))
+                yield return innerItem;
+    }
+
     static async IAsyncEnumerable<TResult> parallelMapTask<T, TResult>(IAsyncEnumerable<T> enumerable, Func<T, Task<TResult>> selector, int maxConcurrency, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (maxConcurrency == 1)
@@ -768,6 +775,24 @@ public static class StreamExtensions
         }
     }
 
+    static async IAsyncEnumerable<T> doOnNextAsyncTask<T>(IAsyncEnumerable<T> enumerable, Func<T, Task> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in enumerable.WithCancellation(cancellationToken))
+        {
+            await onNext(item);
+            yield return item;
+        }
+    }
+
+    static async IAsyncEnumerable<T> doOnNextAsyncValueTask<T>(IAsyncEnumerable<T> enumerable, Func<T, ValueTask> onNext, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        await foreach (var item in enumerable.WithCancellation(cancellationToken))
+        {
+            await onNext(item);
+            yield return item;
+        }
+    }
+
     static async IAsyncEnumerable<T> doOnError<T>(IAsyncEnumerable<T> enumerable, Action<Exception> onError, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         IAsyncEnumerator<T>? enumerator = null;
@@ -1147,6 +1172,25 @@ public static class StreamExtensions
     }
 
     /// <summary>
+    /// Projects each element of a stream to an <see cref="IAsyncEnumerable{TResult}"/> and merges the inner sequences concurrently.
+    /// Results are emitted as soon as inner sequences produce them, so outer ordering is not preserved.
+    /// This overload removes the wrapping noise of <c>Stream.From(selector(x))</c> when the selector already returns <see cref="IAsyncEnumerable{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type of elements in the resulting stream.</typeparam>
+    /// <param name="source">The stream</param>
+    /// <param name="selector">A transform function that returns an <see cref="IAsyncEnumerable{TResult}"/> for each element.</param>
+    /// <param name="maxConcurrency">The maximum number of concurrent inner sequences. Defaults to unbounded concurrency.</param>
+    /// <returns>An <see cref="IStream{TResult}"/> that emits items from inner sequences in completion order.</returns>
+    public static IStream<TResult> FlatMap<T, TResult>(this IStream<T> source, Func<T, IAsyncEnumerable<TResult>> selector, int maxConcurrency = int.MaxValue)
+    {
+        if (maxConcurrency <= 0) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Max concurrency must be greater than 0.");
+        return maxConcurrency == 1
+            ? Stream.From(concatMapAsyncEnumerable(source, selector), source.Clock, source.Name)
+            : Stream.From(parallelMapEnumerable(source, selector, maxConcurrency), source.Clock, source.Name);
+    }
+
+    /// <summary>
     /// Projects each element of a stream to another stream and merges the inner streams concurrently while preserving outer source ordering.
     /// Results from inner streams are buffered as necessary to ensure they are emitted in the same order as the source elements that produced them.
     /// Each later inner stream may buffer up to <paramref name="maxBufferedItemsPerInner"/> items while waiting for earlier inners to drain.
@@ -1292,6 +1336,15 @@ public static class StreamExtensions
         => OnErrorResume(source, _ => Stream.Just<T>(value).Named(source.Name ?? ""));
 
     /// <summary>
+    /// Resumes a stream with a value computed from the exception if an error occurs.
+    /// </summary>
+    /// <param name="source">The stream</param>
+    /// <param name="errorHandler">A function that returns the fallback value given the exception.</param>
+    /// <returns>A resilient <see cref="IStream{T}"/>.</returns>
+    public static IStream<T> OnErrorReturn<T>(this IStream<T> source, Func<Exception, T> errorHandler)
+        => OnErrorResume(source, ex => Stream.Just<T>(errorHandler(ex)).Named(source.Name ?? ""));
+
+    /// <summary>
     /// Maps a stream error into another exception.
     /// </summary>
     /// <param name="source">The stream</param>
@@ -1327,6 +1380,26 @@ public static class StreamExtensions
     /// <returns>The same stream.</returns>
     public static IStream<T> Tap<T>(this IStream<T> source, Action<T> onNext)
         => source.DoOnNext(onNext);
+
+    /// <summary>
+    /// Executes an asynchronous action for each element of the stream without modifying it.
+    /// This operator does not catch exceptions thrown by the action.
+    /// </summary>
+    /// <param name="source">The stream</param>
+    /// <param name="onNext">The asynchronous action to execute for each element.</param>
+    /// <returns>The same stream.</returns>
+    public static IStream<T> DoOnNextAsync<T>(this IStream<T> source, Func<T, Task> onNext)
+        => Stream.From(doOnNextAsyncTask(source, onNext), source.Clock, source.Name);
+
+    /// <summary>
+    /// Executes an asynchronous action for each element of the stream without modifying it.
+    /// This operator does not catch exceptions thrown by the action.
+    /// </summary>
+    /// <param name="source">The stream</param>
+    /// <param name="onNext">The asynchronous action to execute for each element.</param>
+    /// <returns>The same stream.</returns>
+    public static IStream<T> DoOnNextAsync<T>(this IStream<T> source, Func<T, ValueTask> onNext)
+        => Stream.From(doOnNextAsyncValueTask(source, onNext), source.Clock, source.Name);
 
     /// <summary>
     /// Executes an action when the stream fails.
@@ -1669,5 +1742,48 @@ public static class StreamExtensions
     {
         await foreach (var item in source.WithCancellation(cancellationToken))
             await action(item);
+    }
+
+    static async IAsyncEnumerable<TResult> ofTypeIterator<T, TResult>(IStream<T> source, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in source.WithCancellation(ct))
+        {
+            if (item is TResult result)
+                yield return result;
+        }
+    }
+
+    static async IAsyncEnumerable<TResult> castIterator<T, TResult>(IStream<T> source, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await foreach (var item in source.WithCancellation(ct))
+            yield return (TResult)(object?)item!;
+    }
+
+    /// <summary>
+    /// Filters the elements of a stream based on their ability to be cast to a specified type.
+    /// Only elements that are instances of <typeparamref name="TResult"/> are yielded.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type to filter and yield elements of.</typeparam>
+    /// <param name="source">The stream.</param>
+    /// <returns>An <see cref="IStream{TResult}"/> containing elements of the source stream that are of type <typeparamref name="TResult"/>.</returns>
+    public static IStream<TResult> OfType<T, TResult>(this IStream<T> source)
+        where TResult : T
+    {
+        return Streamix.Stream.From(ofTypeIterator<T, TResult>(source));
+    }
+
+    /// <summary>
+    /// Casts the elements of a stream to the specified type.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the source stream.</typeparam>
+    /// <typeparam name="TResult">The type to cast the elements of the source stream to.</typeparam>
+    /// <param name="source">The stream.</param>
+    /// <returns>An <see cref="IStream{TResult}"/> that contains each element of the source stream cast to the specified type.</returns>
+    /// <exception cref="InvalidCastException">An element in the sequence cannot be cast to type <typeparamref name="TResult"/>.</exception>
+    public static IStream<TResult> Cast<T, TResult>(this IStream<T> source)
+        where TResult : T
+    {
+        return Streamix.Stream.From(castIterator<T, TResult>(source));
     }
 }
