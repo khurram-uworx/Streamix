@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SignalFlow — AIDataEngg</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Signal<em>Flow</em></h1>
+                <span class="sidebar-sub">AIDataEngg</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="/" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "active" : "")">
+                    <span class="nav-icon">&#9632;</span>
+                    Dashboard
+                </a>
+                <a href="/Signals" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Signals" ? "active" : "")">
+                    <span class="nav-icon">&#9993;</span>
+                    Signals
+                    <span class="nav-badge" id="signal-count">0</span>
+                </a>
+                <a href="/Noise" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Noise" ? "active" : "")">
+                    <span class="nav-icon">&#9888;</span>
+                    Noise
+                    <span class="nav-badge badge-noise" id="noise-count">0</span>
+                </a>
+                <a href="/Bounced" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Bounced" ? "active" : "")">
+                    <span class="nav-icon">&#8635;</span>
+                    Bounced
+                    <span class="nav-badge badge-bounced" id="bounced-count">0</span>
+                </a>
+                <div class="nav-divider"></div>
+                <a href="/Config" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Config" ? "active" : "")">
+                    <span class="nav-icon">&#9881;</span>
+                    Configuration
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="btn-trigger" id="trigger-pipeline" onclick="triggerPipeline()">
+                    &#9654; Process
+                </button>
+            </div>
+        </aside>
+
+        <main class="main">
+            <div id="pipeline-progress" class="progress-bar hidden">
+                <div class="progress-fill" id="progress-fill"></div>
+                <span class="progress-text" id="progress-text">Starting...</span>
+            </div>
+            @RenderBody()
+        </main>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/pipeline.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

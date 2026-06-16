@@ -1,0 +1,46 @@
+@page
+@model BouncedModel
+@{
+    ViewData["Title"] = "Bounced";
+}
+
+<div class="page-header">
+    <h2>Bounced <span class="text-muted">(failed classifications)</span></h2>
+    <p class="text-muted">Items that exceeded retry limits and could not be classified</p>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card">
+        <div class="card-body">
+            <p class="text-muted">No bounced items.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var item in Model.Items)
+        {
+            <div class="item-row item-bounced" onclick="window.location='/Item/@item.Id'" data-id="@item.Id">
+                <div class="item-signal signal-bounced">BOUNCED</div>
+                <div class="item-content">
+                    <div class="item-title">@item.RssItem.Title</div>
+                    <div class="item-meta">
+                        @item.RssItem.FeedName &middot; Attempts: @item.AttemptCount &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
+                    </div>
+                </div>
+                <div class="item-actions" onclick="event.stopPropagation()">
+                    <button class="btn-sm btn-primary" onclick="event.stopPropagation(); reclassify(@item.Id, 'General', false)" title="Reclassify">&#9993;</button>
+                    <button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteItem(@item.Id)" title="Delete">&#10005;</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // Bounced-specific JS
+    </script>
+}

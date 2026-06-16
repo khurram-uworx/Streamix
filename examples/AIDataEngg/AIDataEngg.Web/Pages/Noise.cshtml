@@ -1,0 +1,50 @@
+@page
+@model NoiseModel
+@{
+    ViewData["Title"] = "Noise";
+}
+
+<div class="page-header">
+    <h2>Noise <span class="text-muted">(spam)</span></h2>
+    <p class="text-muted">Items classified as irrelevant noise</p>
+</div>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="card">
+        <div class="card-body">
+            <p class="text-muted">No noise items yet.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="item-list">
+        @foreach (var item in Model.Items)
+        {
+            <div class="item-row item-noise" onclick="window.location='/Item/@item.Id'" data-id="@item.Id">
+                <div class="item-signal signal-noise">NOISE</div>
+                <div class="item-content">
+                    <div class="item-title">@item.RssItem.Title</div>
+                    <div class="item-meta">
+                        @item.RssItem.FeedName &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
+                    </div>
+                    @if (!string.IsNullOrEmpty(item.Reasoning))
+                    {
+                        <div class="item-reasoning">@item.Reasoning</div>
+                    }
+                </div>
+                <div class="item-actions" onclick="event.stopPropagation()">
+                    <button class="btn-sm btn-primary" onclick="event.stopPropagation(); reclassify(@item.Id, 'General', false)" title="Mark as signal">&#9993;</button>
+                    <button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteItem(@item.Id)" title="Delete">&#10005;</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // Noise-specific JS
+    </script>
+}

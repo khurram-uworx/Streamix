@@ -1,0 +1,8 @@
+# Feed Sources
+
+Each line: - Name | URL
+
+- .NET DevBlogs | https://devblogs.microsoft.com/dotnet/feed/
+- GitHub Blog | https://github.blog/feed/
+- AWS News Blog | https://aws.amazon.com/blogs/aws/feed/
+- Ars Technica | https://feeds.arstechnica.com/arstechnica/index

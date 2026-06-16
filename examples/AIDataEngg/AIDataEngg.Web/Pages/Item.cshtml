@@ -1,0 +1,138 @@
+@page "/Item/{id:int}"
+@model ItemModel
+@{
+    ViewData["Title"] = Model.Item?.RssItem.Title ?? "Item Not Found";
+}
+
+@if (Model.Item is null)
+{
+    <div class="page-header">
+        <h2>Item Not Found</h2>
+        <p class="text-muted">No classification matches this ID.</p>
+    </div>
+    <a href="/Signals" class="btn-back">&larr; Back to Signals</a>
+}
+else
+{
+    <div class="page-header detail-header">
+        <a href="javascript:history.back()" class="btn-back">&larr; Back</a>
+        <h2>@Model.Item.RssItem.Title</h2>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert @(Model.IsError ? "alert-error" : "alert-success")">
+            @Model.Message
+        </div>
+    }
+
+    <div class="detail-meta">
+        @if (!string.IsNullOrEmpty(Model.Item.RssItem.Link))
+        {
+            <span class="detail-meta-item">
+                <a href="@Model.Item.RssItem.Link" target="_blank" rel="noopener" class="detail-link">View Original &nearr;</a>
+            </span>
+        }
+        <span class="detail-meta-item">Feed: <strong>@Model.Item.RssItem.FeedName</strong></span>
+        <span class="detail-meta-item">Published: @Model.Item.RssItem.Published.LocalDateTime.ToString("g")</span>
+        <span class="detail-meta-item">Classified: @Model.Item.ClassifiedAt.LocalDateTime.ToString("g")</span>
+    </div>
+
+    <div class="detail-grid">
+        <div class="card">
+            <div class="card-header"><h3>Classification</h3></div>
+            <div class="card-body card-body-padded">
+                <div class="detail-classification">
+                    <div class="detail-badge-row">
+                        <span class="detail-badge detail-badge-signal">@Model.Item.Signal</span>
+                        @if (Model.Item.IsNoise)
+                        {
+                            <span class="detail-badge detail-badge-noise-bg">Noise</span>
+                        }
+                        <span class="detail-badge detail-badge-muted">Attempts: @Model.Item.AttemptCount</span>
+                        @if (!string.IsNullOrEmpty(Model.Item.HallucinatedSignal))
+                        {
+                            <span class="detail-badge detail-badge-warn">Hallucinated: @Model.Item.HallucinatedSignal</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.Item.Reasoning))
+                    {
+                        <div class="detail-reasoning">
+                            <strong>Reasoning:</strong>
+                            <p>@Model.Item.Reasoning</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.Item.RssItem.Summary))
+        {
+            <div class="card">
+                <div class="card-header"><h3>Summary</h3></div>
+                <div class="card-body card-body-padded">
+                    <p class="detail-summary">@Model.Item.RssItem.Summary</p>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-header"><h3>Actions</h3></div>
+            <div class="card-body card-body-padded">
+                <form method="post" asp-page-handler="Reclassify" asp-route-id="@Model.Item.Id" class="detail-action-form">
+                    <label class="detail-action-label">Reclassify as:</label>
+                    <div class="detail-action-row">
+                        <select name="newSignal" class="detail-select">
+                            @foreach (var signal in Model.AllSignals)
+                            {
+                                <option value="@signal" selected="@(signal == Model.Item.Signal ? true : null)">@signal</option>
+                            }
+                        </select>
+                        <input type="hidden" name="isNoise" value="false" />
+                        <button type="submit" class="btn-sm btn-primary">Save</button>
+                    </div>
+                </form>
+
+                <div class="detail-action-row">
+                    @if (Model.Item.IsNoise)
+                    {
+                        <form method="post" asp-page-handler="MarkNotNoise" asp-route-id="@Model.Item.Id">
+                            <button type="submit" class="btn-sm btn-primary">Mark as Signal</button>
+                        </form>
+                    }
+                    @if (Model.Item.AttemptCount >= 5)
+                    {
+                        <form method="post" asp-page-handler="Retry" asp-route-id="@Model.Item.Id">
+                            <button type="submit" class="btn-sm btn-primary">Retry Classification</button>
+                        </form>
+                    }
+                    <form method="post" asp-page-handler="Delete" asp-route-id="@Model.Item.Id"
+                          onsubmit="return confirm('Delete this classification?')">
+                        <button type="submit" class="btn-sm btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Similar.Count > 0)
+        {
+            <div class="card">
+                <div class="card-header"><h3>More Like This</h3></div>
+                <div class="card-body">
+                    <div class="item-list">
+                        @foreach (var (similarItem, score) in Model.Similar)
+                        {
+                            <a href="/Item/@similarItem.Id" class="item-row item-row-link">
+                                <div class="item-signal">@similarItem.Signal</div>
+                                <div class="item-content">
+                                    <div class="item-title">@similarItem.RssItem.Title</div>
+                                    <div class="item-meta">@similarItem.RssItem.FeedName &middot; Score: @score.ToString("F4")</div>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
