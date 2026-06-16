@@ -374,6 +374,50 @@ public class DiagnosticOperatorTests
     }
 
     [Test]
+    public async Task Stream_Checkpoint_WithContext_LogsSelectedContext()
+    {
+        var logs = new List<string>();
+
+        await Flux.Range(1, 2)
+            .Checkpoint("ContextCheckpoint", x => $"item-{x}", s => logs.Add(s))
+            .DrainAsync();
+
+        Assert.That(logs.Any(l => l.Contains("[Checkpoint: ContextCheckpoint] Next(item-1)") && l.Contains("Total:")), Is.True);
+        Assert.That(logs.Any(l => l.Contains("[Checkpoint: ContextCheckpoint] Next(item-2)") && l.Contains("Since last:")), Is.True);
+        Assert.That(logs.Any(l => l.Contains("[Checkpoint: ContextCheckpoint] Completed")), Is.True);
+    }
+
+    [Test]
+    public void Stream_Checkpoint_WithContext_IncludesLastContextOnError()
+    {
+        static async IAsyncEnumerable<int> Failing()
+        {
+            yield return 1;
+            throw new InvalidOperationException("Boom");
+        }
+
+        var logs = new List<string>();
+        var stream = Flux.From(Failing())
+            .Checkpoint("ContextError", x => $"item-{x}", s => logs.Add(s));
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.DrainAsync());
+        Assert.That(logs.Any(l =>
+            l.Contains("[Checkpoint: ContextError] Error(Boom)") &&
+            l.Contains("Context: item-1")), Is.True);
+    }
+
+    [Test]
+    public void Stream_Checkpoint_WithContext_PropagatesContextSelectorFailure()
+    {
+        var logs = new List<string>();
+        var stream = Flux.Range(1, 1)
+            .Checkpoint("ContextSelector", _ => throw new InvalidOperationException("Selector"), s => logs.Add(s));
+
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await stream.DrainAsync());
+        Assert.That(logs.Any(l => l.Contains("[Checkpoint: ContextSelector] Error(Selector)")), Is.True);
+    }
+
+    [Test]
     public async Task Single_Checkpoint_LogsTimingInformation()
     {
         var logs = new List<string>();

@@ -8,6 +8,8 @@ It brings a .NET-idiomatic reactive stream model on top of `IAsyncEnumerable<T>`
 
 - `Flux<T>` for 0..N values and `Single<T>` for 0..1 values
 - Fluent operators for filtering, mapping, flattening, timing, retries, and recovery
+- Explicit `FromTask` / `FromValueTask` factories for complex async call sites
+- Compact retry/recovery helpers such as `RetryThenReturn` and `RetryThenResume`
 - Explicit concurrency and ordering control
 - Cold streams by default, with hot-stream primitives such as `Publish`, `Replay`, and `RefCount`
 - LINQ/query syntax support for the common sequential surface
@@ -200,7 +202,8 @@ var replayed = Flux.Range(1, 3).Replay(2);
 - `Never` / `FromTimer` / `Poll`
 - `Throttle` / `Delay`
 - `Retry` / `Retry(..., backoffStrategy)` / `Timeout`
-- `OnErrorResume` / `OnErrorReturn` / `OnErrorReturn(Func<Exception, T>)` / `OnErrorMap`
+- `OnErrorResume` / `OnErrorReturn` / `OnErrorReturn(Func<Exception, T>)` / `OnErrorReturnAsync` / `OnErrorMap`
+- `RetryThenReturn` / `RetryThenReturnAsync` / `RetryThenResume`
 - `Publish` / `Replay` / `RefCount`
 - `RunOn`
 - `Named`, `Log`, `Debug`, `Checkpoint`, `Trace`
@@ -218,7 +221,7 @@ var replayed = Flux.Range(1, 3).Replay(2);
 - `MinAsync` / `MaxAsync`
 - `MinByAsync` / `MaxByAsync` (with comparer overloads)
 - `SumAsync` / `AverageAsync`
-- `DrainAsync` / `ToSinkAsync`
+- `DrainAsync` / `ToSinkAsync` / bounded-concurrency `ForEachAsync`
 
 `ISingle<T>` also supports `ToTask()`.
 
@@ -265,6 +268,7 @@ Streamix provides several operators to help you observe and debug your reactive 
 - `Log()`: Logs items, errors, and completion to standard output. Uses the stream name as a prefix if available.
 - `Debug()`: Similar to `Log()` but outputs to `System.Diagnostics.Debug`.
 - `Checkpoint(string name)`: Tracks progress through a specific stage of the pipeline with timing information.
+- `Checkpoint(string name, Func<T,string> contextSelector)`: Adds per-item diagnostic context to checkpoint output.
 - `Trace()`: Provides a comprehensive trace of the current stream lifecycle signals, including `Subscribe`, `Request(1)`, `Next(...)`, `Error(...)`, `Completed`, `Cancelled`, and `Dispose`.
 
 `Trace()` currently includes `Request(1)` in its output to show each downstream pull from the underlying `IAsyncEnumerable<T>` pipeline. Treat that as part of the current emitted trace shape rather than as hidden implementation noise.
@@ -273,7 +277,7 @@ Streamix provides several operators to help you observe and debug your reactive 
 await Flux.Range(1, 100)
     .Named("Orders")
     .Trace()
-    .Checkpoint("ProcessStart")
+    .Checkpoint("ProcessStart", orderId => $"order-{orderId}")
     .Map(async x => await ProcessAsync(x), maxConcurrency: 5)
     .Checkpoint("ProcessEnd")
     .ForEachAsync(Console.WriteLine);
@@ -290,6 +294,20 @@ await Flux.Range(1, 10)
 ```
 
 `DoOnNextAsync` accepts both `Func<T, Task>` and `Func<T, ValueTask>`.
+
+Use terminal `ForEachAsync` when the final stage is the side effect itself.
+The bounded-concurrency overload is useful for final persistence or send stages:
+
+```csharp
+await Flux.Range(1, 100)
+    .ForEachAsync(
+        async item => await PersistAsync(item),
+        maxConcurrency: 4);
+```
+
+Use `DrainAsync` when you only care that a pipeline completes and intentionally
+discard all emitted values. Use `ToSinkAsync` when the destination has its own
+completion contract.
 
 ## Time-based Operators
 
@@ -444,7 +462,7 @@ var stream = Flux.Using(
 
 The resource is guaranteed to be disposed when the stream completes, fails, or the subscription is cancelled. If both the stream and the disposal throw, the disposal exception is propagated.
 
-### `Flux.From` / `Single.From` / `Just`
+### `Flux.From` / `Single.From` / `FromTask` / `FromValueTask` / `Just`
 
 Shorthands for values, tasks, and async enumerables. The return type depends on the overload:
 
@@ -460,7 +478,9 @@ Shorthands for values, tasks, and async enumerables. The return type depends on 
 - `Flux.From(Task<T>)` / `Flux.From(ValueTask<T>)` — wraps existing, already-started work
 - `Flux.From(Func<Task<T>>)` / `Flux.From(Func<ValueTask<T>>)` — defers creation until subscription
 - `Flux.From(Func<CancellationToken, Task<T>>)` / `Flux.From(Func<CancellationToken, ValueTask<T>>)` — lazy and CT-aware
+- `Flux.FromTask(...)` / `Flux.FromValueTask(...)` — explicit aliases that avoid Task/ValueTask lambda ambiguity
 - `Single.From(Task<T>)` / `Single.From(ValueTask<T>)` — explicit single factory
+- `Single.FromTask(...)` / `Single.FromValueTask(...)` — explicit single factories for Task/ValueTask work
 - `Single.Defer(...)` — lazy per-subscription single factory
 
 `ISingle<T>` exposes its own fluent chain: `.Retry()`, `.OnErrorReturn()`, `.Map()`, `.ToTask()`, etc.
@@ -474,6 +494,8 @@ Flux.From(asyncEnumerable);
 // Returns ISingle<T>:
 Flux.From(Task.FromResult("hello"));
 Flux.From(async ct => await FetchData(ct));
+Flux.FromTask(async ct => await FetchData(ct));
+Flux.FromValueTask(ct => new ValueTask<string>(FetchCachedData(ct)));
 Single.From(async ct => await FetchData(ct));
 ```
 
@@ -716,6 +738,17 @@ var retried = stream
 // Inspect the exception before providing a fallback value:
 var fallback = single
     .OnErrorReturn(ex => ex is TimeoutException ? -1 : 0);
+
+// Retry, then recover with a value:
+var resilient = Flux.FromTask(async ct => await FetchScoreAsync(ct))
+    .RetryThenReturn(3, ex => -1);
+
+// Retry, then recover with an async fallback:
+var asyncFallback = Flux.FromTask(async ct => await FetchScoreAsync(ct))
+    .RetryThenReturnAsync(3, async (ex, ct) => await LoadCachedScoreAsync(ct));
+
+// Retry, then resume with another stream:
+var resumed = primaryFeed.RetryThenResume(3, ex => backupFeed);
 ```
 
 ## When to Use

@@ -136,6 +136,12 @@ public static class Single
     public static ISingle<T> From<T>(Task<T> task) => From(toAsyncEnumerableFromTask(task));
 
     /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a <see cref="Task{T}"/>.
+    /// Explicit alias for <see cref="From{T}(Task{T})"/> when call-site clarity matters.
+    /// </summary>
+    public static ISingle<T> FromTask<T>(Task<T> task) => From(task);
+
+    /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="Task{T}"/>.
     /// The function is invoked lazily when the stream is subscribed to.
     /// </summary>
@@ -143,6 +149,12 @@ public static class Single
     /// <param name="taskFactory">The function to invoke.</param>
     /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
     public static ISingle<T> From<T>(Func<Task<T>> taskFactory) => From(toAsyncEnumerableFromTaskFunc(taskFactory));
+
+    /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="Task{T}"/>.
+    /// Use this overload to avoid ambiguity with <see cref="ValueTask{T}"/> factories.
+    /// </summary>
+    public static ISingle<T> FromTask<T>(Func<Task<T>> taskFactory) => From(taskFactory);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="Task{T}"/> and accepts a <see cref="CancellationToken"/>.
@@ -154,12 +166,24 @@ public static class Single
     public static ISingle<T> From<T>(Func<CancellationToken, Task<T>> taskFactory) => From(toAsyncEnumerableFromTaskFuncWithCt(taskFactory));
 
     /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a cancellation-aware function that returns a <see cref="Task{T}"/>.
+    /// Use this overload to avoid ambiguity with <see cref="ValueTask{T}"/> factories.
+    /// </summary>
+    public static ISingle<T> FromTask<T>(Func<CancellationToken, Task<T>> taskFactory) => From(taskFactory);
+
+    /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a <see cref="ValueTask{T}"/>.
     /// </summary>
     /// <typeparam name="T">The type of item in the stream.</typeparam>
     /// <param name="task">The task to wrap.</param>
     /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
     public static ISingle<T> From<T>(ValueTask<T> task) => From(task.AsTask());
+
+    /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a <see cref="ValueTask{T}"/>.
+    /// Explicit alias for <see cref="From{T}(ValueTask{T})"/> when call-site clarity matters.
+    /// </summary>
+    public static ISingle<T> FromValueTask<T>(ValueTask<T> task) => From(task);
 
     /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="ValueTask{T}"/>.
@@ -171,6 +195,12 @@ public static class Single
     public static ISingle<T> From<T>(Func<ValueTask<T>> taskFactory) => From(toAsyncEnumerableFromValueTaskFunc(taskFactory));
 
     /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="ValueTask{T}"/>.
+    /// Use this overload to avoid ambiguity with <see cref="Task{T}"/> factories.
+    /// </summary>
+    public static ISingle<T> FromValueTask<T>(Func<ValueTask<T>> taskFactory) => From(taskFactory);
+
+    /// <summary>
     /// Creates a <see cref="ISingle{T}"/> from a function that returns a <see cref="ValueTask{T}"/> and accepts a <see cref="CancellationToken"/>.
     /// The function is invoked lazily when the stream is subscribed to.
     /// </summary>
@@ -178,6 +208,12 @@ public static class Single
     /// <param name="taskFactory">The function to invoke.</param>
     /// <returns>A single-item stream that emits the result of the task and then completes.</returns>
     public static ISingle<T> From<T>(Func<CancellationToken, ValueTask<T>> taskFactory) => From(toAsyncEnumerableFromValueTaskFuncWithCt(taskFactory));
+
+    /// <summary>
+    /// Creates a <see cref="ISingle{T}"/> from a cancellation-aware function that returns a <see cref="ValueTask{T}"/>.
+    /// Use this overload to avoid ambiguity with <see cref="Task{T}"/> factories.
+    /// </summary>
+    public static ISingle<T> FromValueTask<T>(Func<CancellationToken, ValueTask<T>> taskFactory) => From(taskFactory);
 
     /// <summary>
     /// Creates an empty <see cref="ISingle{T}"/>.

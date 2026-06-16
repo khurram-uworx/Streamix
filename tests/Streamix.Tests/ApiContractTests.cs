@@ -23,6 +23,8 @@ public class ApiContractTests
         Assert.That(typeof(Flux).GetMethod("Range"), Is.Not.Null);
         Assert.That(typeof(Flux).GetMethod("Empty"), Is.Not.Null);
         Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "From"), Is.True);
+        Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "FromTask"), Is.True);
+        Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "FromValueTask"), Is.True);
         Assert.That(typeof(Flux).GetMethod("FromEvent"), Is.Not.Null);
         Assert.That(typeof(Flux).GetMethod("FromTimer", new[] { typeof(TimeSpan) }), Is.Not.Null);
         Assert.That(typeof(Flux).GetMethods().Any(m => m.Name == "FromQueue"), Is.True);
@@ -49,6 +51,13 @@ public class ApiContractTests
         Assert.That(extensionsType.GetMethods().Any(m => m.Name == "CountAsync"), Is.True);
         Assert.That(extensionsType.GetMethods().Any(m => m.Name == "AnyAsync"), Is.True);
         Assert.That(extensionsType.GetMethods().Any(m => m.Name == "AllAsync"), Is.True);
+
+        // Resilience extensions
+        var resilienceType = typeof(ResilienceExtensions);
+        Assert.That(resilienceType.GetMethods().Any(m => m.Name == "OnErrorReturnAsync"), Is.True);
+        Assert.That(resilienceType.GetMethods().Any(m => m.Name == "RetryThenReturn"), Is.True);
+        Assert.That(resilienceType.GetMethods().Any(m => m.Name == "RetryThenReturnAsync"), Is.True);
+        Assert.That(resilienceType.GetMethods().Any(m => m.Name == "RetryThenResume"), Is.True);
     }
 
     [Test]
@@ -58,6 +67,8 @@ public class ApiContractTests
 
         // Factory methods on static facade
         Assert.That(typeof(Single).GetMethods().Any(m => m.Name == "From"), Is.True);
+        Assert.That(typeof(Single).GetMethods().Any(m => m.Name == "FromTask"), Is.True);
+        Assert.That(typeof(Single).GetMethods().Any(m => m.Name == "FromValueTask"), Is.True);
 
         // Instance methods on ISingle
         Assert.That(type.GetMethods().Any(m => m.Name == "Map"), Is.True);

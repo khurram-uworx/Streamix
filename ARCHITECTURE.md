@@ -11,6 +11,12 @@ Modern .NET has `IAsyncEnumerable<T>` and channels, but Streamix intentionally p
 
 `Single.From(...)` supports values, `Task<T>`, `ValueTask<T>`, and `IAsyncEnumerable<T>` sources. `Flux.From(Task<T>)` and `Flux.From(ValueTask<T>)` also return `ISingle<T>` rather than `IFlux<T>`, matching the single-result semantics of a task.
 
+`Flux.FromTask(...)`, `Flux.FromValueTask(...)`, `Single.FromTask(...)`, and
+`Single.FromValueTask(...)` are explicit aliases over the same single-result
+factory semantics. They exist to remove Task/ValueTask overload ambiguity in
+complex async lambda call sites; they do not introduce a separate execution
+model.
+
 `ISingle<T>` exposes async side-effects (`DoOnNextAsync`), dynamic error recovery (`OnErrorReturn(Func<Exception,T>)`), and configurable retry alongside the `IFlux<T>` extension operator set.
 
 The default mental model is:
@@ -69,6 +75,30 @@ Audit outcome:
 - Explicit behavior around concurrency, cancellation, and error propagation
 - Optional interop with AsyncRx.NET through a separate package
 - Optional EF integration through `Streamix.Extensions` (not in core `Streamix`)
+
+## Ergonomic Resilience Helpers
+
+The compact retry/recovery helpers are convenience composition over existing
+semantics:
+
+- `RetryThenReturn(retryCount, fallbackFactory)` is equivalent to
+  `Retry(retryCount).OnErrorReturn(fallbackFactory)`.
+- `RetryThenReturnAsync(retryCount, fallbackFactory)` is equivalent to
+  `Retry(retryCount)` followed by asynchronous fallback value recovery.
+- `RetryThenResume(retryCount, fallbackFactory)` is equivalent to
+  `Retry(retryCount).OnErrorResume(fallbackFactory)`.
+
+Fallback factories run only after retry exhaustion and receive the final
+exception. Existing retry count, cancellation, and error propagation semantics
+remain unchanged.
+
+## Contextual Diagnostics
+
+`Checkpoint(name, contextSelector)` extends checkpoint output with item-level
+diagnostic context. The selector runs only for items that successfully pass the
+checkpoint. If a later upstream error occurs, the checkpoint reports the most
+recent context it saw. If the context selector itself throws, that exception is
+propagated as an operator failure.
 
 ## Extension Package Boundaries
 

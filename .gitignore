@@ -88,6 +88,11 @@ ipch/
 *.sdf
 *.cachefile
 *.VC.db
+
+# AIDataEngg example SQLite runtime db
+aidataengg.db
+aidataengg.db-shm
+aidataengg.db-wal
 *.VC.VC.opendb
 
 # Visual Studio profiler

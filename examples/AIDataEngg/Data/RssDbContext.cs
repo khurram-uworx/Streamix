@@ -5,12 +5,22 @@ namespace AIDataEngg.Data;
 
 public class RssDbContext : DbContext
 {
+    public RssDbContext()
+    {
+    }
+
+    public RssDbContext(DbContextOptions<RssDbContext> options)
+        : base(options)
+    {
+    }
+
     public DbSet<RssItem> RssItems => Set<RssItem>();
     public DbSet<ClassifiedRssItem> Classifications => Set<ClassifiedRssItem>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseSqlite("Data Source=aidataengg.db");
+        if (!optionsBuilder.IsConfigured)
+            optionsBuilder.UseSqlite("Data Source=aidataengg.db");
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

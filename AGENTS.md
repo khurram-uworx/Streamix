@@ -36,6 +36,8 @@
 - Verify the current repo state before editing; this project is intentionally in flux.
 - Keep changes tightly scoped to the requested task or the selected backlog item.
 - Prefer implementing real behavior with tests rather than scaffolding placeholder APIs.
+- For new public Streamix operators or factory helpers, update `README.md`, `GETTING-STARTED.md`, `ARCHITECTURE.md`, tests, and examples where relevant.
+- Treat `examples/AIDataEngg` as an ergonomics regression target for complex workflow composition; keep it current when changes affect async factories, retry/recovery, checkpoints, or terminal side-effect patterns.
 - If the README and code conflict, call that out in your final response and either:
   - align the code to the README, or
   - update the README if the user asked to change the contract.
@@ -83,6 +85,7 @@
 
 ## Documentation expectations
 - If a change alters the intended public contract, update `README.md`.
+- If a change alters operator ergonomics or semantics, update `GETTING-STARTED.md` and `ARCHITECTURE.md` as well.
 - If a change affects task sequencing or reveals a constraint that materially impacts downstream work, document it in `WORK.md` (Create it if required).
 - Do not treat aspirational roadmap items as already implemented.
 - Keep examples truthful; avoid documenting APIs that do not exist yet.

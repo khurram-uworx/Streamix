@@ -978,6 +978,97 @@ public static class FluxExtensions
         }
     }
 
+    static async IAsyncEnumerable<T> checkpoint<T>(
+        IAsyncEnumerable<T> enumerable,
+        IClock clock,
+        string checkpointName,
+        Func<T, string> contextSelector,
+        Action<string> logger,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var startTime = clock.Now;
+        var lastItemTime = startTime;
+        string? lastContext = null;
+
+        IAsyncEnumerator<T>? enumerator = null;
+        try
+        {
+            try
+            {
+                enumerator = enumerable.GetAsyncEnumerator(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                var errorTime = clock.Now;
+                var totalErrorElapsed = errorTime - startTime;
+                logger($"[Checkpoint: {checkpointName}] Error({ex.Message}) | Total: {totalErrorElapsed.TotalMilliseconds:F2}ms");
+                throw;
+            }
+
+            while (true)
+            {
+                T item;
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync();
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    var cancelTime = clock.Now;
+                    var totalCancelElapsed = cancelTime - startTime;
+                    logger($"[Checkpoint: {checkpointName}] Cancelled{FormatContext(lastContext)} | Total: {totalCancelElapsed.TotalMilliseconds:F2}ms");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    var errorTime = clock.Now;
+                    var totalErrorElapsed = errorTime - startTime;
+                    logger($"[Checkpoint: {checkpointName}] Error({ex.Message}){FormatContext(lastContext)} | Total: {totalErrorElapsed.TotalMilliseconds:F2}ms");
+                    throw;
+                }
+
+                if (!hasNext) break;
+                item = enumerator.Current;
+
+                string context;
+                try
+                {
+                    context = contextSelector(item);
+                }
+                catch (Exception ex)
+                {
+                    var errorTime = clock.Now;
+                    var totalErrorElapsed = errorTime - startTime;
+                    logger($"[Checkpoint: {checkpointName}] Error({ex.Message}) | Total: {totalErrorElapsed.TotalMilliseconds:F2}ms");
+                    throw;
+                }
+
+                lastContext = context;
+
+                var now = clock.Now;
+                var totalElapsed = now - startTime;
+                var sinceLastElapsed = now - lastItemTime;
+                lastItemTime = now;
+
+                logger($"[Checkpoint: {checkpointName}] Next({context}) | Total: {totalElapsed.TotalMilliseconds:F2}ms | Since last: {sinceLastElapsed.TotalMilliseconds:F2}ms");
+                yield return item;
+            }
+
+            var completeTime = clock.Now;
+            var totalCompleteElapsed = completeTime - startTime;
+            logger($"[Checkpoint: {checkpointName}] Completed | Total: {totalCompleteElapsed.TotalMilliseconds:F2}ms");
+        }
+        finally
+        {
+            if (enumerator != null)
+                await enumerator.DisposeAsync();
+        }
+    }
+
+    static string FormatContext(string? context)
+        => string.IsNullOrEmpty(context) ? string.Empty : $" | Context: {context}";
+
     static async IAsyncEnumerable<T> teeToChannel<T>(IAsyncEnumerable<T> enumerable, ChannelWriter<T> writer, bool completeWriter, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         Exception? completionError = null;
@@ -1306,6 +1397,32 @@ public static class FluxExtensions
     /// <returns>The same stream.</returns>
     public static IFlux<T> Checkpoint<T>(this IFlux<T> source, string checkpointName, Action<string> loggerAction)
         => Flux.From(checkpoint(source, source.Clock, checkpointName, loggerAction), source.Clock, source.Name);
+
+    /// <summary>
+    /// Tracks progress through a specific stage of the pipeline with per-item context.
+    /// </summary>
+    /// <param name="source">The stream</param>
+    /// <param name="checkpointName">The name of the checkpoint.</param>
+    /// <param name="contextSelector">A function that produces a diagnostic label for each item.</param>
+    /// <returns>The same stream.</returns>
+    public static IFlux<T> Checkpoint<T>(this IFlux<T> source, string checkpointName, Func<T, string> contextSelector)
+        => source.Checkpoint(checkpointName, contextSelector, s => Console.WriteLine(s));
+
+    /// <summary>
+    /// Tracks progress through a specific stage of the pipeline with per-item context and a custom logging action.
+    /// </summary>
+    /// <param name="source">The stream</param>
+    /// <param name="checkpointName">The name of the checkpoint.</param>
+    /// <param name="contextSelector">A function that produces a diagnostic label for each item.</param>
+    /// <param name="loggerAction">The action to use for logging.</param>
+    /// <returns>The same stream.</returns>
+    public static IFlux<T> Checkpoint<T>(this IFlux<T> source, string checkpointName, Func<T, string> contextSelector, Action<string> loggerAction)
+    {
+        ArgumentNullException.ThrowIfNull(contextSelector);
+        ArgumentNullException.ThrowIfNull(loggerAction);
+
+        return Flux.From(checkpoint(source, source.Clock, checkpointName, contextSelector, loggerAction), source.Clock, source.Name);
+    }
 
     /// <summary>
     /// Provides a comprehensive trace of every stream signal using a custom logging action.
