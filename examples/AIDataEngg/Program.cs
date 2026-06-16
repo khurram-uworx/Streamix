@@ -1,3 +1,4 @@
+using AIDataEngg;
 using AIDataEngg.Data;
 using AIDataEngg.Models;
 using AIDataEngg.Services;
@@ -15,9 +16,7 @@ const int BootstrapThreshold = VectorClassifier.DefaultBootstrapThreshold;
 const string VectorCollectionName = "rss-vectors";
 
 if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
-{
     return await VectorStoreSmoke.RunAsync();
-}
 
 var endpoint = Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? DefaultEndpoint;
 var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? DefaultModel;
@@ -25,7 +24,7 @@ var embeddingModel = Environment.GetEnvironmentVariable("AI_EMBEDDING_MODEL") ??
 var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
 var configDir = Path.Combine(AppContext.BaseDirectory, "configs");
 
-await EnsureSchemaAsync();
+await Helper.EnsureSchemaAsync();
 
 var feedSources = File.ReadAllLines(Path.Combine(configDir, "source.md"))
     .Where(l => l.TrimStart().StartsWith('-'))
@@ -53,9 +52,7 @@ Console.WriteLine($"Feed sources: {feedSources.Length}");
 Console.WriteLine($"Signals: {signals.Length}");
 
 for (var i = 0; i < feedSources.Length; i++)
-{
     Console.WriteLine($"  {i + 1}. {feedSources[i].Name} — {feedSources[i].Url}");
-}
 
 Console.WriteLine($"Signals listed: {string.Join(", ", signals)}");
 
@@ -92,11 +89,11 @@ var collection = await VectorStoreProvider.GetOrCreateCollectionAsync(VectorColl
 var centroids = new CategoryCentroidTracker();
 
 Console.WriteLine("[Stage 0] Restoring vector store + centroids from prior classifications...");
-var restoredCount = await RestoreVectorStateAsync(collection, centroids);
+var restoredCount = await Helper.RestoreVectorStateAsync(collection, centroids);
 Console.WriteLine($"  Restored {restoredCount} embeddings");
 
 VectorClassifier.LlmFallbackDelegate llmFallback = (item, ct2) =>
-    ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
+    Helper.ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
 
 var classifier = new VectorClassifier(
     collection,
@@ -200,7 +197,7 @@ await Flux.ScopedAsync(async scope =>
                 attemptCount++;
                 if (!work.EmbeddingSucceeded)
                 {
-                    var llmResult = await ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
+                    var llmResult = await Helper.ClassifyAndValidateAsync(chatClient, item, systemPrompt, validSignals, ct2);
                     return new ClassificationDecision(
                         llmResult,
                         ClassificationSource.LlmEmbeddingFailed,
@@ -225,7 +222,7 @@ await Flux.ScopedAsync(async scope =>
                 })
                 .ToTask(ct);
 
-            await PersistAndIndexAsync(item, embedding, decision, attemptCount, collection, centroids, ct);
+            await Helper.PersistAndIndexAsync(item, embedding, decision, attemptCount, collection, centroids, ct);
 
             processedSoFar++;
             if (decision.WasAutoLabelled) autoCount++; else llmCount++;
@@ -266,124 +263,3 @@ if (!args.Contains("--no-feedback", StringComparer.OrdinalIgnoreCase))
 }
 
 return 0;
-
-// Throws InvalidOperationException carrying ex.Data["HallucinatedSignal"] when the
-// LLM returns a signal not in validSignals; the surrounding retry/OnErrorResume
-// translates that into a final "General" + IsNoise=true after 3 attempts.
-static async Task<ClassificationResult> ClassifyAndValidateAsync(
-    IChatClient client, RssItem item, string systemPrompt,
-    HashSet<string> validSignals, CancellationToken ct)
-{
-    var r = await RssClassifier.ClassifyAsync(client, item, systemPrompt, ct);
-    if (!validSignals.Contains(r.Signal))
-    {
-        var ex = new InvalidOperationException($"Invalid signal '{r.Signal}' from model");
-        ex.Data["HallucinatedSignal"] = r.Signal;
-        throw ex;
-    }
-    return r;
-}
-
-// If the local SQLite db exists but predates the Embedding column, drop it so
-// EnsureCreatedAsync rebuilds with the current schema. A cleaner alternative
-// would be EF migrations; for an example project, drop-and-recreate is fine.
-static async Task EnsureSchemaAsync()
-{
-    await using var db = new RssDbContext();
-    if (await db.Database.CanConnectAsync())
-    {
-        try
-        {
-            _ = await db.Classifications.Select(c => c.Embedding).Take(1).ToListAsync();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Console.WriteLine($"[Schema] Detected legacy schema ({ex.GetType().Name}); rebuilding database...");
-            await db.Database.EnsureDeletedAsync();
-        }
-    }
-    await db.Database.EnsureCreatedAsync();
-}
-
-static async Task<int> RestoreVectorStateAsync(
-    Microsoft.Extensions.VectorData.VectorStoreCollection<int, VectorIndexEntry> collection,
-    CategoryCentroidTracker centroids)
-{
-    await using var db = new RssDbContext();
-    // Note: SQLite's EF provider can't translate byte[].Length to SQL, so we
-    // only filter by non-null on the server. ClassifiedRssItem.Embedding is
-    // either null (LLM fallback embed-fail path) or a fully-formed byte[]
-    // (PersistAndIndexAsync invariant), never an empty array.
-    var prior = await db.Classifications
-        .Where(c => c.Embedding != null)
-        .Include(c => c.RssItem)
-        .OrderBy(c => c.Id)
-        .ToListAsync();
-
-    if (prior.Count == 0) return 0;
-
-    var entries = new List<VectorIndexEntry>(prior.Count);
-    foreach (var c in prior)
-    {
-        if (c.Embedding is null || c.Embedding.Length == 0) continue;
-        var emb = EmbeddingSerializer.FromBytes(c.Embedding!);
-        centroids.AddOrUpdate(c.Signal, emb);
-        entries.Add(new VectorIndexEntry
-        {
-            Id = c.Id,
-            RssItemId = c.RssItemId,
-            Signal = c.Signal,
-            Title = c.RssItem.Title,
-            Summary = c.RssItem.Summary,
-            Embedding = emb,
-        });
-    }
-    await collection.UpsertAsync(entries);
-    return entries.Count;
-}
-
-static async Task PersistAndIndexAsync(
-    RssItem item,
-    ReadOnlyMemory<float> embedding,
-    ClassificationDecision decision,
-    int attemptCount,
-    Microsoft.Extensions.VectorData.VectorStoreCollection<int, VectorIndexEntry> collection,
-    CategoryCentroidTracker centroids,
-    CancellationToken ct)
-{
-    await using var db = new RssDbContext();
-    db.RssItems.Attach(item);
-    item.Processed = true;
-
-    var classified = new ClassifiedRssItem
-    {
-        RssItemId = item.Id,
-        Signal = decision.Result.Signal,
-        Reasoning = decision.Result.Reasoning,
-        IsNoise = decision.Result.IsNoise,
-        AttemptCount = attemptCount,
-        HallucinatedSignal = decision.Result.HallucinatedSignal,
-        Embedding = embedding.IsEmpty ? null : EmbeddingSerializer.ToBytes(embedding),
-    };
-    db.Classifications.Add(classified);
-    await db.SaveChangesAsync(ct);
-
-    if (embedding.IsEmpty) return;
-
-    await collection.UpsertAsync(new VectorIndexEntry
-    {
-        Id = classified.Id,
-        RssItemId = item.Id,
-        Signal = decision.Result.Signal,
-        Title = item.Title,
-        Summary = item.Summary,
-        Embedding = embedding,
-    }, cancellationToken: ct);
-
-    centroids.AddOrUpdate(decision.Result.Signal, embedding);
-}
-
-sealed record EmbeddedRssItem(
-    RssItem Item,
-    ReadOnlyMemory<float> Embedding,
-    bool EmbeddingSucceeded);
