@@ -1,0 +1,45 @@
+@model ClassifiedRssItem
+@{
+    var badge = ViewData["Badge"] as string;
+    var badgeClass = ViewData["BadgeClass"] as string ?? "";
+    var rowClass = ViewData["RowClass"] as string;
+    var showActions = ViewData["Actions"] as bool? ?? false;
+    var actionStyle = ViewData["ActionStyle"] as string;
+    var signalName = ViewData["SignalName"] as string ?? "";
+    var showReasoning = ViewData["Reasoning"] as bool? ?? false;
+}
+<div class="item-row@(rowClass is not null ? " " + rowClass : "")"
+     onclick="window.location='/Item/@Model.Id'" data-id="@Model.Id">
+    @if (badge is not null)
+    {
+        <div class="item-signal@(!string.IsNullOrEmpty(badgeClass) ? " " + badgeClass : "")">@badge</div>
+    }
+    <div class="item-content">
+        <div class="item-title">@Model.RssItem.Title</div>
+        <div class="item-meta">
+            @Model.RssItem.FeedName &middot;
+            @if (Model.AttemptCount > 0)
+            {
+                <text>Attempts: @Model.AttemptCount &middot;</text>
+            }
+            @Model.ClassifiedAt.LocalDateTime.ToString("g")
+        </div>
+        @if (showReasoning && !string.IsNullOrEmpty(Model.Reasoning))
+        {
+            <div class="item-reasoning">@Model.Reasoning</div>
+        }
+    </div>
+    @if (showActions)
+    {
+        var btnClass = actionStyle == "warning" ? "btn-noise" : "btn-primary";
+        var icon = actionStyle == "warning" ? "&#9888;" : "&#9993;";
+        <div class="item-actions" onclick="event.stopPropagation()">
+            <button class="btn-sm @btnClass"
+                    onclick="event.stopPropagation(); showReclassifyModal(@Model.Id, '@signalName')"
+                    title="Reclassify">@Html.Raw(icon)</button>
+            <button class="btn-sm btn-danger"
+                    onclick="event.stopPropagation(); deleteItem(@Model.Id)"
+                    title="Delete">&#10005;</button>
+        </div>
+    }
+</div>

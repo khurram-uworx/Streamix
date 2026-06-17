@@ -1,5 +1,7 @@
 # 📡 AIDataEngg Reimagined — Shared Library + ASP.NET Host
 
+> **IMPORTANT** This was the plan used for the execution by coding agents, things have changed since then, don't consider this as a source of truth, it's a historical artifact. The code as it is in the repo is the source of truth.
+
 > **Plan 3** · Extends the console example into a shared library + Razor Pages app with SignalR live view  
 > **Design compass** *Simple to digest. Someone reading this on GitHub should quickly learn what's happening.*  
 > **UX metaphor** Webmail folders — signals as inbox folders, noise as spam, failed as bounced

@@ -16,7 +16,7 @@ public class ItemModel(
     public string? Message { get; set; }
     public bool IsError { get; set; }
 
-    string ConfigDir => Path.Combine(env.ContentRootPath, "configs");
+    string ConfigDir => Path.Combine(env.ContentRootPath, "App_Data", "configs");
 
     public async Task<IActionResult> OnGetAsync(int id)
     {

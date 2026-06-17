@@ -1,7 +1,7 @@
-using Streamix.AIDataEngg.Models;
-using Streamix.AIDataEngg.Services;
 using Microsoft.Extensions.AI;
 using NUnit.Framework;
+using Streamix.AIDataEngg.Models;
+using Streamix.AIDataEngg.Services;
 
 namespace Streamix.Tests.AIDataEngg;
 
