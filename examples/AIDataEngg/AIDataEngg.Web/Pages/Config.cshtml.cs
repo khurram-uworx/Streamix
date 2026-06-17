@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using Streamix.AIDataEngg.Data;
 using Streamix.AIDataEngg.Models;
 using Streamix.AIDataEngg.Services;
