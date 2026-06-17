@@ -1,25 +1,50 @@
 @page
 @model SignalsModel
 @{
-    ViewData["Title"] = "Signals";
+    ViewData["Title"] = Model.CurrentSignal ?? "Signals";
 }
 
 <div class="page-header">
-    <h2>Signals <span class="text-muted">(inbox)</span></h2>
-    <p class="text-muted">Classified signal items grouped by category</p>
-</div>
-
-<div class="signal-groups" id="signal-groups">
-    @if (Model.Groups.Count == 0)
+    @if (!string.IsNullOrEmpty(Model.CurrentSignal))
     {
-        <div class="card">
-            <div class="card-body">
-                <p class="text-muted">No signals yet. Run the pipeline to classify items.</p>
-            </div>
+        <div class="detail-header">
+            <a href="/Signals" class="btn-back">&larr; All Signals</a>
+            <h2>@Model.CurrentSignal</h2>
         </div>
+        <p class="text-muted">@Model.TotalCount classified item(s)</p>
     }
     else
     {
+        <h2>Signals <span class="text-muted">(inbox)</span></h2>
+        <p class="text-muted">Classified signal items grouped by category</p>
+    }
+</div>
+
+@if (Model.Groups.Count == 0)
+{
+    @await Html.PartialAsync("Shared/_EmptyState", new ViewDataDictionary(ViewData)
+    {
+        ["Message"] = Model.CurrentSignal is not null ? "No items in this category." : "No signals yet. Run the pipeline to classify items."
+    })
+}
+else if (!string.IsNullOrEmpty(Model.CurrentSignal))
+{
+    <div class="item-list">
+        @foreach (var item in Model.Groups[0].Items)
+        {
+            @await Html.PartialAsync("Shared/_ItemRow", item, new ViewDataDictionary(ViewData)
+            {
+                ["Actions"] = true,
+                ["ActionStyle"] = "warning",
+                ["SignalName"] = Model.CurrentSignal,
+                ["Reasoning"] = true
+            })
+        }
+    </div>
+}
+else
+{
+    <div class="signal-groups">
         @foreach (var group in Model.Groups)
         {
             <div class="signal-group">
@@ -31,28 +56,19 @@
                 <div class="signal-group-body">
                     @foreach (var item in group.Items)
                     {
-                        <div class="item-row" onclick="window.location='/Item/@item.Id'" data-id="@item.Id">
-                            <div class="item-content">
-                                <div class="item-title">@item.RssItem.Title</div>
-                                <div class="item-meta">
-                                    @item.RssItem.FeedName &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
-                                </div>
-                                @if (!string.IsNullOrEmpty(item.Reasoning))
-                                {
-                                    <div class="item-reasoning">@item.Reasoning</div>
-                                }
-                            </div>
-                            <div class="item-actions" onclick="event.stopPropagation()">
-                                <button class="btn-sm btn-noise" onclick="event.stopPropagation(); reclassify(@item.Id, '@group.Signal', true)" title="Mark as noise">&#9888;</button>
-                                <button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteItem(@item.Id)" title="Delete">&#10005;</button>
-                            </div>
-                        </div>
+                        @await Html.PartialAsync("Shared/_ItemRow", item, new ViewDataDictionary(ViewData)
+                        {
+                            ["Actions"] = true,
+                            ["ActionStyle"] = "warning",
+                            ["SignalName"] = group.Signal,
+                            ["Reasoning"] = true
+                        })
                     }
                 </div>
             </div>
         }
-    }
-</div>
+    </div>
+}
 
 @section Scripts {
     <script>

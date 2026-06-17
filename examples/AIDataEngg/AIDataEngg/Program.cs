@@ -4,16 +4,15 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Streamix;
-using Streamix.Extensions;
 using Streamix.AIDataEngg.Data;
 using Streamix.AIDataEngg.Models;
 using Streamix.AIDataEngg.Services;
+using Streamix.Extensions;
 using System.ClientModel;
 
 const string DefaultEndpoint = "http://localhost:11434/v1";
 const string DefaultModel = "llama3.2:1b"; // "qwen3:4b";//"phi4-mini";
 const string DefaultEmbeddingModel = EmbeddingDefaults.ModelName;
-const int BootstrapThreshold = VectorClassifier.DefaultBootstrapThreshold;
 const string VectorCollectionName = "rss-vectors";
 
 if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
@@ -46,9 +45,36 @@ var signals = File.ReadAllLines(Path.Combine(configDir, "signals.md"))
     .Select(l => l.TrimStart('-', ' '))
     .ToArray();
 
-Console.WriteLine($"Endpoint: {endpoint}");
-Console.WriteLine($"Model: {modelName}");
-Console.WriteLine($"Embedding model: {embeddingModel}");
+var engineFile = Path.Combine(configDir, "engine.md");
+var engineSettings = File.Exists(engineFile)
+    ? File.ReadAllLines(engineFile)
+        .Where(l => l.TrimStart().StartsWith('-'))
+        .Select(l => l.TrimStart('-', ' '))
+        .Select(l => { var eq = l.IndexOf('='); return eq > 0 ? (Key: l[..eq].Trim(), Value: l[(eq + 1)..].Trim()) : default; })
+        .Where(t => t.Key is not null)
+        .ToDictionary(t => t.Key, t => t.Value, StringComparer.OrdinalIgnoreCase)
+    : [];
+
+var engineEndpoint = engineSettings.TryGetValue("ollamaEndpoint", out var oe) ? oe : endpoint;
+var engineEmbeddingModel = engineSettings.TryGetValue("embeddingModel", out var em) ? em : embeddingModel;
+var engineLlmModel = engineSettings.TryGetValue("llmModel", out var lm) ? lm : modelName;
+var engineApiKey = engineSettings.TryGetValue("apiKey", out var ak) ? ak : apiKey;
+var engineDimension = engineSettings.TryGetValue("embeddingDimension", out var ed) && int.TryParse(ed, out var edi) ? edi : EmbeddingDefaults.Dimensions;
+
+var classifierBootstrapThreshold = engineSettings.TryGetValue("bootstrapThreshold", out var bt) && int.TryParse(bt, out var bti) ? bti : VectorClassifier.DefaultBootstrapThreshold;
+var classifierTopK = engineSettings.TryGetValue("topK", out var tk) && int.TryParse(tk, out var tki) ? tki : VectorClassifier.DefaultTopK;
+var classifierMinNeighbors = engineSettings.TryGetValue("minNeighbors", out var mn) && int.TryParse(mn, out var mni) ? mni : VectorClassifier.DefaultMinNeighbors;
+var classifierMinNeighborAgreement = engineSettings.TryGetValue("minNeighborAgreement", out var mna) && int.TryParse(mna, out var mnai) ? mnai : VectorClassifier.DefaultMinNeighborAgreement;
+var classifierMinAvgSimilarity = engineSettings.TryGetValue("minAvgSimilarity", out var mas) && float.TryParse(mas, out var masf) ? masf : VectorClassifier.DefaultMinAvgSimilarity;
+var classifierMinMargin = engineSettings.TryGetValue("minMargin", out var mm) && float.TryParse(mm, out var mmf) ? mmf : VectorClassifier.DefaultMinMargin;
+
+// Apply engine settings before creating the vector store
+EmbeddingDefaults.Dimensions = engineDimension;
+
+Console.WriteLine($"Endpoint: {engineEndpoint}");
+Console.WriteLine($"Model: {engineLlmModel}");
+Console.WriteLine($"Embedding model: {engineEmbeddingModel}");
+Console.WriteLine($"Embedding dimension: {engineDimension}");
 Console.WriteLine($"Feed sources: {feedSources.Length}");
 Console.WriteLine($"Signals: {signals.Length}");
 
@@ -63,14 +89,14 @@ if (args.Contains("--config-check", StringComparer.OrdinalIgnoreCase))
     return 0;
 }
 
-var openAIClient = new OpenAIClient(new ApiKeyCredential(apiKey), new OpenAIClientOptions { Endpoint = new Uri(endpoint) });
+var openAIClient = new OpenAIClient(new ApiKeyCredential(engineApiKey), new OpenAIClientOptions { Endpoint = new Uri(engineEndpoint) });
 
 IChatClient chatClient = openAIClient
-    .GetChatClient(modelName)
+    .GetChatClient(engineLlmModel)
     .AsIChatClient();
 
 IEmbeddingGenerator<string, Embedding<float>> embeddingGenerator = openAIClient
-    .GetEmbeddingClient(embeddingModel)
+    .GetEmbeddingClient(engineEmbeddingModel)
     .AsIEmbeddingGenerator();
 
 var embeddingService = new EmbeddingService(embeddingGenerator);
@@ -86,7 +112,7 @@ var systemPrompt = promptTemplate
 // Hybrid classification setup: in-memory vector store + centroid tracker, both
 // repopulated from any prior classifications so subsequent runs benefit from
 // cumulative learning even though the store itself is volatile.
-var collection = await VectorStoreProvider.GetOrCreateCollectionAsync(VectorCollectionName);
+var collection = await VectorStoreProvider.GetOrCreateCollectionAsync(VectorCollectionName, engineDimension);
 var centroids = new CategoryCentroidTracker();
 
 Console.WriteLine("[Stage 0] Restoring vector store + centroids from prior classifications...");
@@ -101,7 +127,12 @@ var classifier = new VectorClassifier(
     llmFallback,
     validSignals,
     centroids,
-    bootstrapThreshold: BootstrapThreshold);
+    bootstrapThreshold: classifierBootstrapThreshold,
+    topK: classifierTopK,
+    minNeighbors: classifierMinNeighbors,
+    minNeighborAgreement: classifierMinNeighborAgreement,
+    minAvgSimilarity: classifierMinAvgSimilarity,
+    minMargin: classifierMinMargin);
 
 Console.WriteLine("Starting pipeline...");
 await Flux.ScopedAsync(async scope =>
@@ -159,7 +190,7 @@ await Flux.ScopedAsync(async scope =>
     {
         initialClassifiedCount = await dbCount.Classifications.LongCountAsync(ct);
     }
-    Console.WriteLine($"[Stage 4-5] Hybrid classification (bootstrap threshold {BootstrapThreshold}, current count {initialClassifiedCount})...");
+    Console.WriteLine($"[Stage 4-5] Hybrid classification (bootstrap threshold {classifierBootstrapThreshold}, current count {initialClassifiedCount})...");
 
     var processedSoFar = 0;
     var autoCount = 0;

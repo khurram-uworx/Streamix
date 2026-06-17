@@ -53,3 +53,82 @@
         <button type="submit" class="btn-save">Save Configuration</button>
     </div>
 </form>
+
+<form method="post" asp-page-handler="Engine" class="config-form" style="margin-top: 32px;">
+    <div class="config-section">
+        <div class="config-section-header">
+            <h3>Engine Settings</h3>
+            <span class="text-muted">AI service endpoint, models, and classification algorithm parameters</span>
+        </div>
+        <div class="engine-grid">
+            <div class="classifier-field">
+                <label asp-for="OllamaEndpoint">Ollama Endpoint</label>
+                <input asp-for="OllamaEndpoint" type="text" class="config-input config-input-wide" />
+                <span class="text-muted">OpenAI-compatible endpoint URL</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="EmbeddingModel">Embedding Model</label>
+                <input asp-for="EmbeddingModel" type="text" class="config-input config-input-wide" />
+                <span class="text-muted">Model name for embedding generation</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="LlmModel">LLM Model</label>
+                <input asp-for="LlmModel" type="text" class="config-input config-input-wide" />
+                <span class="text-muted">Model name for chat/classification fallback</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="ApiKey">API Key</label>
+                <input asp-for="ApiKey" type="password" class="config-input config-input-wide" />
+                <span class="text-muted">API key for the AI endpoint</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="EmbeddingDimension">Embedding Dimension</label>
+                <input asp-for="EmbeddingDimension" type="number" step="1" min="1" class="config-input" />
+                <span class="text-muted">Vector dimension (must match embedding model output)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-section">
+        <div class="config-section-header">
+            <h3>Classifier Parameters</h3>
+            <span class="text-muted">Tunable parameters for the vector classification algorithm</span>
+        </div>
+        <div class="classifier-grid">
+            <div class="classifier-field">
+                <label asp-for="MinAvgSimilarity">Min Avg Similarity</label>
+                <input asp-for="MinAvgSimilarity" type="number" step="0.01" min="0" max="1" class="config-input" />
+                <span class="text-muted">Minimum average similarity threshold (0.0–1.0)</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="MinMargin">Min Margin</label>
+                <input asp-for="MinMargin" type="number" step="0.01" min="0" max="1" class="config-input" />
+                <span class="text-muted">Minimum margin between top and second-best (0.0–1.0)</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="BootstrapThreshold">Bootstrap Threshold</label>
+                <input asp-for="BootstrapThreshold" type="number" step="1" min="0" class="config-input" />
+                <span class="text-muted">Items classified before vector search kicks in</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="TopK">Top K</label>
+                <input asp-for="TopK" type="number" step="1" min="1" class="config-input" />
+                <span class="text-muted">Number of nearest neighbors to retrieve</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="MinNeighbors">Min Neighbors</label>
+                <input asp-for="MinNeighbors" type="number" step="1" min="1" class="config-input" />
+                <span class="text-muted">Minimum neighbors required for vector classification</span>
+            </div>
+            <div class="classifier-field">
+                <label asp-for="MinNeighborAgreement">Min Neighbor Agreement</label>
+                <input asp-for="MinNeighborAgreement" type="number" step="1" min="1" class="config-input" />
+                <span class="text-muted">Minimum neighbor agreement count</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="config-actions">
+        <button type="submit" class="btn-save">Save Engine Settings</button>
+    </div>
+</form>

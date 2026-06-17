@@ -10,7 +10,7 @@ internal static class VectorStoreSmoke
     public static async Task<int> RunAsync(CancellationToken ct = default)
     {
         Console.WriteLine("[Smoke] Creating in-memory vector collection...");
-        var collection = await VectorStoreProvider.GetOrCreateCollectionAsync("smoke-vectors", ct);
+        var collection = await VectorStoreProvider.GetOrCreateCollectionAsync("smoke-vectors", EmbeddingDefaults.Dimensions, ct);
 
         var anchor = MakeUnitVector(seed: 1);
         var nearAnchor = Perturb(anchor, magnitude: 0.05f, seed: 2);

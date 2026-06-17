@@ -19,11 +19,7 @@
                     <span class="nav-icon">&#9632;</span>
                     Dashboard
                 </a>
-                <a href="/Signals" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Signals" ? "active" : "")">
-                    <span class="nav-icon">&#9993;</span>
-                    Signals
-                    <span class="nav-badge" id="signal-count">0</span>
-                </a>
+                <div class="signal-folders" id="signal-folders"></div>
                 <a href="/Noise" class="nav-item @(ViewContext.RouteData.Values["page"]?.ToString() == "/Noise" ? "active" : "")">
                     <span class="nav-icon">&#9888;</span>
                     Noise
@@ -59,6 +55,25 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script src="~/js/pipeline.js"></script>
+    <script>connectHub();</script>
     @RenderSection("Scripts", required: false)
+
+    <div class="modal-overlay hidden" id="reclassify-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Reclassify Item</h3>
+                <button class="modal-close" onclick="closeReclassifyModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label class="modal-label">Reclassify as:</label>
+                <select class="modal-select" id="reclassify-signal-select"></select>
+                <div class="modal-actions">
+                    <button class="btn-sm btn-primary" onclick="applyReclassify()">Apply</button>
+                    <button class="btn-sm btn-noise" id="reclassify-noise-btn" onclick="reclassifyAsNoise()">Mark as Noise</button>
+                    <button class="btn-sm" onclick="closeReclassifyModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -1,6 +1,6 @@
+using NUnit.Framework;
 using Streamix.AIDataEngg.Models;
 using Streamix.AIDataEngg.Services;
-using NUnit.Framework;
 
 namespace Streamix.Tests.AIDataEngg;
 
@@ -19,8 +19,8 @@ public class VectorClassifierTests
         Assert.That(VectorClassifier.DefaultTopK, Is.EqualTo(10));
         Assert.That(VectorClassifier.DefaultMinNeighbors, Is.EqualTo(5));
         Assert.That(VectorClassifier.DefaultMinNeighborAgreement, Is.EqualTo(5));
-        Assert.That(VectorClassifier.DefaultMinAvgSimilarity, Is.EqualTo(0.84f));
-        Assert.That(VectorClassifier.DefaultMinMargin, Is.EqualTo(0.08f));
+        Assert.That(VectorClassifier.DefaultMinAvgSimilarity, Is.EqualTo(0.86f));
+        Assert.That(VectorClassifier.DefaultMinMargin, Is.EqualTo(0.10f));
     }
 
     [Test]

@@ -26,9 +26,8 @@ public class PipelineOrchestrator(
             .Replace("{goalText}", config.Goal)
             .Replace("{signalsText}", signalsText);
 
-        var store = new Microsoft.SemanticKernel.Connectors.InMemory.InMemoryVectorStore();
-        var collection = store.GetCollection<int, VectorIndexEntry>(config.VectorCollectionName);
-        await collection.EnsureCollectionExistsAsync(ct);
+        var collection = await VectorStoreProvider.GetOrCreateCollectionAsync(
+            config.VectorCollectionName, config.EmbeddingDimension, ct);
 
         progress.Report(new PipelineProgress("Restore", 0, 1, "Restoring vector store from prior classifications"));
         var restoredCount = await RestoreVectorStateAsync(db, collection, centroids, ct);
@@ -37,7 +36,12 @@ public class PipelineOrchestrator(
         var llmFallback = CreateLlmFallback(chatClient, systemPrompt, validSignals);
         var hybridClassifier = new VectorClassifier(
             collection, llmFallback, validSignals, centroids,
-            bootstrapThreshold: config.BootstrapThreshold);
+            bootstrapThreshold: config.BootstrapThreshold,
+            topK: config.TopK,
+            minNeighbors: config.MinNeighbors,
+            minNeighborAgreement: config.MinNeighborAgreement,
+            minAvgSimilarity: config.MinAvgSimilarity,
+            minMargin: config.MinMargin);
 
         // Stage 1 & 2: Fetch + dedup
         progress.Report(new PipelineProgress("Fetch", 0, config.FeedSources.Count, "Fetching feeds"));

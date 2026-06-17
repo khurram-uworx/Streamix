@@ -12,8 +12,8 @@ public sealed class VectorClassifier
     public const int DefaultTopK = 10;
     public const int DefaultMinNeighbors = 5;
     public const int DefaultMinNeighborAgreement = 5;
-    public const float DefaultMinAvgSimilarity = 0.84f;
-    public const float DefaultMinMargin = 0.08f;
+    public const float DefaultMinAvgSimilarity = 0.86f;
+    public const float DefaultMinMargin = 0.10f;
 
     readonly VectorStoreCollection<int, VectorIndexEntry> collection;
     readonly LlmFallbackDelegate llmFallback;

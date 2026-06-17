@@ -11,30 +11,23 @@
 
 @if (Model.Items.Count == 0)
 {
-    <div class="card">
-        <div class="card-body">
-            <p class="text-muted">No bounced items.</p>
-        </div>
-    </div>
+    @await Html.PartialAsync("Shared/_EmptyState", new ViewDataDictionary(ViewData)
+    {
+        ["Message"] = "No bounced items."
+    })
 }
 else
 {
     <div class="item-list">
         @foreach (var item in Model.Items)
         {
-            <div class="item-row item-bounced" onclick="window.location='/Item/@item.Id'" data-id="@item.Id">
-                <div class="item-signal signal-bounced">BOUNCED</div>
-                <div class="item-content">
-                    <div class="item-title">@item.RssItem.Title</div>
-                    <div class="item-meta">
-                        @item.RssItem.FeedName &middot; Attempts: @item.AttemptCount &middot; @item.ClassifiedAt.LocalDateTime.ToString("g")
-                    </div>
-                </div>
-                <div class="item-actions" onclick="event.stopPropagation()">
-                    <button class="btn-sm btn-primary" onclick="event.stopPropagation(); reclassify(@item.Id, 'General', false)" title="Reclassify">&#9993;</button>
-                    <button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteItem(@item.Id)" title="Delete">&#10005;</button>
-                </div>
-            </div>
+            @await Html.PartialAsync("Shared/_ItemRow", item, new ViewDataDictionary(ViewData)
+            {
+                ["Badge"] = "BOUNCED",
+                ["BadgeClass"] = "signal-bounced",
+                ["RowClass"] = "item-bounced",
+                ["Actions"] = true
+            })
         }
     </div>
 }

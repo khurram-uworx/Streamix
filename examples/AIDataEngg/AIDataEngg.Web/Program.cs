@@ -28,6 +28,7 @@ static async Task EnsureDbAsync(IServiceProvider services)
     var env = services.GetRequiredService<IWebHostEnvironment>();
     var appData = Path.Combine(env.ContentRootPath, "App_Data");
     Directory.CreateDirectory(appData);
+    Directory.CreateDirectory(Path.Combine(appData, "configs"));
 
     await using var scope = services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<Streamix.AIDataEngg.Data.RssDbContext>();

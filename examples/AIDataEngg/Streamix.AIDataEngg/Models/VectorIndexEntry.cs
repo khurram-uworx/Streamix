@@ -6,12 +6,11 @@ public static class EmbeddingDefaults
 {
     public const string ModelName = "nomic-embed-text";
 
-    public const int Dimensions = 768;
+    public static int Dimensions = 768;
 }
 
 public class VectorIndexEntry
 {
-
     [VectorStoreKey]
     public int Id { get; set; }
 
@@ -27,6 +26,5 @@ public class VectorIndexEntry
     [VectorStoreData]
     public string? Summary { get; set; }
 
-    [VectorStoreVector(EmbeddingDefaults.Dimensions, DistanceFunction = DistanceFunction.CosineSimilarity)]
     public ReadOnlyMemory<float> Embedding { get; set; }
 }

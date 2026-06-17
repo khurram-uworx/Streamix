@@ -1,13 +1,13 @@
+using AIDataEngg.Web.Services;
 using Microsoft.AspNetCore.SignalR;
 using Streamix.AIDataEngg.Models;
 using Streamix.AIDataEngg.Services;
-using AIDataEngg.Web.Services;
-
 namespace AIDataEngg.Web.Hubs;
 
 public class PipelineHub(
     PipelineBackgroundService pipelineService,
-    IFeedbackService feedbackService) : Hub
+    IFeedbackService feedbackService,
+    IWebHostEnvironment env) : Hub
 {
     const string TriggerGroup = "PipelineObservers";
 
@@ -19,7 +19,7 @@ public class PipelineHub(
 
     public async Task<string?> TriggerPipeline()
     {
-        var configDir = Path.Combine(AppContext.BaseDirectory, "configs");
+        var configDir = Path.Combine(env.ContentRootPath, "App_Data", "configs");
         var loader = new ConfigLoader();
         var config = await loader.LoadAsync(configDir);
 
@@ -55,6 +55,24 @@ public class PipelineHub(
     public async Task<bool> DeleteItem(int itemId)
     {
         return await feedbackService.DeleteItemAsync(itemId);
+    }
+
+    public bool IsPipelineRunning()
+    {
+        return pipelineService.IsRunning;
+    }
+
+    public async Task<Dictionary<string, int>> GetSignalCounts()
+    {
+        return await feedbackService.GetSignalCountsAsync();
+    }
+
+    public async Task<string[]> GetAllSignals()
+    {
+        var configDir = Path.Combine(env.ContentRootPath, "App_Data", "configs");
+        var loader = new ConfigLoader();
+        var config = await loader.LoadAsync(configDir);
+        return config.Signals ?? [];
     }
 
     public async Task<ClassifiedRssItem?> GetItemDetails(int itemId)

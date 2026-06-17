@@ -1,10 +1,10 @@
-using System.Threading.Channels;
+using AIDataEngg.Web.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.AI;
 using Streamix.AIDataEngg.Data;
 using Streamix.AIDataEngg.Models;
 using Streamix.AIDataEngg.Services;
-using AIDataEngg.Web.Hubs;
+using System.Threading.Channels;
 
 namespace AIDataEngg.Web.Services;
 
@@ -22,6 +22,8 @@ public class PipelineBackgroundService : BackgroundService
     readonly IHubContext<PipelineHub> hubContext;
 
     int isRunning;
+
+    public bool IsRunning => Interlocked.CompareExchange(ref isRunning, 0, 0) == 1;
 
     public PipelineBackgroundService(
         IServiceScopeFactory scopeFactory,

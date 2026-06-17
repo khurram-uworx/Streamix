@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.VectorData;
 using OpenAI;
 using Streamix.AIDataEngg.Data;
 using Streamix.AIDataEngg.Models;
@@ -41,7 +40,7 @@ public static class ServiceCollectionExtensions
         var endpoint = Environment.GetEnvironmentVariable("AI_ENDPOINT") ?? config.OllamaEndpoint;
         var modelName = Environment.GetEnvironmentVariable("AI_MODEL") ?? config.LlmModel;
         var embeddingModel = Environment.GetEnvironmentVariable("AI_EMBEDDING_MODEL") ?? config.EmbeddingModel;
-        var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? "no-auth";
+        var apiKey = Environment.GetEnvironmentVariable("AI_API_KEY") ?? config.ApiKey ?? "no-auth";
 
         var openAIClient = new OpenAIClient(
             new ApiKeyCredential(apiKey),
