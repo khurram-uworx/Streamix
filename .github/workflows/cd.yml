@@ -1,0 +1,66 @@
+name: CD
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'NuGet package version (e.g., 0.9.1)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Set version
+      run: |
+        if [[ -n "${{ github.event.inputs.version }}" ]]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+        else
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+        fi
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release -p:GeneratePackageOnBuild=false
+
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal
+
+    - name: Pack Streamix
+      run: dotnet pack src/Streamix/Streamix.csproj --no-build --configuration Release -p:PackageVersion=${{ env.VERSION }}
+
+    - name: Pack Streamix.AspNetCore
+      run: dotnet pack src/Streamix.AspNetCore/Streamix.AspNetCore.csproj --no-build --configuration Release -p:PackageVersion=${{ env.VERSION }}
+
+    - name: Pack Streamix.Extensions
+      run: dotnet pack src/Streamix.Extensions/Streamix.Extensions.csproj --no-build --configuration Release -p:PackageVersion=${{ env.VERSION }}-alpha
+
+    - name: Push Streamix to NuGet
+      run: |
+        dotnet nuget push src/Streamix/bin/Release/Streamix.${{ env.VERSION }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push src/Streamix/bin/Release/Streamix.${{ env.VERSION }}.snupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Push Streamix.AspNetCore to NuGet
+      run: |
+        dotnet nuget push src/Streamix.AspNetCore/bin/Release/Streamix.AspNetCore.${{ env.VERSION }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push src/Streamix.AspNetCore/bin/Release/Streamix.AspNetCore.${{ env.VERSION }}.snupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Push Streamix.Extensions to NuGet
+      run: |
+        dotnet nuget push src/Streamix.Extensions/bin/Release/Streamix.Extensions.${{ env.VERSION }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push src/Streamix.Extensions/bin/Release/Streamix.Extensions.${{ env.VERSION }}.snupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

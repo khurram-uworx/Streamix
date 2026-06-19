@@ -3,11 +3,12 @@
     <File Path=".github/copilot-instructions.md" />
   </Folder>
   <Folder Name="/.github/workflows/">
+    <File Path=".github/workflows/cd.yml" />
     <File Path=".github/workflows/ci.yml" />
   </Folder>
   <Folder Name="/examples/">
-    <Project Path="examples/AIDataEngg/AIDataEngg/AIDataEngg.csproj" />
     <Project Path="examples/AIDataEngg/AIDataEngg.Web/AIDataEngg.Web.csproj" />
+    <Project Path="examples/AIDataEngg/AIDataEngg/AIDataEngg.csproj" />
     <Project Path="examples/AIDataEngg/Streamix.AIDataEngg/Streamix.AIDataEngg.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
