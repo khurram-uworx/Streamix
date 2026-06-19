@@ -60,4 +60,4 @@ jobs:
 
     - name: Push Streamix.Extensions to NuGet
       run: |
-        dotnet nuget push src/Streamix.Extensions/bin/Release/Streamix.Extensions.${{ env.VERSION }}.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push src/Streamix.Extensions/bin/Release/Streamix.Extensions.${{ env.VERSION }}-alpha.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
