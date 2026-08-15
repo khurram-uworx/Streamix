@@ -331,5 +331,5 @@ MigrationBackup/
 FodyWeavers.xsd
 /src/Meridian/appsettings.Development.json
 
-/.codememory/Log.*.txt
-/.memori/Log.*.txt
+.codememory/Log.*.txt
+.opencode/node_modules/*

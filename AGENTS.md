@@ -42,44 +42,33 @@
   - align the code to the README, or
   - update the README if the user asked to change the contract.
 
-## Testing instructions
+## Testing Conventions
+
+- **Framework:** NUnit 4.x — `[Test]`, `Assert.That(...)`, `Assert.ThrowsAsync`, no `[TestCase]`
+- **Naming:** `Method_Scenario_ExpectedBehavior` PascalCase
+- **Pattern:** Arrange-Act-Assert (AAA); no explicit comments needed
+- **Organization:** one test class per source class, `*Tests.cs` suffix; split by behavior when a class is large
+- **Mocking:** prefer real implementations where feasible; use `Substitute.For<T>()` only when external dependencies require it
 - For behavior changes, add or update tests in `tests/Streamix.Tests`.
 - Treat README examples as candidate executable tests where practical.
-- For stream operators, tests should cover:
-  - success behavior
-  - cancellation
-  - exception propagation
-  - ordering semantics where relevant
-- Before handing off substantial changes, prefer running:
-  - `dotnet build --configuration Release`
-  - `dotnet test --configuration Release`
-- If you need to match CI locally, also run:
-  - `dotnet test --no-build --configuration Release --verbosity normal --collect:"XPlat Code Coverage"`
-- If you cannot run validation, say so explicitly.
+- For stream operators, tests should cover: success behavior, cancellation, exception propagation, ordering semantics where relevant.
 
-## Coding conventions
-- Follow `.editorconfig`:
-  - UTF-8
-  - CRLF line endings
-  - final newline
-  - 4-space indent for C#
-  - 2-space indent for JSON/YAML
-- C# naming conventions are enforced as suggestions:
-  - Private fields: `camelCase` without `_` prefix.
-  - Public/protected/internal members: `PascalCase`.
-  - Locals/parameters: `camelCase`.
-- C# class should have
-	- inner classes first, then constructors, then properties, then methods.
-	- static members before instance members.
-	- private members first, protected members second, internal members third, public members last.
-- Its fine to keep multiple classes in the same file if they are small and closely related.
+## Code Style
+
+- `.editorconfig` at repo root is authoritative; follow it over any convention below.
+- **Private fields:** `camelCase` without `_` prefix (`logger`, not `_logger`).
+- **Member ordering:** inner classes → constructors → properties → methods; static before instance; private → protected → internal → public.
+- **Primary constructors:** preferred for service/DI classes over classic constructor with field assignment.
+- **Sealed by default:** use `sealed class` for non-abstract classes unless inheritance is explicitly designed.
+- **Collection expressions:** `[]` for empty/static collections; `new List<T>()` or `new Dictionary<K,V>()` for mutable ones.
+- **Nullable reference types:** enabled; do not introduce avoidable warnings.
+- **Omit braces** from single-line `if`/`else` bodies when the body fits one line and is on the same line as the condition.
+- **No comments** in generated code unless explaining a non-obvious design decision.
+- **No Hungarian notation** — no prefixes encoding scope or mutability.
 - Prefer record types for simple data carriers (e.g. config models, DTOs) and classes for entities/services.
-- Nullable reference types are enabled; do not introduce avoidable warnings.
 - Prefer small, clear public APIs. This repo is early enough that surface area discipline matters more than convenience overloads.
 - Prefer .NET-idiomatic naming and semantics over mechanically copying Reactor or Rx naming.
 - Use `IAsyncEnumerable<T>` as the default mental model unless concurrency or hot-stream behavior specifically requires channels or other machinery.
-- `Flux.From(Task<T>)`, `Flux.From(ValueTask<T>)`, `Flux.From(Func<CT,Task<T>>)`, and their `ValueTask` variants all return `ISingle<T>`, not `IFlux<T>`. `ISingle<T> : IAsyncEnumerable<T>`, so `TestSubscriber.SubscribeAsync(ISingle<T>)` works through the `IAsyncEnumerable<T>` parameter.
-- DoOnNextAsync (Task + ValueTask variants), OfType<T,TResult>, Cast<T,TResult>, OnErrorReturn(Func<Exception,T>), and FlatMap(Func<T,IAsyncEnumerable<TResult>>) are implemented and available.
 - Be explicit about cancellation, error propagation, buffering, and ordering semantics in both code and tests.
 - It is fine to keep closely related small types in the same file when that improves locality.
 
