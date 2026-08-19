@@ -12,7 +12,16 @@ static class ScopeHelper
     {
         while (true)
         {
-            bool hasMore = false;
+            // A faulted scope must surface its error through MoveNextAsync, which is the
+            // only reliable error path for IAsyncEnumerable. Relying on the iterator's
+            // finally / DisposeAsync to throw is unsafe: those exceptions are routinely
+            // swallowed by consumers, operators, and the runtime. That swallow was the
+            // root cause of #155 (BackpressureException silently lost for
+            // Flux.From(IEnumerable) sources).
+            if (scope.IsFaulted)
+                scope.ThrowIfFailed();
+
+            bool hasMore;
             try
             {
                 hasMore = await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false);
@@ -26,17 +35,6 @@ static class ScopeHelper
 
             while (reader.TryRead(out var item))
                 yield return item;
-
-            if (scope.IsFaulted) break;
-        }
-
-        // If the scope has faulted, re-throw the first exception.
-        // This ensures exceptions propagate even when the async iterator
-        // has already completed normally (the .NET runtime would otherwise
-        // swallow exceptions thrown in finally blocks of completed iterators).
-        if (scope.IsFaulted)
-        {
-            scope.ThrowIfFailed();
         }
     }
 
@@ -51,6 +49,9 @@ static class ScopeHelper
             await scope.DisposeAsync().ConfigureAwait(false);
             try
             {
+                // Best-effort secondary surfacing for cases where the consumer stopped
+                // enumerating before the fault was observed. No-op if already surfaced
+                // (ThrowIfFailed clears the recorded exception after throwing).
                 scope.ThrowIfFailed();
             }
             catch (OperationCanceledException)

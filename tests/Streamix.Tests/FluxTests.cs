@@ -345,18 +345,19 @@ public class FluxTests
     }
 
     [Test]
-    public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull_WithFix()
+    public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull_FromEnumerable()
     {
-        // This test reproduces the exact issue from GitHub issue #155:
-        // BackpressureException is silently swallowed when using PipeThroughChannel 
-        // with Flux.From(IEnumerable<T>) but should propagate properly
-            
-        // Create stream using enumeration pattern from the issue
-        var items = Enumerable.Range(1, 100).ToList();
+        // Regression test for GitHub issue #155: a BackpressureException raised by the
+        // producer of a PipeThroughChannel boundary must propagate to the consumer
+        // instead of being silently swallowed.
+        //
+        // NOTE: Flux.From(items) where items is a List<T> binds to From<T>(T value) and
+        // yields a single IFlux<List<T>> element, so we force the IEnumerable<T> overload
+        // via AsEnumerable() to actually stream the integers.
+        var items = Enumerable.Range(1, 100).ToList().AsEnumerable();
         var stream = Flux.From(items).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
-            
+
         int count = 0;
-        // This should now properly throw BackpressureException instead of silently completing
         var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
         {
             await foreach (var item in stream)
@@ -365,10 +366,9 @@ public class FluxTests
                 await Task.Delay(10);
             }
         });
-            
-        // Verify the exception details match our expectations
+
         Assert.That(ex.Message, Does.Contain("Channel boundary is full"));
-        Assert.That(count, Is.EqualTo(1)); // Should have consumed exactly 1 item before failure
+        Assert.That(count, Is.EqualTo(1));
     }
 
     [Test]
