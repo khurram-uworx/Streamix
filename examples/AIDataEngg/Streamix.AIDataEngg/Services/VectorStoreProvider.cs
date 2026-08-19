@@ -1,5 +1,5 @@
+using CommunityToolkit.VectorData.InMemory;
 using Microsoft.Extensions.VectorData;
-using Microsoft.SemanticKernel.Connectors.InMemory;
 using Streamix.AIDataEngg.Models;
 
 namespace Streamix.AIDataEngg.Services;
