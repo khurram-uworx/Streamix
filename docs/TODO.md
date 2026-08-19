@@ -69,4 +69,6 @@ The fix involves reordering the logic in `ReadAllSupervisedAsync`:
 
 ## GitHub issues log
 
-- [ ] #155 — PipeThroughChannel swallows BackpressureException when source is AsyncEnumerable.FromEnumerable (in progress)
+- [x] #155 — PipeThroughChannel swallows BackpressureException when source is AsyncEnumerable.FromEnumerable (completed)
+- [ ] 
+## Next Steps
