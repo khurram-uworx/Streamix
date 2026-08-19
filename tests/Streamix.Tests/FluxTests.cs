@@ -344,32 +344,48 @@ public class FluxTests
         Assert.That(await reader.WaitToReadAsync(), Is.False);
     }
 
-[Test]
-        public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull_SwallowedException_ReturnsProperException_WithFix()
+    [Test]
+    public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull_WithFix()
+    {
+        // This test reproduces the exact issue from GitHub issue #155:
+        // BackpressureException is silently swallowed when using PipeThroughChannel 
+        // with Flux.From(IEnumerable<T>) but should propagate properly
+            
+        // Create stream using enumeration pattern from the issue
+        var items = Enumerable.Range(1, 100).ToList();
+        var stream = Flux.From(items).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
+            
+        int count = 0;
+        // This should now properly throw BackpressureException instead of silently completing
+        var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
         {
-            // This test reproduces the exact issue from GitHub issue #155:
-            // BackpressureException is silently swallowed when using PipeThroughChannel 
-            // with Flux.From(IEnumerable<T>) but should propagate properly
-            
-            // Create stream using enumeration pattern from the issue
-            var items = Enumerable.Range(1, 100).ToList();
-            var stream = Flux.From(items).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
-            
-            // This should now properly throw BackpressureException instead of silently completing
-            var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
+            await foreach (var item in stream)
             {
-                int count = 0;
-                await foreach (var item in stream)
-                {
-                    count++;
-                    await Task.Delay(10);
-                }
-            });
+                count++;
+                await Task.Delay(10);
+            }
+        });
             
-            // Verify the exception details match our expectations
-            Assert.That(ex.Message, Does.Contain("Channel boundary is full"));
-            Assert.That(count, Is.EqualTo(1)); // Should have consumed exactly 1 item before failure
-        }
+        // Verify the exception details match our expectations
+        Assert.That(ex.Message, Does.Contain("Channel boundary is full"));
+        Assert.That(count, Is.EqualTo(1)); // Should have consumed exactly 1 item before failure
+    }
+
+    [Test]
+    public async Task PipeThroughChannel_Fail_ThrowsWhenBoundaryIsFull()
+    {
+        var stream = Flux.Range(1, 100).PipeThroughChannel(1, ChannelBackpressureMode.Fail);
+
+        var ex = Assert.ThrowsAsync<BackpressureException>(async () =>
+        {
+            await foreach (var item in stream)
+            {
+                await Task.Delay(10);
+            }
+        });
+
+        Assert.That(ex?.Message, Does.Contain("Channel boundary is full"));
+    }
 
     [Test]
     public async Task PipeThroughChannel_LatestOnly_KeepsLatestPendingItem()
