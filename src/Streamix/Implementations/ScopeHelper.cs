@@ -12,8 +12,7 @@ static class ScopeHelper
     {
         while (true)
         {
-            if (scope.IsFaulted) break;
-            bool hasMore;
+            bool hasMore = false;
             try
             {
                 hasMore = await reader.WaitToReadAsync(cancellationToken).ConfigureAwait(false);
@@ -31,6 +30,8 @@ static class ScopeHelper
 
             while (reader.TryRead(out var item))
                 yield return item;
+
+            if (scope.IsFaulted) break;
         }
     }
 
